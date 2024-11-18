@@ -1,0 +1,33 @@
+name: 'coding-style'
+
+on:
+  push:
+    branches:
+    - main
+    - master
+  pull_request:
+    branches:
+    - main
+    - master
+
+jobs:
+  check_coding_style:
+    name: "check for coding style errors"
+    runs-on: ubuntu-latest
+    container: ghcr.io/epitech/coding-style-checker:latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          check.sh $(pwd) $(pwd)
+          cat coding-style-reports.log | while read LINE; do
+            TYPE=$(echo $LINE | cut -d ':' -f 3 | tr -d ' ')
+            FILE=$(echo $LINE | cut -d ':' -f 1)
+            AT=$(echo $LINE | cut -d ':' -f 2)
+            CODE=$(echo $LINE | cut -d ':' -f 4)
+            BANANA=$(echo "$TYPE coding style error: $FILE#L$AT")
+            echo "::error file=$FILE,line=$AT,title=$TYPE coding style error::$CODE"
+          done
+          if [[ "$(cat coding-style-reports.log)" != "" ]]
+          then
+            exit 1
+          fi
