@@ -1,2 +1,12 @@
-.stack-work/
-*~
+#dependencies
+.stack-work
+*.lock
+
+#editors
+.vscode
+.idea
+.cache
+
+*.log
+*.cabal
+glados
