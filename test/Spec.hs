@@ -1,2 +1,14 @@
+{-
+-- EPITECH PROJECT, 2024
+-- gladdos
+-- File description:
+-- Spec
+-}
+
+import Test.Hspec
+
+import Template
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = hspec $ do
+    describe "Temporary test" Template.spec
