@@ -1,12 +1,23 @@
+{-
+-- EPITECH PROJECT, 2024
+-- glados
+-- File description:
+-- Lib
+-}
+
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use if" #-}
+{-# HLINT ignore "Use lambda-case" #-}
 module Lib
-    (   someFunc,
+    (   glados,
         printTree,
         sexprToAST,
         evalAST,
         SExpr (Integer, Symbol, List)
     ) where
-import Control.Applicative ( Alternative((<|>)), Applicative (liftA2), asum, liftA )
-import Data.Maybe (isJust, fromJust)
+import Data.Maybe (fromJust)
+import GHC.GHCi.Helpers (flushAll)
+import System.IO (isEOF, hIsTerminalDevice, stdin)
 
 data SExpr = Integer Int
     | Symbol String
@@ -43,30 +54,39 @@ astDiv _ _ = Nothing
 sexprToAST :: SExpr -> Maybe Ast
 sexprToAST (Integer i) = Just (AstInt i)
 sexprToAST (Symbol s) = Just (AstSymbol s Nothing)
-sexprToAST (List [Symbol "define", Symbol s, i]) = Just (Define s) <*> sexprToAST i
+sexprToAST (List [Symbol "define", Symbol s, i]) = Just (Define s)
+    <*> sexprToAST i
 sexprToAST (List (Symbol "define":_)) = Nothing
-sexprToAST (List [Symbol "+", i1, i2]) = Just (Call "+") <*> sexprToAST i1 <*> sexprToAST i2
+sexprToAST (List [Symbol "+", i1, i2]) = Just (Call "+") <*> sexprToAST i1
+    <*> sexprToAST i2
 sexprToAST (List (Symbol "+":_)) = Nothing
-sexprToAST (List [Symbol "-", i1, i2]) = Just (Call "-") <*> sexprToAST i1 <*> sexprToAST i2
+sexprToAST (List [Symbol "-", i1, i2]) = Just (Call "-") <*> sexprToAST i1
+    <*> sexprToAST i2
 sexprToAST (List (Symbol "-":_)) = Nothing
-sexprToAST (List [Symbol "*", i1, i2]) = Just (Call "*") <*> sexprToAST i1 <*> sexprToAST i2
+sexprToAST (List [Symbol "*", i1, i2]) = Just (Call "*") <*> sexprToAST i1
+    <*> sexprToAST i2
 sexprToAST (List (Symbol "*":_)) = Nothing
-sexprToAST (List [Symbol "/", i1, i2]) = Just (Call "/") <*> sexprToAST i1 <*> sexprToAST i2
+sexprToAST (List [Symbol "/", i1, i2]) = Just (Call "/") <*> sexprToAST i1
+    <*> sexprToAST i2
 sexprToAST (List (Symbol "/":_)) = Nothing
 sexprToAST (List _) = Nothing
 
 evalAST :: Ast -> Maybe Ast
 evalAST (Define a b) = Just (AstSymbol a (Just b))
-evalAST (Call "+" a b) = astPlus <$> evalAST a <*> evalAST b >>= Just . fromJust
-evalAST (Call "-" a b) = astMinus <$> evalAST a <*> evalAST b >>= Just . fromJust
-evalAST (Call "*" a b) = astMul <$> evalAST a <*> evalAST b >>= Just . fromJust
-evalAST (Call "/" a b) = astDiv <$> evalAST a <*> evalAST b >>= Just . fromJust
+evalAST (Call "+" a b) = astPlus <$> evalAST a <*> evalAST b
+    >>= Just . fromJust
+evalAST (Call "-" a b) = astMinus <$> evalAST a <*> evalAST b
+    >>= Just . fromJust
+evalAST (Call "*" a b) = astMul <$> evalAST a <*> evalAST b
+    >>= Just . fromJust
+evalAST (Call "/" a b) = astDiv <$> evalAST a <*> evalAST b
+    >>= Just . fromJust
 evalAST (Call {}) = Nothing
 evalAST (AstInt i) = Just (AstInt i)
 evalAST (AstSymbol _ Nothing) = Nothing
 evalAST (AstSymbol _ s) = s
 
-getSymbol :: SExpr -> Maybe String
+{-getSymbol :: SExpr -> Maybe String
 getSymbol (Symbol s) = Just s
 getSymbol _ = Nothing
 
@@ -76,14 +96,38 @@ getInteger _ = Nothing
 
 getList :: SExpr -> Maybe [SExpr]
 getList (List l) = Just l
-getList _ = Nothing
+getList _ = Nothing-}
 
 printTree :: SExpr -> Maybe String
 printTree (Symbol s) = Just ("a " ++ show (Symbol s))
 printTree (Integer i) = Just ("an " ++ show (Integer i))
 printTree (List [x]) = printTree x
-printTree (List (x:xs)) = (\ a b -> a ++ ", " ++ b) <$> printTree x <*> printTree (List xs)
+printTree (List (x:xs)) = (\ a b -> a ++ ", " ++ b) <$> printTree x
+    <*> printTree (List xs)
 printTree (List []) = Nothing
 
-someFunc :: IO ()
-someFunc = putStrLn "someFunc"
+getContentFromFile :: String -> IO String
+getContentFromFile = readFile
+
+-- Prints prompt if it's a TTY
+getLineFromStdin :: Bool -> IO String
+getLineFromStdin True = putStr "> " >> flushAll >> isEOF
+    >>= \ end -> case end of
+        True -> return ""
+        False -> (\ a b -> a ++ "\n" ++ b)
+            <$> getLine <*> getLineFromStdin True
+getLineFromStdin False = isEOF >>= \ end -> case end of
+        True -> return ""
+        False -> (\ a b -> a ++ "\n" ++ b)
+            <$> getLine <*> getLineFromStdin False
+
+getContentFromStdin :: IO String
+getContentFromStdin = hIsTerminalDevice stdin >>= getLineFromStdin
+
+glados :: Maybe String -> IO ()
+glados (Just filepath) = do
+    content <- getContentFromFile filepath
+    print content
+glados Nothing = do
+    content <- getContentFromStdin
+    print content

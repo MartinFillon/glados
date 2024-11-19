@@ -11,7 +11,7 @@ NAME = glados
 all: $(NAME)
 
 $(NAME):
-	$(shell stack build --allow-different-user)
+	stack build --allow-different-user
 	cp $(BIN_PATH)/bin/$(NAME)-exe $(NAME)
 
 clean:
