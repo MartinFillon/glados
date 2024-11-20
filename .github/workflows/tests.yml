@@ -26,4 +26,4 @@ jobs:
 
       - name: Check tests
         run: |
-          sudo make tests_run
+          sudo stack test --allow-different-user
