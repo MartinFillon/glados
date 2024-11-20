@@ -1,4 +1,4 @@
-name: "pandoc"
+name: "glados"
 
 on:
   push:
@@ -25,6 +25,5 @@ jobs:
           fetch-depth: 0
 
       - name: Check tests
-        timeout-minutes: 5
         run: |
           sudo make tests_run

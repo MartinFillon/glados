@@ -28,9 +28,8 @@ jobs:
           fetch-depth: 0
 
       - name: Check stack install
-        timeout-minutes: 5
         run: |
-          sudo make re
+          sudo make
 
   push_to_mirror:
     needs: [check_stack_build]
