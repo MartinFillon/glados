@@ -31,10 +31,11 @@ jobs:
       - name: Check stack install
         run: |
           sudo make
+          sudo stack test --allow-different-user
 
   push_to_mirror:
     needs: [check_stack_build]
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')}}
     name: "pushes all files to mirror specified"
     runs-on: self-hosted
     steps:
