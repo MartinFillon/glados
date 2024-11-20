@@ -9,13 +9,14 @@ on:
     branches:
       - main
       - master
+      - dev
 
 env:
   MIRROR_URL: "git@github.com:EpitechPromo2027/B-FUN-500-PAR-5-2-glados-martin.fillon.git"
 
 jobs:
   check_stack_build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     name: Building stack
     container:
       image: epitechcontent/epitest-docker:latest
@@ -35,7 +36,7 @@ jobs:
     needs: [check_stack_build]
     if: ${{ github.event_name == 'push' }}
     name: "pushes all files to mirror specified"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
         with:

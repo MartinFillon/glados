@@ -9,6 +9,7 @@ on:
     branches:
       - master
       - main
+      - dev
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
@@ -17,7 +18,7 @@ concurrency:
 jobs:
   build:
     name: Conventional Commits
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 

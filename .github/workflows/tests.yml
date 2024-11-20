@@ -1,18 +1,19 @@
-name: 'pandoc'
+name: "pandoc"
 
 on:
   push:
     branches:
-    - main
-    - master
+      - main
+      - master
   pull_request:
     branches:
-    - main
-    - master
+      - main
+      - master
+      - dev
 
 jobs:
   make_tests_run:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     name: run tests
     container:
       image: epitechcontent/epitest-docker:latest
