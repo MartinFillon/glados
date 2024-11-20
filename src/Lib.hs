@@ -18,6 +18,9 @@ module Lib
 import Data.Maybe (fromJust)
 import GHC.GHCi.Helpers (flushAll)
 import System.IO (isEOF, hIsTerminalDevice, stdin)
+import Control.Applicative ((<|>), liftA)
+import Debug.Trace (trace)
+import Control.Monad (void)
 
 data SExpr = Integer Int
     | Symbol String
@@ -106,28 +109,29 @@ printTree (List (x:xs)) = (\ a b -> a ++ ", " ++ b) <$> printTree x
     <*> printTree (List xs)
 printTree (List []) = Nothing
 
-getContentFromFile :: String -> IO String
-getContentFromFile = readFile
+handleInput :: String -> IO ()
+handleInput = putStrLn
+
+handleContentFromFile :: [String] -> IO ()
+handleContentFromFile = foldr ((>>) . handleInput) (return ())
+
+getContentFromFile :: String -> IO ()
+getContentFromFile filepath = readFile filepath
+    >>= handleContentFromFile . lines
 
 -- Prints prompt if it's a TTY
-getLineFromStdin :: Bool -> IO String
+getLineFromStdin :: Bool -> IO ()
 getLineFromStdin True = putStr "> " >> flushAll >> isEOF
     >>= \ end -> case end of
-        True -> return ""
-        False -> (\ a b -> a ++ "\n" ++ b)
-            <$> getLine <*> getLineFromStdin True
+        True -> return ()
+        False -> getLine >>= handleInput >> getLineFromStdin True
 getLineFromStdin False = isEOF >>= \ end -> case end of
-        True -> return ""
-        False -> (\ a b -> a ++ "\n" ++ b)
-            <$> getLine <*> getLineFromStdin False
+        True -> return ()
+        False -> getLine >>= handleInput >> getLineFromStdin False
 
-getContentFromStdin :: IO String
+getContentFromStdin :: IO ()
 getContentFromStdin = hIsTerminalDevice stdin >>= getLineFromStdin
 
 glados :: Maybe String -> IO ()
-glados (Just filepath) = do
-    content <- getContentFromFile filepath
-    print content
-glados Nothing = do
-    content <- getContentFromStdin
-    print content
+glados (Just filepath) = getContentFromFile filepath
+glados Nothing = getContentFromStdin
