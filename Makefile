@@ -23,6 +23,6 @@ fclean: clean
 re: fclean all
 
 tests_run:
-	$(stack test --allow-different-user)
+	$(shell stack test --allow-different-user)
 
 .PHONY: all fclean re clean $(NAME) tests_run
