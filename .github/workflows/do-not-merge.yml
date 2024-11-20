@@ -15,3 +15,13 @@ jobs:
           echo "Pull request is labeled as 'do not merge'"
           echo "This workflow fails so that the pull request cannot be merged"
           exit 1
+  do-merge:
+    if: ${{ !contains(github.event.*.labels.*.name, 'do-not-merge') }}
+    name: Allow Merging
+    runs-on: self-hosted
+    steps:
+      - name: Check for label
+        run: |
+          echo "Pull request is not labeled as 'do not merge'"
+          echo "This workflow success so that the pull request can be merged"
+          exit 0
