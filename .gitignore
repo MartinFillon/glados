@@ -11,3 +11,5 @@
 *.cabal
 glados
 *.lisp
+*.tix
+.hpc
