@@ -1,6 +1,7 @@
 name: "glados"
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -9,13 +10,14 @@ on:
     branches:
       - main
       - master
+      - dev
 
 env:
   MIRROR_URL: "git@github.com:EpitechPromo2027/B-FUN-500-PAR-5-2-glados-martin.fillon.git"
 
 jobs:
   check_stack_build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     name: Building stack
     container:
       image: epitechcontent/epitest-docker:latest
@@ -27,15 +29,15 @@ jobs:
           fetch-depth: 0
 
       - name: Check stack install
-        timeout-minutes: 5
         run: |
-          sudo make re
+          sudo make
+          sudo stack test --allow-different-user
 
   push_to_mirror:
     needs: [check_stack_build]
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')}}
     name: "pushes all files to mirror specified"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
         with:
