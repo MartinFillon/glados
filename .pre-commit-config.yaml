@@ -1,14 +1,13 @@
 repos:
   - repo: local
     hooks:
-      # (version prob)
-      # - id: fourmolu
-      #   name: Haskell Formatter
-      #   description: Formats Haskell code using Fourmolu
-      #   entry: stack exec -- fourmolu
-      #   language: system
-      #   args: ['--config', '.fourmolu.yaml']
-      #   files: \.hs$
+      - id: fourmolu
+        name: Haskell Formatter
+        description: Formats Haskell code using Fourmolu
+        entry: stack exec -- fourmolu
+        language: system
+        args: ['--config', '.fourmolu.yaml']
+        files: \.hs$
 
       - id: commitlint
         name: Commit Message Linter
