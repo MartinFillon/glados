@@ -9,17 +9,16 @@ repos:
         args: ['--config', '.fourmolu.yaml']
         files: \.hs$
 
-      - id: commitlint
-        name: Commit Message Linter
-        description: Ensures commit messages follow the conventional commit format
-        entry: commitlint
-        language: system
-        pass_filenames: false
-        stages: [commit-msg]
-
       - id: hlint
         name: Haskell Linter
         description: Runs hlint to suggest code improvements
         entry: stack exec -- hlint
         language: system
         files: \.hs$
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.6.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [] # optional: list of Conventional Commits types to allow e.g. [feat, fix, ci, chore, test]
