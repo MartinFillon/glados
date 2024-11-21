@@ -1,0 +1,26 @@
+repos:
+  - repo: local
+    hooks:
+      # (version prob)
+      # - id: fourmolu
+      #   name: Haskell Formatter
+      #   description: Formats Haskell code using Fourmolu
+      #   entry: stack exec -- fourmolu
+      #   language: system
+      #   args: ['--config', '.fourmolu.yaml']
+      #   files: \.hs$
+
+      - id: commitlint
+        name: Commit Message Linter
+        description: Ensures commit messages follow the conventional commit format
+        entry: commitlint
+        language: system
+        pass_filenames: false
+        stages: [commit-msg]
+
+      - id: hlint
+        name: Haskell Linter
+        description: Runs hlint to suggest code improvements
+        entry: stack exec -- hlint
+        language: system
+        files: \.hs$
