@@ -10,5 +10,6 @@
 *.log
 *.cabal
 glados
+*.lisp
 *.tix
 .hpc
