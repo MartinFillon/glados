@@ -1,22 +1,13 @@
 repos:
   - repo: local
     hooks:
-      # (version prob)
-      # - id: fourmolu
-      #   name: Haskell Formatter
-      #   description: Formats Haskell code using Fourmolu
-      #   entry: stack exec -- fourmolu
-      #   language: system
-      #   args: ['--config', '.fourmolu.yaml']
-      #   files: \.hs$
-
-      - id: commitlint
-        name: Commit Message Linter
-        description: Ensures commit messages follow the conventional commit format
-        entry: commitlint
+      - id: fourmolu
+        name: Haskell Formatter
+        description: Formats Haskell code using Fourmolu
+        entry: stack exec -- fourmolu
         language: system
-        pass_filenames: false
-        stages: [commit-msg]
+        args: ['--config', '.fourmolu.yaml']
+        files: \.hs$
 
       - id: hlint
         name: Haskell Linter
@@ -24,3 +15,10 @@ repos:
         entry: stack exec -- hlint
         language: system
         files: \.hs$
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.6.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: []
