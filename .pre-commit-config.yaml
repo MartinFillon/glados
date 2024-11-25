@@ -1,0 +1,24 @@
+repos:
+  - repo: local
+    hooks:
+      - id: fourmolu
+        name: Haskell Formatter
+        description: Formats Haskell code using Fourmolu
+        entry: stack exec -- fourmolu
+        language: system
+        args: ['--config', '.fourmolu.yaml']
+        files: \.hs$
+
+      - id: hlint
+        name: Haskell Linter
+        description: Runs hlint to suggest code improvements
+        entry: stack exec -- hlint
+        language: system
+        files: \.hs$
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.6.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: []

@@ -21,6 +21,7 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
+- megaparsec == 9.5.0
 
 ghc-options:
 - -Wall
@@ -55,5 +56,7 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -fhpc
     dependencies:
     - glados
+    - hspec
