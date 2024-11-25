@@ -1,3 +1,4 @@
+import Data.Fixed (mod')
 {-
 -- EPITECH PROJECT, 2024
 -- src [WSL: Ubuntu]
@@ -11,6 +12,7 @@ data SExpr = SInt Int
            | SList [SExpr]
            | SBool Bool
            | SChar Char
+           | SDouble Double
            deriving (Show, Eq)
 
 
@@ -39,6 +41,11 @@ getChar :: SExpr -> Maybe Char
 getChar (SChar c) = Just c
 getChar _         = Nothing
 
+-- Extract double
+getDouble :: SExpr -> Maybe Double
+getDouble (SDouble d) = Just d
+getDouble _           = Nothing
+
 -- printTree SExpr
 printTree :: SExpr -> String
 printTree (SInt i) = "a Number " ++ show i
@@ -46,6 +53,7 @@ printTree (SSymbol s) = "a Symbol '" ++ s ++ "'"
 printTree (SList l) = "a List with " ++ unwords (map printTree l)
 printTree (SBool b) = "a Boolean " ++ show b
 printTree (SChar c) = "a Char '" ++ show c ++ "'"
+printTree (SDouble d) = "a Double " ++ show d
 
 
 -- AST
@@ -55,6 +63,7 @@ data AST = Define String AST
          | ASymbol String
          | ABool Bool
          | AChar Char
+         | ADouble Double
          deriving (Show, Eq)
 
 
@@ -74,6 +83,7 @@ sexprToAST (SList (SSymbol func : args)) =
     Nothing -> Nothing
 sexprToAST (SBool b) = Just (ABool b)
 sexprToAST (SChar c) = Just (AChar c)
+sexprToAST (SDouble d) = Just (ADouble d)
 sexprToAST _ = Nothing
 
 
@@ -94,5 +104,10 @@ applyOp "*" [AInt a, AInt b] = Just (AInt (a * b))
 applyOp "-" [AInt a, AInt b] = Just (AInt (a - b))
 applyOp "%" [AInt a, AInt b] = Just (AInt (a `mod` b))
 applyOp "/" [AInt a, AInt b] = Just (AInt (a `div` b))
+applyOp "+" [ADouble a, ADouble b] = Just (ADouble (a + b))
+applyOp "*" [ADouble a, ADouble b] = Just (ADouble (a * b))
+applyOp "-" [ADouble a, ADouble b] = Just (ADouble (a - b))
+applyOp "%" [ADouble a, ADouble b] = Just (ADouble (a `mod'` b))
+applyOp "/" [ADouble a, ADouble b] = Just (ADouble (a / b))
 applyOp _ _ = Nothing
 
