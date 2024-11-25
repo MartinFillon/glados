@@ -9,6 +9,7 @@
 data SExpr = SInt Int
            | SSymbol String
            | SList [SExpr]
+           | SBool Bool
            deriving (Show, Eq)
 
 
@@ -27,12 +28,18 @@ getList :: SExpr -> Maybe [SExpr]
 getList (SList l) = Just l
 getList _         = Nothing
 
+-- Extract bool
+getBool:: SExpr -> Maybe Bool
+getBool (SBool b) = Just b
+getBool _         = Nothing
+
 
 -- printTree SExpr
 printTree :: SExpr -> String
 printTree (SInt i) = "a Number " ++ show i
 printTree (SSymbol s) = "a Symbol '" ++ s ++ "'"
 printTree (SList l) = "a List with " ++ unwords (map printTree l)
+printTree (SBool b) = "a Boolean " ++ show b
 
 
 -- AST
@@ -76,6 +83,6 @@ applyOp "+" [AInt a, AInt b] = Just (AInt (a + b))
 applyOp "*" [AInt a, AInt b] = Just (AInt (a * b))
 applyOp "-" [AInt a, AInt b] = Just (AInt (a - b))
 applyOp "%" [AInt a, AInt b] = Just (AInt (a `mod` b))
-applyOp "/" [AInt a, AInt b] = Just (AInt (x `div` b))
+applyOp "/" [AInt a, AInt b] = Just (AInt (a `div` b))
 applyOp _ _ = Nothing
 
