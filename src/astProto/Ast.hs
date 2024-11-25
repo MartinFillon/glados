@@ -47,6 +47,7 @@ data AST = Define String AST
          | Call String [AST]
          | AInt Int
          | ASymbol String
+         | ABool Bool
          deriving (Show, Eq)
 
 
@@ -64,6 +65,7 @@ sexprToAST (SList (SSymbol func : args)) =
   case sequence (map sexprToAST args) of
     Just astArgs -> Just (Call func astArgs)
     Nothing -> Nothing
+sexprToAST (SBool b) = Just (ABool b)
 sexprToAST _ = Nothing
 
 
