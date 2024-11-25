@@ -10,6 +10,7 @@ data SExpr = SInt Int
            | SSymbol String
            | SList [SExpr]
            | SBool Bool
+           | SChar Char
            deriving (Show, Eq)
 
 
@@ -29,10 +30,14 @@ getList (SList l) = Just l
 getList _         = Nothing
 
 -- Extract bool
-getBool:: SExpr -> Maybe Bool
+getBool :: SExpr -> Maybe Bool
 getBool (SBool b) = Just b
 getBool _         = Nothing
 
+-- Extract char
+getChar :: SExpr -> Maybe Char
+getChar (SChar c) = Just c
+getChar _         = Nothing
 
 -- printTree SExpr
 printTree :: SExpr -> String
@@ -40,6 +45,7 @@ printTree (SInt i) = "a Number " ++ show i
 printTree (SSymbol s) = "a Symbol '" ++ s ++ "'"
 printTree (SList l) = "a List with " ++ unwords (map printTree l)
 printTree (SBool b) = "a Boolean " ++ show b
+printTree (SChar c) = "a Char '" ++ show c ++ "'"
 
 
 -- AST
@@ -48,6 +54,7 @@ data AST = Define String AST
          | AInt Int
          | ASymbol String
          | ABool Bool
+         | AChar Char
          deriving (Show, Eq)
 
 
@@ -66,6 +73,7 @@ sexprToAST (SList (SSymbol func : args)) =
     Just astArgs -> Just (Call func astArgs)
     Nothing -> Nothing
 sexprToAST (SBool b) = Just (ABool b)
+sexprToAST (SChar c) = Just (AChar c)
 sexprToAST _ = Nothing
 
 
