@@ -1,10 +1,11 @@
-import Data.Fixed (mod')
 {-
 -- EPITECH PROJECT, 2024
 -- src [WSL: Ubuntu]
 -- File description:
 -- Ast
 -}
+
+import Data.Maybe
 
 -- struct SExpr
 data SExpr = SInt Int
@@ -38,6 +39,7 @@ printTree (SList l) = "a List with " ++ unwords (map printTree l)
 -- AST
 data AST = Define String AST
          | Call String [AST]
+         | Lambda [String] AST
          | AInt Int
          | ASymbol String
          | ABool Bool
@@ -52,6 +54,12 @@ sexprToAST (SList [SSymbol "define", SSymbol var, value]) =
   case sexprToAST value of
     Just astValue -> Just (Define var astValue)
     Nothing -> Nothing
+-- Special case for lambda
+sexprToAST (SList [SSymbol "lambda", SList params, body]) =
+  let paramNames = mapMaybe getSymbol params
+  in case sexprToAST body of
+       Just bodyAST -> Just (Lambda paramNames bodyAST)
+       Nothing -> Nothing
 -- Call Function
 sexprToAST (SList (SSymbol func : args)) =
   case sequence (map sexprToAST args) of
@@ -63,6 +71,8 @@ sexprToAST _ = Nothing
 -- EvaL AST
 evalAST :: AST -> Maybe AST
 evalAST (AInt i) = Just (AInt i)
+-- Lambda eval
+evalAST (Lambda params body) = Just (Lambda params body)
 -- Call eval
 evalAST (Call op args) =
   case mapM evalAST args of
