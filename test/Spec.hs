@@ -7,8 +7,8 @@
 
 import Test.Hspec
 
-import Template
+import PrinterSpec
 
 main :: IO ()
 main = hspec $ do
-    describe "Temporary test" Template.spec
+    describe "Printer test" PrinterSpec.spec
