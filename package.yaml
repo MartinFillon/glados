@@ -24,6 +24,7 @@ dependencies:
 - megaparsec == 9.5.0
 - text
 - parser-combinators
+- sexpresso
 
 ghc-options:
 - -Wall
