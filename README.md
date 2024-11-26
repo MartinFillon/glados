@@ -37,3 +37,52 @@ stack exec hpc report --hpcdir .stack-work/dist/x86_64-linux-tinfo6/ghc-9.2.5/hp
 ```
 
 This command shows which lines of code were executed during the test run, helping you identify untested areas.
+
+----
+
+### Pre-Commit
+
+Pre-commit hooks ensure that your code adheres to consistent formatting, linting, and other quality checks before committing.
+
+#### Install Pre-commit:
+
+```sh
+pip install pre-commit
+```
+
+#### Install Pre-commit Hooks:
+
+Run the following command to install the pre-commit hooks defined in the .pre-commit-config.yaml file.
+
+```sh
+pre-commit install
+```
+
+This will set up the hooks for your local repository.
+
+
+#### Manually Run Pre-commit Hooks:
+
+**You do not need to manually run the hooks after installation, as they will run automatically when you make commits.**
+
+If you'd like to manually run the pre-commit hooks on all files, you can do so with:
+
+```sh
+pre-commit run --all-files
+```
+(Optional)
+
+#### Update Pre-commit Hooks:
+
+To update the pre-commit hooks (in case new versions or hooks are added), run:
+
+```sh
+pre-commit autoupdate
+```
+(Optional)
+
+#### Development Dependencies
+Make sure you have the following tools installed:
+- stack (Haskell build tool)
+- pre-commit (Python package)
+- pip (for managing Python packages)
