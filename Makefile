@@ -25,4 +25,10 @@ re: fclean all
 tests_run:
 	$(shell stack test --allow-different-user)
 
-.PHONY: all fclean re clean $(NAME) tests_run
+coverage:
+	stack test --coverage
+
+report: coverage
+	stack exec hpc report --hpcdir .stack-work/dist/x86_64-linux-tinfo6/ghc-9.2.5/hpc
+
+.PHONY: all fclean re clean $(NAME) tests_run coverage report
