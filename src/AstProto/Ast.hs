@@ -93,8 +93,8 @@ evalAST mem (Call op args) =
     Nothing -> Nothing
 evalAST _ _ = Nothing
 
-execAST :: AST -> Memory -> Memory
-execAST (Define name value) mem =
+execAST :: Memory -> AST -> Memory
+execAST mem (Define name value) =
   case evalAST mem value of
     Just val -> (name, val): mem
     Nothing -> mem
