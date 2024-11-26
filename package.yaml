@@ -23,6 +23,7 @@ dependencies:
 - base >= 4.7 && < 5
 - megaparsec == 9.5.0
 - text
+- containers
 - parser-combinators
 - sexpresso
 
