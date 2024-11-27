@@ -5,7 +5,14 @@
 -- SExprToAst
 -}
 
-module Main where
+module Parsing.SExprToAst
+    (   printTree,
+        sexprToAST,
+        evalAST,
+        SExpr (Integer, Symbol, List)
+    ) where
+import Control.Applicative (Applicative(liftA2))
+
 import qualified Data.Map as Map
 import Control.Applicative (Applicative(liftA2))
 
