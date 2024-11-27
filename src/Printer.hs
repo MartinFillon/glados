@@ -10,7 +10,6 @@ data Color
     | Magenta
     | Cyan
     | White
-    deriving (Enum)
 
 instance Show Color where
     show :: Color -> String
@@ -28,7 +27,6 @@ reset = "\x1b[0m"
 data Style
     = Bold
     | Underlined
-    deriving (Enum)
 
 instance Show Style where
     show :: Style -> String
