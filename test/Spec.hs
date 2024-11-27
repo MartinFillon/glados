@@ -8,7 +8,9 @@
 import Test.Hspec
 
 import PrinterSpec
+import SExprParserSpec
 
 main :: IO ()
 main = hspec $ do
     describe "Printer test" PrinterSpec.spec
+    describe "SExpr Parser test" SExprParserSpec.spec
