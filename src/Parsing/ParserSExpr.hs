@@ -4,7 +4,6 @@
 -- File description:
 -- Parser SExpr
 -}
-
 {-# LANGUAGE OverloadedStrings #-}
 
 module Parsing.ParserSExpr (
@@ -12,47 +11,49 @@ module Parsing.ParserSExpr (
     pOperator,
     pVariable,
     pDigit,
-    sexpParser,
-    pSExpr,
     lineComment,
     sc,
     handleParseError,
 ) where
 
-import Data.Void (Void)
-import Text.Megaparsec
-    ( empty,
-      (<|>),
-      (<?>),
-      parse,
-      between,
-      choice,
-      some,
-      Parsec,
-      MonadParsec(eof),
-      ParseErrorBundle, try, optional )
-import Text.Megaparsec.Char (digitChar, letterChar, char, alphaNumChar)
-import qualified Text.Megaparsec.Char.Lexer as L
-import Data.SExpresso.Parse (SExprParser, plainSExprParser, parseSExpr)
-import Data.SExpresso.SExpr (SExpr)
+import Control.Applicative (Alternative (many))
 import Control.Monad (void)
+import Data.SExpresso.SExpr (SExpr)
+import Data.Void (Void)
 import Parsing.ErrorBundlePretty (errorBundlePrettyFormatted)
+import Text.Megaparsec (
+    MonadParsec (eof),
+    ParseErrorBundle,
+    Parsec,
+    between,
+    choice,
+    empty,
+    optional,
+    parse,
+    some,
+    try,
+    (<?>),
+    (<|>),
+ )
+import Text.Megaparsec.Char (alphaNumChar, char, digitChar, letterChar)
+import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
 type SExp = SExpr () String
 
 pOperator :: Parser String
-pOperator = choice
-    [ "+"
-    , "-"
-    , "*"
-    , "<"
-    , "eq?"
-    , "if"
-    , "div"
-    , "mod"
-    ]
+pOperator =
+    choice
+        [ "+",
+          "-",
+          "*",
+          "<",
+          "eq?",
+          "if",
+          "div",
+          "mod"
+        ]
 
 pVariable :: Parser String
 pVariable = (:) <$> letterChar <*> some alphaNumChar <?> "variable"
@@ -63,24 +64,32 @@ pDigit = do
     n <- some digitChar
     case sign of
         Nothing -> return n
-        Just s -> return (s:n)
+        Just s -> return (s : n)
+
+pFloat :: Parser String
+pFloat = do
+    sign <- optional (char '+' <|> char '-')
+    n <- some digitChar
+    _ <- char '.'
+    m <- some digitChar
+    case sign of
+        Nothing -> return (n ++ "." ++ m)
+        Just s -> return (s : n ++ "." ++ m)
 
 pBool :: Parser String
 pBool = choice ["#f", "#t"]
 
 convertValue :: Parser String
-convertValue = choice
-    [ try pDigit
-    , pOperator
-    , try pBool
-    , try pVariable
-    ]
+convertValue =
+    choice
+        [ try pDigit,
+          pOperator,
+          try pBool,
+          try pVariable
+        ]
 
-sexpParser :: SExprParser Parser () String
-sexpParser = plainSExprParser convertValue
-
-pSExpr :: Parser SExp
-pSExpr = lexeme $ parseSExpr sexpParser
+convertValue' :: Parser String
+convertValue' = try pFloat <|> try pDigit <|> try pOperator <|> try pBool <|> pVariable
 
 lineComment :: Parser ()
 lineComment = L.skipLineComment ";"
@@ -91,9 +100,20 @@ sc = L.space (void $ some (char ' ' <|> char '\t')) lineComment empty
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
 
-parseSexpr :: String -> Either ParserError SExp
-parseSexpr = parse (between sc eof pSExpr) ""
+data Sexpr = Atom String | List [Sexpr] deriving (Show)
 
-handleParseError :: Bool -> Either ParserError SExp -> IO ()
+parseAtom :: Parser Sexpr
+parseAtom = Atom <$> convertValue'
+
+parseList :: Parser Sexpr
+parseList = lexeme $ List <$> between (char '(') (char ')') (many parseBasic)
+
+parseBasic :: Parser Sexpr
+parseBasic = lexeme $ try parseList <|> parseAtom
+
+parseSexpr :: String -> Either ParserError Sexpr
+parseSexpr = parse (between sc eof parseBasic) ""
+
+handleParseError :: Show a => Bool -> Either ParserError a -> IO ()
 handleParseError _ (Right val) = print val
 handleParseError showColors (Left err) = putStr $ errorBundlePrettyFormatted showColors err
