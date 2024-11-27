@@ -25,6 +25,7 @@ dependencies:
 - text
 - parser-combinators
 - sexpresso
+- containers
 
 ghc-options:
 - -Wall
