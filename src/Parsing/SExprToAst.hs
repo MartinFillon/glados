@@ -5,29 +5,34 @@
 -- SExprToAst
 -}
 
-module Parsing.SExprToAst
-    (   printTree,
-        sexprToAST,
-        evalAST,
-        SExpr (Integer, Symbol, List)
-    ) where
-import Control.Applicative (Applicative(liftA2))
+module Parsing.SExprToAst (
+    printTree,
+    sexprToAST,
+    evalAST,
+    SExpr (..),
+    Ast (..),
+    Function (..),
+) where
 
+import Control.Applicative (Applicative (liftA2))
+
+import Control.Applicative (Applicative (liftA2))
 import qualified Data.Map as Map
-import Control.Applicative (Applicative(liftA2))
 
-data SExpr = Integer Int
+data SExpr
+    = Integer Int
     | Symbol String
     | List [SExpr]
     | Boolean Bool
-    deriving Show
+    deriving (Show)
 
-data Function = Function {
-    name :: String,
-    args :: [Ast]
-}
+data Function = Function
+    { name :: String,
+      args :: [Ast]
+    }
 
-data Ast = Define String Ast
+data Ast
+    = Define String Ast
     | Call Function -- function param1 param2
     | AstInt Int
     | AstBool Bool
@@ -42,7 +47,7 @@ instance Show Ast where
     show (AstBool b) = if b then "#t" else "#f"
     show (AstSymbol n s) = '(' : n ++ " = " ++ show s ++ ")"
     show (Define a b) = "Define " ++ show a ++ " = " ++ show b
-    show (Call (Function n a)) = "Call " ++ n ++ concatMap (\ x -> ' ' : show x) a
+    show (Call (Function n a)) = "Call " ++ n ++ concatMap (\x -> ' ' : show x) a
 
 instance Eq Ast where
     (AstInt i1) == (AstInt i2) = i1 == i2
@@ -52,7 +57,6 @@ instance Eq Ast where
     (Call (Function n1 a1)) == (Call (Function n2 a2)) = n1 == n2 && a1 == a2
     (Lambda p1 b1) == (Lambda p2 b2) = p1 == p2 && b1 == b2
     _ == _ = False
-
 
 getSymbol :: SExpr -> Maybe String
 getSymbol (Symbol s) = Just s
@@ -75,10 +79,11 @@ printTree (Symbol s) = Just ("a " ++ show (Symbol s))
 printTree (Integer i) = Just ("an " ++ show (Integer i))
 printTree (Boolean b) = Just ("Bool: " ++ if b then "#t" else "#f")
 printTree (List [x]) = printTree x
-printTree (List (x:xs)) = (\ a b -> a ++ ", " ++ b) <$> printTree x
-    <*> printTree (List xs)
+printTree (List (x : xs)) =
+    (\a b -> a ++ ", " ++ b)
+        <$> printTree x
+        <*> printTree (List xs)
 printTree (List []) = Nothing
-
 
 ------------ OP
 
@@ -149,7 +154,6 @@ evalLambda params body args
         evalAST (substitute body substitutions)
     | otherwise = Nothing
 
-
 substitute :: Ast -> [(String, Ast)] -> Ast
 substitute (AstSymbol name Nothing) subs =
     maybe (AstSymbol name Nothing) id (lookup name subs)
@@ -161,25 +165,24 @@ substitute (Lambda params body) subs =
     Lambda params (substitute body subs) -- No substitution inside lambda's params
 substitute other _ = other
 
-
 ---------------- Registry function
 
 defaultRegistry :: FunctionRegistry
-defaultRegistry = Map.fromList [
-    ("+", astPlus),
-    ("-", astMinus),
-    ("*", astMul),
-    ("/", astDiv),
-    ("and", astAnd),
-    ("or", astOr),
-    ("not", astNot),
-    ("if", astIf),
-    ("%", astMod),
-    ("<", astLt),
-    ("eq?", astEq),
-    (">", astGt)
-  ]
-
+defaultRegistry =
+    Map.fromList
+        [ ("+", astPlus),
+          ("-", astMinus),
+          ("*", astMul),
+          ("/", astDiv),
+          ("and", astAnd),
+          ("or", astOr),
+          ("not", astNot),
+          ("if", astIf),
+          ("%", astMod),
+          ("<", astLt),
+          ("eq?", astEq),
+          (">", astGt)
+        ]
 
 ------------ Sexpr -> AST
 
@@ -187,7 +190,6 @@ sexprToAST :: SExpr -> Maybe Ast
 sexprToAST (Integer i) = Just (AstInt i)
 sexprToAST (Boolean b) = Just (AstBool b)
 sexprToAST (Symbol s) = Just (AstSymbol s Nothing)
-
 sexprToAST (List [Symbol "define", Symbol s, expr]) =
     Define s <$> sexprToAST expr
 -- Adjust sexprToAST to handle lambda expressions
@@ -200,14 +202,10 @@ sexprToAST (List (func : args)) = do
     funcAst <- sexprToAST func
     argAsts <- mapM sexprToAST args
     return (Apply funcAst argAsts)
-
 sexprToAST (List (Symbol op : args)) = do
     parsedArgs <- mapM sexprToAST args
     return (Call (Function op parsedArgs))
-
-
 sexprToAST _ = Nothing
-
 
 -----------
 
@@ -217,12 +215,12 @@ evalAST (Apply func args) = do
     funcEval <- evalAST func
     case funcEval of
         Lambda params body ->
-            if length params == length args then do
-                evaluatedArgs <- mapM evalAST args
-                let substitutions = zip params evaluatedArgs
-                evalAST (substitute body substitutions)
-            else
-                Nothing
+            if length params == length args
+                then do
+                    evaluatedArgs <- mapM evalAST args
+                    let substitutions = zip params evaluatedArgs
+                    evalAST (substitute body substitutions)
+                else Nothing
         _ -> Nothing
 evalAST (Lambda params body) = Just (Lambda params body)
 evalAST (Call (Function n args)) =
@@ -239,5 +237,3 @@ evalAST (AstInt i) = Just (AstInt i)
 evalAST (AstBool b) = Just (AstBool b)
 evalAST (AstSymbol s Nothing) = Just (AstSymbol s Nothing)
 evalAST (AstSymbol _ (Just val)) = evalAST val
-
-
