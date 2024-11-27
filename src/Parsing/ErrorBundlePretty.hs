@@ -29,7 +29,7 @@ import safe Text.Megaparsec.Stream
       TraversableStream(reachOffset),
       VisualStream(tokensLength) )
 import safe Text.Megaparsec.State ( PosState(pstateSourcePos) )
-import Printer (Color(Blue, Magenta), reset, Style (Bold))
+import Printer (Color(Blue, Orange), reset, Style (Bold))
 import safe Text.Megaparsec.Error
     ( errorOffset,
       showErrorItem,
@@ -89,12 +89,12 @@ errorBundlePrettyFormatted showColors ParseErrorBundle {..} =
                     <> (if showColors then show Bold <> show Blue <> "|\n" else "|\n")
                     <> lineNumber
                     <> (if showColors then " | " <> reset else " | ")
-                    <> (if showColors then show Bold <> show Magenta <> sline <> reset else sline)
+                    <> (if showColors then show Bold <> show Orange <> sline <> reset else sline)
                     <> "\n"
                     <> padding
                     <> (if showColors then show Bold <> show Blue <> "| " <> reset else "| ")
                     <> rpadding
-                    <> (if showColors then show Bold <> show Magenta <> pointer <> reset else pointer)
+                    <> (if showColors then show Bold <> show Orange <> pointer <> reset else pointer)
                     <> "\n"
         pxy = Proxy :: Proxy s
         elen =
