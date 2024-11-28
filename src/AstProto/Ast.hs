@@ -65,7 +65,7 @@ sexprToAST (SList [SSymbol "lambda", SList params, body@(SList _)]) =
         Nothing -> Nothing
 -- Call Function
 sexprToAST (SList (SSymbol func : args)) =
-  case sequence (map sexprToAST args) of
+  case mapM sexprToAST args of
     Just astArgs -> Just (Call func astArgs)
     Nothing -> Nothing
 sexprToAST _ = Nothing

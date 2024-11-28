@@ -15,9 +15,8 @@ module Parsing.SExprToAst (
 ) where
 
 import Control.Applicative (Applicative (liftA2))
-
-import Control.Applicative (Applicative (liftA2))
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 
 data SExpr
     = Integer Int
@@ -101,7 +100,7 @@ astMul _ = Nothing
 
 astDiv :: [Ast] -> Maybe Ast
 astDiv [AstInt i1, AstInt i2]
-    | i2 /= 0 = Just (AstInt (i1 `div` i2))
+    | i2 /= 0 = Just (AstInt (i1 `quot` i2))
     | otherwise = Nothing
 astDiv _ = Nothing
 
@@ -156,7 +155,7 @@ evalLambda params body args
 
 substitute :: Ast -> [(String, Ast)] -> Ast
 substitute (AstSymbol name Nothing) subs =
-    maybe (AstSymbol name Nothing) id (lookup name subs)
+    fromMaybe (AstSymbol name Nothing) (lookup name subs)
 substitute (Define name value) subs =
     Define name (substitute value subs)
 substitute (Call (Function n args)) subs =
@@ -174,14 +173,16 @@ defaultRegistry =
           ("-", astMinus),
           ("*", astMul),
           ("/", astDiv),
+          ("div", astDiv),
+          ("%", astMod),
+          ("mod", astMod),
+          ("eq?", astEq),
+          ("<", astLt),
+          (">", astGt),
           ("and", astAnd),
           ("or", astOr),
           ("not", astNot),
-          ("if", astIf),
-          ("%", astMod),
-          ("<", astLt),
-          ("eq?", astEq),
-          (">", astGt)
+          ("if", astIf)
         ]
 
 ------------ Sexpr -> AST
