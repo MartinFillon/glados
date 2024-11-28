@@ -61,11 +61,7 @@ getSymbol :: SExpr -> Maybe String
 getSymbol (Symbol s) = Just s
 getSymbol _ = Nothing
 
-{-getSymbol :: SExpr -> Maybe String
-getSymbol (Symbol s) = Just s
-getSymbol _ = Nothing
-
-getInteger :: SExpr -> Maybe Int
+{-getInteger :: SExpr -> Maybe Int
 getInteger (Integer i) = Just i
 getInteger _ = Nothing
 
