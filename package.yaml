@@ -21,7 +21,14 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
-- megaparsec == 9.5.0
+- megaparsec
+- text
+- containers
+- deepseq
+- mtl
+- parser-combinators
+- sexpresso
+- containers
 
 ghc-options:
 - -Wall
