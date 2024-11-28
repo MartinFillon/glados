@@ -11,7 +11,7 @@ repos:
       - id: hlint
         name: Haskell Linter
         description: Runs hlint to suggest code improvements
-        entry: stack exec -- hlint
+        entry: stack exec -- hlint .
         language: system
         files: \\.hs$
 
