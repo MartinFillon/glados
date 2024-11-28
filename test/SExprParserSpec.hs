@@ -1,3 +1,10 @@
+{-
+-- EPITECH PROJECT, 2024
+-- gladdos
+-- File description:
+-- SExprParserSpec
+-}
+
 module SExprParserSpec (spec) where
 
 import Test.Hspec (Spec, context, describe, it, shouldBe)

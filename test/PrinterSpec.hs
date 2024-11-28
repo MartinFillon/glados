@@ -1,3 +1,10 @@
+{-
+-- EPITECH PROJECT, 2024
+-- gladdos
+-- File description:
+-- PrinterSpec
+-}
+
 {-# LANGUAGE InstanceSigs #-}
 
 module PrinterSpec (spec) where

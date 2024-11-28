@@ -28,6 +28,7 @@ dependencies:
 - mtl
 - parser-combinators
 - sexpresso
+- containers
 
 ghc-options:
 - -Wall
