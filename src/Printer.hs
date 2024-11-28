@@ -10,6 +10,7 @@ data Color
     | Magenta
     | Cyan
     | White
+    | Orange
 
 instance Show Color where
     show :: Color -> String
@@ -20,6 +21,7 @@ instance Show Color where
     show Magenta = "\x1b[35m"
     show Cyan = "\x1b[36m"
     show White = "\x1b[37m"
+    show Orange = "\x1b[38;2;255;128;0m"
 
 reset :: String
 reset = "\x1b[0m"
