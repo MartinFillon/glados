@@ -38,6 +38,12 @@ To run the unit tests for the project, use the following command:
 make tests_run
 ```
 
+if you want to use the `stack` build system (with formatting) run;
+
+```sh
+stack test
+```
+
 This will execute the test suite defined in the project and show the results in your terminal.
 
 #### Run Tests with Coverage
@@ -46,6 +52,12 @@ To run the tests with coverage reporting, use this command:
 
 ```sh
 make coverage
+```
+
+if you want to use the `stack` build system (with formatting) run;
+
+```sh
+stack test --coverage
 ```
 
 This command runs the tests and generates a coverage report. The coverage information is stored in `.tix` files, which are typically processed later to generate a unified coverage report.
