@@ -8,6 +8,8 @@
 BIN_PATH = $(shell stack path --local-install-root)
 NAME = glados
 
+TEST_PATH = glados-test.tix
+
 all: $(NAME)
 
 $(NAME):
@@ -15,14 +17,24 @@ $(NAME):
 	cp $(BIN_PATH)/bin/$(NAME)-exe $(NAME)
 
 clean:
-	stack purge --allow-different-user
+	stack clean --allow-different-user
 
 fclean: clean
 	$(RM) $(NAME)
+	$(RM) $(TEST_PATH)
+	$(RM) *.html
 
 re: fclean all
 
 tests_run:
 	$(shell stack test --allow-different-user)
 
-.PHONY: all fclean re clean $(NAME) tests_run
+coverage:
+	stack test --coverage
+
+report:
+	stack test
+	stack exec hpc markup $(TEST_PATH)
+	echo "Coverage report generated. Open the \`hpc_index.html\` file in your browser."
+
+.PHONY: all fclean re clean $(NAME) tests_run coverage report
