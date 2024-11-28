@@ -42,11 +42,11 @@ import qualified Text.Megaparsec.Char.Lexer as L
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
 
-data Atom = String String | Number Int | Float Float | Bool Bool deriving (Show, Eq)
+data Atom i f = String String | Number i | Float f | Bool Bool deriving (Show, Eq)
 
-data Sexpr = Atom Atom | List [Sexpr] deriving (Show, Eq)
+data Sexpr i f = Atom (Atom i f) | List [Sexpr i f] deriving (Show, Eq)
 
-pOperator :: Parser Atom
+pOperator :: Parser (Atom i f)
 pOperator = String <$> pOperator'
 
 pOperator' :: Parser String
@@ -62,28 +62,28 @@ pOperator' =
           "mod"
         ]
 
-pVariable :: Parser Atom
+pVariable :: Parser (Atom i f)
 pVariable = String <$> pVariable'
 
 pVariable' :: Parser String
 pVariable' = (:) <$> letterChar <*> many alphaNumChar <?> "variable"
 
-pDigit :: Parser Atom
+pDigit :: (Num i) => Parser (Atom i f)
 pDigit = Number <$> L.signed (L.space empty empty empty) L.decimal
 
-pFloat :: Parser Atom
+pFloat :: (RealFloat f) => Parser (Atom i f)
 pFloat = Float <$> L.signed (L.space empty empty empty) L.float
 
-parseFalse :: Parser Atom
+parseFalse :: Parser (Atom i f)
 parseFalse = string "#f" >> return (Bool False)
 
-parseTrue :: Parser Atom
+parseTrue :: Parser (Atom i f)
 parseTrue = string "#t" >> return (Bool True)
 
-pBool :: Parser Atom
+pBool :: Parser (Atom i f)
 pBool = choice [parseFalse, parseTrue]
 
-convertValue :: Parser Atom
+convertValue :: (Num i, RealFloat f) => Parser (Atom i f)
 convertValue =
     choice
         [ try pFloat,
@@ -102,16 +102,16 @@ sc = L.space (void $ some (char ' ' <|> char '\t')) lineComment empty
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
 
-parseAtom :: Parser Sexpr
+parseAtom :: (Num i, RealFloat f) => Parser (Sexpr i f)
 parseAtom = Atom <$> convertValue
 
-parseList :: Parser Sexpr
+parseList :: (Num i, RealFloat f) => Parser (Sexpr i f)
 parseList = lexeme $ List <$> between (char '(') (char ')') (many parseBasic)
 
-parseBasic :: Parser Sexpr
+parseBasic :: (Num i, RealFloat f) => Parser (Sexpr i f)
 parseBasic = lexeme $ try parseList <|> parseAtom
 
-parseSexpr :: String -> Either ParserError Sexpr
+parseSexpr :: (Num i, RealFloat f) => String -> Either ParserError (Sexpr i f)
 parseSexpr = parse (between sc eof parseBasic) ""
 
 handleParseError :: Show a => Bool -> Either ParserError a -> IO ()
