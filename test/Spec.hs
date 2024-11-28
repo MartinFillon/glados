@@ -7,8 +7,11 @@
 
 module Main (main) where
 
+import Test.Hspec
+
 import PrinterSpec
 import SExprParserSpec
+import EvalAstSpec
 
 main :: IO ()
 main = hspec $ do
