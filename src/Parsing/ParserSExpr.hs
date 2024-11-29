@@ -67,11 +67,14 @@ pVariable = String <$> pVariable'
 pVariable' :: Parser String
 pVariable' = (:) <$> letterChar <*> many alphaNumChar <?> "variable"
 
+sce :: Parser ()
+sce = L.space empty empty empty
+
 pDigit :: (Num i) => Parser (Atom i f)
-pDigit = Number <$> L.signed (L.space empty empty empty) L.decimal
+pDigit = Number <$> L.signed sce L.decimal
 
 pFloat :: (RealFloat f) => Parser (Atom i f)
-pFloat = Float <$> L.signed (L.space empty empty empty) L.float
+pFloat = Float <$> L.signed sce L.float
 
 parseFalse :: Parser (Atom i f)
 parseFalse = string "#f" >> return (Bool False)
