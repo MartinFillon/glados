@@ -14,7 +14,6 @@ module Parsing.ParserSExpr (
     pDigit,
     lineComment,
     sc,
-    handleParseError,
     Sexpr (..),
     Atom (..),
     ParserError,
@@ -23,7 +22,6 @@ module Parsing.ParserSExpr (
 import Control.Applicative (Alternative (many))
 import Control.Monad (void)
 import Data.Void (Void)
-import Parsing.ErrorBundlePretty (errorBundlePrettyFormatted)
 import Text.Megaparsec (
     MonadParsec (eof),
     ParseErrorBundle,
@@ -114,7 +112,3 @@ parseBasic = lexeme $ try parseList <|> parseAtom
 
 parseSexpr :: (Num i, RealFloat f) => String -> Either ParserError (Sexpr i f)
 parseSexpr = parse (between sc eof parseBasic) ""
-
-handleParseError :: Show a => Bool -> Either ParserError a -> IO ()
-handleParseError _ (Right val) = print val
-handleParseError showColors (Left err) = putStr $ errorBundlePrettyFormatted showColors err

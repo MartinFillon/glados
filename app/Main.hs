@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Lib
+import Glados (glados)
 import System.Environment
 
 main :: IO ()
