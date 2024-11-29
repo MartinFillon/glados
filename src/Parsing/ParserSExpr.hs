@@ -17,6 +17,7 @@ module Parsing.ParserSExpr (
     handleParseError,
     Sexpr (..),
     Atom (..),
+    ParserError,
 ) where
 
 import Control.Applicative (Alternative (many))
