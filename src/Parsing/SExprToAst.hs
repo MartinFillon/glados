@@ -26,8 +26,6 @@ data Ast
     | Value (Atom Int Double)
     deriving (Show)
 
--- \| AstSymbol String (Maybe Ast) -- name value
-
 evalMathOperator :: (Double -> Double -> Double) -> [Ast] -> Maybe Ast
 evalMathOperator f [Value (Float x), Value (Float y)] = Just (Value (Float (f x y)))
 evalMathOperator f [Value (Number x), Value (Number y)] = Just (Value (Number (double2Int (f (int2Double x) (int2Double y)))))
@@ -47,12 +45,39 @@ evalMul = evalMathOperator (*)
 evalDiv :: [Ast] -> Maybe Ast
 evalDiv = evalMathOperator (/)
 
+evalMod :: [Ast] -> Maybe Ast
+evalMod [Value (Number x), Value (Number y)] = Just (Value (Number (x `mod` y)))
+evalMod _ = Nothing
+
+evalEq :: [Ast] -> Maybe Ast
+evalEq [Value (Float x), Value (Float y)] = Just (Value (Bool ((==) x y)))
+evalEq [Value (Float x), Value (Number y)] = Just (Value (Bool ((==) x (int2Double y))))
+evalEq [Value (Number x), Value (Number y)] = Just (Value (Bool ((==) x y)))
+evalEq [Value (Bool x), Value (Bool y)] = Just (Value (Bool ((==) x y)))
+evalEq [Value (Bool x), Value (Number y)] = Just (Value (Bool ((==) x (y /= 0))))
+evalEq [Value (Bool x), Value (Float y)] = Just (Value (Bool ((==) x (y /= 0))))
+evalEq [Value (Number x), Value (Bool y)] = Just (Value (Bool ((==) (x /= 0) y)))
+evalEq [Value (Float x), Value (Bool y)] = Just (Value (Bool ((==) (x /= 0) y)))
+evalEq [Value (Number x), Value (Float y)] = Just (Value (Bool ((==) (int2Double x) y)))
+evalEq _ = Nothing
+
+evalInf :: [Ast] -> Maybe Ast
+evalInf [Value (Float x), Value (Float y)] = Just (Value (Bool ((<) x y)))
+evalInf [Value (Float x), Value (Number y)] = Just (Value (Bool ((<) x (int2Double y))))
+evalInf [Value (Number x), Value (Number y)] = Just (Value (Bool ((<) x y)))
+evalInf [Value (Bool x), Value (Bool y)] = Just (Value (Bool ((<) x y)))
+evalInf [Value (Number x), Value (Float y)] = Just (Value (Bool ((<) (int2Double x) y)))
+evalInf _ = Nothing
+
 maths :: [(String, [Ast] -> Maybe Ast)]
 maths =
     [ ("+", evalPlus),
       ("-", evalMinus),
       ("*", evalMul),
-      ("div", evalDiv)
+      ("div", evalDiv),
+      ("eq?", evalEq),
+      ("<", evalInf),
+      ("mod", evalMod)
     ]
 
 findFuncAndExec' :: [(String, [Ast] -> Maybe Ast)] -> String -> [Ast] -> Maybe Ast
