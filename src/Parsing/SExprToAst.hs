@@ -21,8 +21,7 @@ data Function = Function
     deriving (Show)
 
 data Ast
-    = Define String Ast
-    | Call Function -- function param1 param2
+    = Call Function
     | Value (Atom Int Double)
     deriving (Show)
 
@@ -69,6 +68,10 @@ evalInf [Value (Bool x), Value (Bool y)] = Just (Value (Bool ((<) x y)))
 evalInf [Value (Number x), Value (Float y)] = Just (Value (Bool ((<) (int2Double x) y)))
 evalInf _ = Nothing
 
+evalIf :: [Ast] -> Maybe Ast
+evalIf [Value (Bool x), y, z] = Just (if x then y else z)
+evalIf _ = Nothing
+
 maths :: [(String, [Ast] -> Maybe Ast)]
 maths =
     [ ("+", evalPlus),
@@ -77,7 +80,8 @@ maths =
       ("div", evalDiv),
       ("eq?", evalEq),
       ("<", evalInf),
-      ("mod", evalMod)
+      ("mod", evalMod),
+      ("if", evalIf)
     ]
 
 findFuncAndExec' :: [(String, [Ast] -> Maybe Ast)] -> String -> [Ast] -> Maybe Ast
@@ -90,6 +94,7 @@ findFuncAndExec (Function s a) = mapM evalAST a >>= findFuncAndExec' maths s
 
 sexprToAST :: Sexpr Int Double -> Maybe Ast
 sexprToAST (Atom i) = Just (Value i)
+sexprToAST (List [i]) = sexprToAST i
 sexprToAST (List ((Atom (String s)) : xs)) =
     mapM sexprToAST xs >>= (\x -> Just (Call $ Function s x))
 sexprToAST _ = Nothing
@@ -97,4 +102,3 @@ sexprToAST _ = Nothing
 evalAST :: Ast -> Maybe Ast
 evalAST (Value x) = Just (Value x)
 evalAST (Call f@(Function _ _)) = findFuncAndExec f
-evalAST _ = Nothing
