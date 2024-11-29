@@ -1,3 +1,10 @@
+{-
+-- EPITECH PROJECT, 2024
+-- gladdos
+-- File description:
+-- Main
+-}
+
 module Main (main) where
 
 import Glados (glados)
