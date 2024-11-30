@@ -27,6 +27,7 @@ dependencies:
 - deepseq
 - mtl
 - parser-combinators
+- optparse-applicative
 - sexpresso
 
 ghc-options:

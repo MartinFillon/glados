@@ -11,7 +11,6 @@
 
 module Lib (glados) where
 
-import AstProto.Ast
 import GHC.GHCi.Helpers (flushAll)
 import System.IO (hIsTerminalDevice, isEOF, stdin)
 

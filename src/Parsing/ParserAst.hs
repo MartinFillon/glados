@@ -20,6 +20,7 @@ module Parsing.ParserAst (
     integer,
     double,
     pKeyword,
+    variable,
     sc,
     scn,
     lexeme,
