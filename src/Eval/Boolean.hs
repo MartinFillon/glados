@@ -16,33 +16,36 @@ module Eval.Boolean (
 
 import Parsing.SExprToAst (Ast (..))
 
-booleanOperator :: (Bool -> Bool -> Bool) -> [Ast] -> Maybe Ast
-booleanOperator op [AstBool b1, AstBool b2] = Just (AstBool (b1 `op` b2))
-booleanOperator op [AstBool b1, AstInt i] = Just (AstBool (b1 `op` (i /= 0)))
-booleanOperator op [AstInt i, AstBool b1] = Just (AstBool (b1 `op` (i /= 0)))
-booleanOperator op [AstBool b1, AstFloat f] = Just (AstBool (b1 `op` (f /= 0)))
-booleanOperator op [AstFloat f, AstBool b1] = Just (AstBool (b1 `op` (f /= 0)))
-booleanOperator op [AstInt i1, AstInt i2] = Just (AstBool ((i1 /= 0) `op` (i2 /= 0)))
-booleanOperator op [AstFloat f1, AstFloat f2] = Just (AstBool ((f1 /= 0) `op` (f2 /= 0)))
-booleanOperator op [AstInt i, AstFloat f] = Just (AstBool ((i /= 0) `op` (f /= 0)))
-booleanOperator op [AstFloat f, AstInt i] = Just (AstBool ((f /= 0) `op` (i /= 0)))
-booleanOperator _ _ = Nothing
-
 evalAnd :: [Ast] -> Maybe Ast
-evalAnd = booleanOperator (&&)
+evalAnd [AstBool b1, AstBool b2] = Just (AstBool ((&&) b1 b2))
+evalAnd _ = Nothing
 
 evalOr :: [Ast] -> Maybe Ast
-evalOr = booleanOperator (||)
+evalOr [AstBool b1, AstBool b2] = Just (AstBool ((||) b1 b2))
+evalOr _ = Nothing
 
 evalNot :: [Ast] -> Maybe Ast
 evalNot [AstBool a] = Just $ AstBool (not a)
 evalNot _ = Nothing
 
 evalEq :: [Ast] -> Maybe Ast
-evalEq = booleanOperator (==)
+evalEq [AstInt i1, AstInt i2] = Just $ AstBool (i1 == i2)
+evalEq [AstFloat f1, AstFloat f2] = Just $ AstBool (f1 == f2)
+evalEq [AstInt i, AstFloat f] = Just $ AstBool (fromIntegral i == f)
+evalEq [AstFloat f, AstInt i] = Just $ AstBool (f == fromIntegral i)
+evalEq [AstBool b1, AstBool b2] = Just $ AstBool (b1 == b2)
+evalEq [AstBool b, AstInt i] = Just $ AstBool (b == (i /= 0))
+evalEq [AstInt i, AstBool b] = Just $ AstBool ((i /= 0) == b)
+evalEq [AstBool b, AstFloat f] = Just $ AstBool (b == (f /= 0))
+evalEq [AstFloat f, AstBool b] = Just $ AstBool ((f /= 0) == b)
+evalEq _ = Nothing
 
 evalLt :: [Ast] -> Maybe Ast
-evalLt = booleanOperator (<)
+evalLt [AstInt i1, AstInt i2] = Just $ AstBool (i1 < i2)
+evalLt [AstFloat f1, AstFloat f2] = Just $ AstBool (f1 < f2)
+evalLt _ = Nothing
 
 evalGt :: [Ast] -> Maybe Ast
-evalGt = booleanOperator (>)
+evalGt [AstInt i1, AstInt i2] = Just $ AstBool (i1 > i2)
+evalGt [AstFloat f1, AstFloat f2] = Just $ AstBool (f1 > f2)
+evalGt _ = Nothing
