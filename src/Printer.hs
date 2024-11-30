@@ -1,5 +1,6 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Printer (
     Paint (..),
@@ -29,12 +30,18 @@ import Parsing.ParserAst (lexeme, stringLiteral, variable)
 import Data.Either (rights)
 import Data.Word (Word8)
 import Data.List (find)
+import System.Directory (doesFileExist)
 
 type Parser = Parsec Void Text
 type ParserError = ParseErrorBundle Text Void
 
 confFilepath :: String
 confFilepath = "lisp-colors.conf"
+
+confDefaultValues :: String
+confDefaultValues = "warnings=\"255;0;255\"\n"
+    ++ "errors=\"255;0;0\"\n"
+    ++ "infos=\"0;0;255\""
 
 data Config = Config
     { key :: String
@@ -150,6 +157,11 @@ parseColors configs = do
     (,,) <$> parseColor warnings <*> parseColor errors <*> parseColor infos
 
 getColorsFromConf :: IO (Maybe (Color, Color, Color))
-getColorsFromConf = do
-    content <- readFile confFilepath
-    return $ parseColors (rights $ parseConf (pack content))
+getColorsFromConf = doesFileExist confFilepath
+    >>= \case
+        True -> do
+            content <- readFile confFilepath
+            return $ parseColors (rights $ parseConf (pack content))
+        False -> do
+            writeFile confFilepath confDefaultValues
+            return $ parseColors (rights $ parseConf (pack confDefaultValues))
