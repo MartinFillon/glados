@@ -96,4 +96,6 @@ parseSexpr = parse (between sc eof pSExpr) ""
 
 handleParseError :: Bool -> Either ParserError SExp -> IO ()
 handleParseError _ (Right val) = print val
-handleParseError showColors (Left err) = putStr $ errorBundlePrettyFormatted showColors err
+handleParseError showColors (Left err) = do
+    display <- errorBundlePrettyFormatted showColors err
+    putStr display
