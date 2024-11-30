@@ -4,26 +4,16 @@
 -- File description:
 -- SExprToAst
 -}
+{-# LANGUAGE InstanceSigs #-}
 
 module Parsing.SExprToAst (
     printTree,
     sexprToAST,
-    evalAST,
-    SExpr (..),
     Ast (..),
     Function (..),
 ) where
 
-import Control.Applicative (Applicative (liftA2))
-import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
-
-data SExpr
-    = Integer Int
-    | Symbol String
-    | List [SExpr]
-    | Boolean Bool
-    deriving (Show)
+import Parsing.ParserSExpr (Atom (..), Sexpr (..))
 
 data Function = Function
     { name :: String,
@@ -34,21 +24,24 @@ data Ast
     = Define String Ast
     | Call Function -- function param1 param2
     | AstInt Int
+    | AstFloat Double
     | AstBool Bool
     | AstSymbol String (Maybe Ast) -- name value
     | Lambda [String] Ast
     | Apply Ast [Ast]
 
-type FunctionRegistry = Map.Map String ([Ast] -> Maybe Ast)
-
 instance Show Ast where
+    show :: Ast -> String
     show (AstInt i) = show i
+    show (AstFloat f) = show f
     show (AstBool b) = if b then "#t" else "#f"
     show (AstSymbol n s) = '(' : n ++ " = " ++ show s ++ ")"
     show (Define a b) = "Define " ++ show a ++ " = " ++ show b
     show (Call (Function n a)) = "Call " ++ n ++ concatMap (\x -> ' ' : show x) a
+    show _ = "Not implemented"
 
 instance Eq Ast where
+    (==) :: Ast -> Ast -> Bool
     (AstInt i1) == (AstInt i2) = i1 == i2
     (AstBool b1) == (AstBool b2) = b1 == b2
     (AstSymbol n1 s1) == (AstSymbol n2 s2) = n1 == n2 && s1 == s2
@@ -57,8 +50,8 @@ instance Eq Ast where
     (Lambda p1 b1) == (Lambda p2 b2) = p1 == p2 && b1 == b2
     _ == _ = False
 
-getSymbol :: SExpr -> Maybe String
-getSymbol (Symbol s) = Just s
+getSymbol :: Sexpr Int Double -> Maybe String
+getSymbol (Atom (String s)) = Just s
 getSymbol _ = Nothing
 
 {-getInteger :: SExpr -> Maybe Int
@@ -69,10 +62,12 @@ getList :: SExpr -> Maybe [SExpr]
 getList (List l) = Just l
 getList _ = Nothing-}
 
-printTree :: SExpr -> Maybe String
-printTree (Symbol s) = Just ("a " ++ show (Symbol s))
-printTree (Integer i) = Just ("an " ++ show (Integer i))
-printTree (Boolean b) = Just ("Bool: " ++ if b then "#t" else "#f")
+printTree :: Sexpr Int Double -> Maybe String
+printTree (Atom (String s)) = Just ("a " ++ show s)
+printTree (Atom (Number i)) = Just ("an " ++ show i)
+printTree (Atom (Float f)) = Just ("a " ++ show f)
+printTree (Atom (Bool True)) = Just "Bool: #t"
+printTree (Atom (Bool False)) = Just "Bool: #f"
 printTree (List [x]) = printTree x
 printTree (List (x : xs)) =
     (\a b -> a ++ ", " ++ b)
@@ -80,157 +75,25 @@ printTree (List (x : xs)) =
         <*> printTree (List xs)
 printTree (List []) = Nothing
 
------------- OP
-
-astPlus :: [Ast] -> Maybe Ast
-astPlus [AstInt i1, AstInt i2] = Just (AstInt (i1 + i2))
-astPlus _ = Nothing
-
-astMinus :: [Ast] -> Maybe Ast
-astMinus [AstInt i1, AstInt i2] = Just (AstInt (i1 - i2))
-astMinus _ = Nothing
-
-astMul :: [Ast] -> Maybe Ast
-astMul [AstInt i1, AstInt i2] = Just (AstInt (i1 * i2))
-astMul _ = Nothing
-
-astDiv :: [Ast] -> Maybe Ast
-astDiv [AstInt i1, AstInt i2]
-    | i2 /= 0 = Just (AstInt (i1 `quot` i2))
-    | otherwise = Nothing
-astDiv _ = Nothing
-
-astMod :: [Ast] -> Maybe Ast
-astMod [AstInt i1, AstInt i2]
-    | i2 /= 0 = Just (AstInt (i1 `mod` i2))
-    | otherwise = Nothing
-astMod _ = Nothing
-
-astLt :: [Ast] -> Maybe Ast
-astLt [AstInt i1, AstInt i2] = Just (AstBool (i1 < i2))
-astLt _ = Nothing
-
-astEq :: [Ast] -> Maybe Ast
-astEq [AstInt i1, AstInt i2] = Just (AstBool (i1 == i2))
-astEq [AstBool b1, AstBool b2] = Just (AstBool (b1 == b2))
-astEq [AstSymbol s1 _, AstSymbol s2 _] = Just (AstBool (s1 == s2))
-astEq _ = Nothing
-
-astGt :: [Ast] -> Maybe Ast
-astGt [AstInt i1, AstInt i2] = Just (AstBool (i1 > i2))
-astGt _ = Nothing
-
----------- bool OP
-
-astAnd :: [Ast] -> Maybe Ast
-astAnd [AstBool b1, AstBool b2] = Just (AstBool (b1 && b2))
-astAnd _ = Nothing
-
-astOr :: [Ast] -> Maybe Ast
-astOr [AstBool b1, AstBool b2] = Just (AstBool (b1 || b2))
-astOr _ = Nothing
-
-astNot :: [Ast] -> Maybe Ast
-astNot [AstBool b] = Just (AstBool (not b))
-astNot _ = Nothing
-
-astIf :: [Ast] -> Maybe Ast
-astIf [AstBool cond, trueExpr, falseExpr] =
-    if cond then evalAST trueExpr else evalAST falseExpr
-astIf _ = Nothing
-
----------- Lambda eval
-
-evalLambda :: [String] -> Ast -> [Ast] -> Maybe Ast
-evalLambda params body args
-    | length params == length args = do
-        evaluatedArgs <- mapM evalAST args
-        let substitutions = zip params evaluatedArgs
-        evalAST (substitute body substitutions)
-    | otherwise = Nothing
-
-substitute :: Ast -> [(String, Ast)] -> Ast
-substitute (AstSymbol name Nothing) subs =
-    fromMaybe (AstSymbol name Nothing) (lookup name subs)
-substitute (Define name value) subs =
-    Define name (substitute value subs)
-substitute (Call (Function n args)) subs =
-    Call (Function n (map (`substitute` subs) args))
-substitute (Lambda params body) subs =
-    Lambda params (substitute body subs) -- No substitution inside lambda's params
-substitute other _ = other
-
----------------- Registry function
-
-defaultRegistry :: FunctionRegistry
-defaultRegistry =
-    Map.fromList
-        [ ("+", astPlus),
-          ("-", astMinus),
-          ("*", astMul),
-          ("/", astDiv),
-          ("div", astDiv),
-          ("%", astMod),
-          ("mod", astMod),
-          ("eq?", astEq),
-          ("<", astLt),
-          (">", astGt),
-          ("and", astAnd),
-          ("or", astOr),
-          ("not", astNot),
-          ("if", astIf)
-        ]
-
 ------------ Sexpr -> AST
 
-sexprToAST :: SExpr -> Maybe Ast
-sexprToAST (Integer i) = Just (AstInt i)
-sexprToAST (Boolean b) = Just (AstBool b)
-sexprToAST (Symbol s) = Just (AstSymbol s Nothing)
-sexprToAST (List [Symbol "define", Symbol s, expr]) =
+sexprToAST :: Sexpr Int Double -> Maybe Ast
+sexprToAST (Atom (Number i)) = Just (AstInt i)
+sexprToAST (Atom (Bool b)) = Just (AstBool b)
+sexprToAST (Atom (Float f)) = Just (AstFloat f)
+sexprToAST (Atom (String s)) = Just (AstSymbol s Nothing)
+sexprToAST (List [Atom (String "define"), Atom (String s), expr]) =
     Define s <$> sexprToAST expr
 -- Adjust sexprToAST to handle lambda expressions
-sexprToAST (List [Symbol "lambda", List params, body]) = do
+sexprToAST (List [Atom (String "lambda"), List params, body]) = do
     paramNames <- mapM getSymbol params
     bodyAst <- sexprToAST body
     return (Lambda paramNames bodyAst)
 -- Adjust sexprToAST to handle function applications
-sexprToAST (List (func : args)) = do
+sexprToAST (List (func : a)) = do
     funcAst <- sexprToAST func
-    argAsts <- mapM sexprToAST args
+    argAsts <- mapM sexprToAST a
     return (Apply funcAst argAsts)
-sexprToAST (List (Symbol op : args)) = do
-    parsedArgs <- mapM sexprToAST args
-    return (Call (Function op parsedArgs))
 sexprToAST _ = Nothing
 
 -----------
-
-evalAST :: Ast -> Maybe Ast
-evalAST (Define name expr) = Just (AstSymbol name (evalAST expr))
-evalAST (Apply func args) = do
-    funcEval <- evalAST func
-    case funcEval of
-        Lambda params body ->
-            if length params == length args
-                then do
-                    evaluatedArgs <- mapM evalAST args
-                    let substitutions = zip params evaluatedArgs
-                    evalAST (substitute body substitutions)
-                else Nothing
-        _ -> Nothing
-evalAST (Lambda params body) = Just (Lambda params body)
-evalAST (Call (Function n args)) =
-    case Map.lookup n defaultRegistry of
-        Just f -> do
-            evaluatedArgs <- mapM evalAST args
-            f evaluatedArgs
-        Nothing -> do
-            func <- evalAST (AstSymbol n Nothing)
-            case func of
-                Lambda params body -> evalLambda params body args
-                _ -> Nothing
-evalAST (AstInt i) = Just (AstInt i)
-evalAST (AstBool b) = Just (AstBool b)
-evalAST (AstSymbol s Nothing) = Just (AstSymbol s Nothing)
-evalAST (AstSymbol _ (Just val)) = evalAST val

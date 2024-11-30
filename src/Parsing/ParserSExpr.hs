@@ -41,7 +41,12 @@ import qualified Text.Megaparsec.Char.Lexer as L
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
 
-data Atom i f = String String | Number i | Float f | Bool Bool deriving (Show, Eq)
+data Atom i f
+    = String String
+    | Number i
+    | Float f
+    | Bool Bool
+    deriving (Show, Eq)
 
 data Sexpr i f = Atom (Atom i f) | List [Sexpr i f] deriving (Show, Eq)
 

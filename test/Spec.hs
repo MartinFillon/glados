@@ -7,16 +7,14 @@
 
 module Main (main) where
 
-import Test.Hspec
+import Test.Hspec (describe, hspec)
 
-import PrinterSpec
-import SExprParserSpec
-import EvalAstSpec
-import SExprToAstSpec
+import EvalAstSpec (spec)
+import PrinterSpec (spec)
+import SExprParserSpec (spec)
 
 main :: IO ()
 main = hspec $ do
     describe "Printer test" PrinterSpec.spec
     describe "SExpr Parser test" SExprParserSpec.spec
     describe "Eval Ast test" EvalAstSpec.spec
-    describe "SExpr to AST test" SExprToAstSpec.spec

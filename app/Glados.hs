@@ -7,10 +7,11 @@
 
 module Glados (glados) where
 
+import Eval.Evaluator (evalAST)
 import GHC.GHCi.Helpers (flushAll)
 import Parsing.ErrorBundlePretty (errorBundlePrettyFormatted)
 import Parsing.ParserSExpr (ParserError, parseSexpr)
-import Parsing.SExprToAst (evalAST, sexprToAST)
+import Parsing.SExprToAst (sexprToAST)
 import System.Exit (ExitCode (..), exitWith)
 import System.IO (hIsTerminalDevice, isEOF, stdin)
 

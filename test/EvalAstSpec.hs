@@ -7,6 +7,7 @@
 
 module EvalAstSpec (spec) where
 
+import Eval.Evaluator
 import Parsing.SExprToAst
 import Test.Hspec
 
@@ -48,7 +49,7 @@ spec = describe "evalAST" $ do
                     `shouldBe` Just (AstInt (-1))
             it "division by zero" $ do
                 evalAST (Call (Function "/" [AstInt 4, AstInt 0]))
-                    `shouldBe`  Nothing
+                    `shouldBe` Nothing
 
         context "evaluates multiplication" $ do
             it "multiplication with positive values" $ do
@@ -136,7 +137,7 @@ spec = describe "evalAST" $ do
             it "false or false" $ do
                 evalAST (Call (Function "or" [AstBool False, AstBool False]))
                     `shouldBe` Just (AstBool False)
-                    
+
     describe "evaluates lambda calls" $ do
         context "basic lambda expressions" $ do
             it "simple addition lambda" $ do
