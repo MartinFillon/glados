@@ -124,3 +124,7 @@ Make sure you have the following tools installed:
 - stack (Haskell build tool), for its dependencies simply run `stack install`
 - pre-commit (Python package)
 - pip (for managing Python packages)
+
+## Features
+
+For a detailed list of features, please refer to the [FUNCTIONNALITY.md](FUNCTIONNALITY.md) file.
