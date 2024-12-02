@@ -19,7 +19,7 @@ handleParseError :: Bool -> Either ParserError a -> IO a
 handleParseError _ (Right val) = return val
 handleParseError showColors (Left err) =
     putStr (errorBundlePrettyFormatted showColors err)
-        >> exitWith (ExitFailure 1)
+        >> exitWith (ExitFailure 84)
         >> return undefined
 
 parseToSexpr :: String -> IO ()
