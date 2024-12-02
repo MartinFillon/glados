@@ -15,6 +15,12 @@ import Parsing.SExprToAst (sexprToAST)
 import System.Exit (ExitCode (..), exitWith)
 import System.IO (hIsTerminalDevice, isEOF, stdin)
 
+countChar :: Char -> String -> Int
+countChar c s = length (filter (== c) s)
+
+countParenthesis :: String -> Bool
+countParenthesis s = countChar '(' s == countChar ')' s
+
 handleParseError :: Bool -> Either ParserError a -> IO a
 handleParseError _ (Right val) = return val
 handleParseError showColors (Left err) =
@@ -23,36 +29,46 @@ handleParseError showColors (Left err) =
         >> exitWith (ExitFailure 84)
         >> return undefined
 
+printAndReturn :: Show a => a -> IO a
+printAndReturn x = print x >> return x
+
 parseToSexpr :: String -> IO ()
-parseToSexpr s = handleParseError True (parseSexpr s) >>= (\x -> print (sexprToAST x >>= evalAST))
+parseToSexpr s =
+    handleParseError True (parseSexpr s)
+        >>= printAndReturn
+        >>= (\x -> print (sexprToAST x >>= evalAST))
 
 handleInput :: String -> IO ()
 handleInput = parseToSexpr
 
-handleContentFromFile :: [String] -> IO ()
-handleContentFromFile = foldr ((>>) . handleInput) (return ())
-
 getContentFromFile :: String -> IO ()
 getContentFromFile filepath =
     readFile filepath
-        >>= handleContentFromFile . lines
+        >>= parseToSexpr
 
-getLineFromStdin' :: Bool -> Bool -> IO ()
-getLineFromStdin' _ True = return ()
-getLineFromStdin' b False = getLine >>= handleInput >> getLineFromStdin b
+checkBuf' :: String -> IO String
+checkBuf' s | countParenthesis s = handleInput s >> return ""
+checkBuf' s = return s
+
+checkBuf :: String -> String -> IO String
+checkBuf s i = checkBuf' (s ++ ' ' : i)
+
+getLineFromStdin' :: String -> Bool -> Bool -> IO ()
+getLineFromStdin' _ _ True = return ()
+getLineFromStdin' s b False = getLine >>= checkBuf s >>= (`getLineFromStdin` b)
 
 -- Prints prompt if it's a TTY
-getLineFromStdin :: Bool -> IO ()
-getLineFromStdin True =
+getLineFromStdin :: String -> Bool -> IO ()
+getLineFromStdin s True =
     putStr "> "
         >> flushAll
         >> isEOF
-        >>= getLineFromStdin' True
-getLineFromStdin False =
-    isEOF >>= getLineFromStdin' False
+        >>= getLineFromStdin' s True
+getLineFromStdin s False =
+    isEOF >>= getLineFromStdin' s False
 
 getContentFromStdin :: IO ()
-getContentFromStdin = hIsTerminalDevice stdin >>= getLineFromStdin
+getContentFromStdin = hIsTerminalDevice stdin >>= getLineFromStdin ""
 
 glados :: Maybe String -> IO ()
 glados (Just filepath) = getContentFromFile filepath

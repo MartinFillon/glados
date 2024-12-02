@@ -1,5 +1,5 @@
-{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Printer (
@@ -18,19 +18,19 @@ module Printer (
     parseConf,
 ) where
 
-import Data.Void (Void)
-import Data.Text ( pack, splitOn, unpack, Text )
-import Text.Megaparsec
-    ( runParser
-    , Parsec
-    , ParseErrorBundle
-    )
-import Text.Megaparsec.Char (char)
-import Parsing.ParserAst (lexeme, stringLiteral, variable)
 import Data.Either (rights)
-import Data.Word (Word8)
 import Data.List (find)
+import Data.Text (Text, pack, splitOn, unpack)
+import Data.Void (Void)
+import Data.Word (Word8)
+import Parsing.ParserAst (lexeme, stringLiteral, variable)
 import System.Directory (doesFileExist)
+import Text.Megaparsec (
+    ParseErrorBundle,
+    Parsec,
+    runParser,
+ )
+import Text.Megaparsec.Char (char)
 
 type Parser = Parsec Void Text
 type ParserError = ParseErrorBundle Text Void
@@ -39,20 +39,22 @@ confFilepath :: String
 confFilepath = "lisp-colors.conf"
 
 confDefaultValues :: String
-confDefaultValues = "warnings=\"255;0;255\"\n"
-    ++ "errors=\"255;0;0\"\n"
-    ++ "infos=\"0;0;255\""
+confDefaultValues =
+    "warnings=\"255;0;255\"\n"
+        ++ "errors=\"255;0;0\"\n"
+        ++ "infos=\"0;0;255\""
 
 data Config = Config
-    { key :: String
-    , value :: String
-    } deriving (Show)
+    { key :: String,
+      value :: String
+    }
+    deriving (Show)
 
 newtype ColorCode = ColorCode (Word8, Word8, Word8)
 
 instance Show ColorCode where
     show :: ColorCode -> String
-    show (ColorCode (r,g,b)) = show r ++ ";" ++ show g ++ ";" ++ show b
+    show (ColorCode (r, g, b)) = show r ++ ";" ++ show g ++ ";" ++ show b
 
 data Color
     = Red
@@ -93,26 +95,28 @@ class Paint a where
     paint :: Bool -> a -> String
 
 getColorCode :: Color -> ColorCode
-getColorCode Red = ColorCode (255,0,0)
-getColorCode Green = ColorCode (0,255,0)
-getColorCode Blue = ColorCode (0,0,255)
-getColorCode Yellow = ColorCode (255,255,0)
-getColorCode Magenta = ColorCode (255,0,255)
-getColorCode Cyan = ColorCode (0,255,255)
-getColorCode White = ColorCode (255,255,255)
-getColorCode Orange = ColorCode (255,128,0)
+getColorCode Red = ColorCode (255, 0, 0)
+getColorCode Green = ColorCode (0, 255, 0)
+getColorCode Blue = ColorCode (0, 0, 255)
+getColorCode Yellow = ColorCode (255, 255, 0)
+getColorCode Magenta = ColorCode (255, 0, 255)
+getColorCode Cyan = ColorCode (0, 255, 255)
+getColorCode White = ColorCode (255, 255, 255)
+getColorCode Orange = ColorCode (255, 128, 0)
 getColorCode (RGB c) = c
 
 setColors :: Color -> Color -> Color -> IO ()
-setColors w e i = writeFile confFilepath
-    ( "warnings=\""
-    ++ show (getColorCode w)
-    ++ "\"\nerrors=\""
-    ++ show (getColorCode e)
-    ++ "\"\ninfos=\""
-    ++ show (getColorCode i)
-    ++ "\""
-    )
+setColors w e i =
+    writeFile
+        confFilepath
+        ( "warnings=\""
+            ++ show (getColorCode w)
+            ++ "\"\nerrors=\""
+            ++ show (getColorCode e)
+            ++ "\"\ninfos=\""
+            ++ show (getColorCode i)
+            ++ "\""
+        )
 
 setColors' :: Maybe (Color, Color, Color) -> IO ()
 setColors' (Just (w, e, i)) = setColors w e i
@@ -157,11 +161,12 @@ parseColors configs = do
     (,,) <$> parseColor warnings <*> parseColor errors <*> parseColor infos
 
 getColorsFromConf :: IO (Maybe (Color, Color, Color))
-getColorsFromConf = doesFileExist confFilepath
-    >>= \case
-        True -> do
-            content <- readFile confFilepath
-            return $ parseColors (rights $ parseConf (pack content))
-        False -> do
-            writeFile confFilepath confDefaultValues
-            return $ parseColors (rights $ parseConf (pack confDefaultValues))
+getColorsFromConf =
+    doesFileExist confFilepath
+        >>= \case
+            True -> do
+                content <- readFile confFilepath
+                return $ parseColors (rights $ parseConf (pack content))
+            False -> do
+                writeFile confFilepath confDefaultValues
+                return $ parseColors (rights $ parseConf (pack confDefaultValues))

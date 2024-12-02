@@ -104,7 +104,7 @@ lineComment :: Parser ()
 lineComment = L.skipLineComment ";"
 
 sc :: Parser ()
-sc = L.space (void $ some (char ' ' <|> char '\t')) lineComment empty
+sc = L.space (void $ some (char ' ' <|> char '\t' <|> char '\r' <|> char '\n')) lineComment empty
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
