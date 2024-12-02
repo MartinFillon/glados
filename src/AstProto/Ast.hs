@@ -11,10 +11,10 @@ import Data.Maybe
 
 -- struct SExpr
 data SExpr
-  = SInt Int
-  | SSymbol String
-  | SList [SExpr]
-  deriving (Show, Eq)
+    = SInt Int
+    | SSymbol String
+    | SList [SExpr]
+    deriving (Show, Eq)
 
 -- Extract symbol
 getSymbol :: SExpr -> Maybe String
@@ -39,13 +39,13 @@ printTree (SList l) = "a List with " ++ unwords (map printTree l)
 
 -- AST
 data AST
-  = Define String AST
-  | Call String [AST]
-  | Lambda [String] AST
-  | AInt Int
-  | ASymbol String
-  | ABool Bool
-  deriving (Show, Eq)
+    = Define String AST
+    | Call String [AST]
+    | Lambda [String] AST
+    | AInt Int
+    | ASymbol String
+    | ABool Bool
+    deriving (Show, Eq)
 
 -- Convert SExp -> AST
 sexprToAST :: SExpr -> Maybe AST
@@ -53,21 +53,21 @@ sexprToAST (SInt i) = Just (AInt i)
 sexprToAST (SSymbol s) = Just (ASymbol s)
 -- Special case for define
 sexprToAST (SList [SSymbol "define", SSymbol var, value]) =
-  case sexprToAST value of
-    Just astValue -> Just (Define var astValue)
-    Nothing -> Nothing
+    case sexprToAST value of
+        Just astValue -> Just (Define var astValue)
+        Nothing -> Nothing
 -- Special case for lambda
 -- body should be list
 sexprToAST (SList [SSymbol "lambda", SList params, body@(SList _)]) =
-  let paramNames = mapMaybe getSymbol params
-   in case sexprToAST body of
-        Just bodyAST -> Just (Lambda paramNames bodyAST)
-        Nothing -> Nothing
+    let paramNames = mapMaybe getSymbol params
+     in case sexprToAST body of
+            Just bodyAST -> Just (Lambda paramNames bodyAST)
+            Nothing -> Nothing
 -- Call Function
 sexprToAST (SList (SSymbol func : args)) =
-  case mapM sexprToAST args of
-    Just astArgs -> Just (Call func astArgs)
-    Nothing -> Nothing
+    case mapM sexprToAST args of
+        Just astArgs -> Just (Call func astArgs)
+        Nothing -> Nothing
 sexprToAST _ = Nothing
 
 -- data Memory = Memory
@@ -75,7 +75,7 @@ sexprToAST _ = Nothing
 --     lastResult :: AST
 --   }
 
-type Memory = [(String, AST)];
+type Memory = [(String, AST)]
 
 -- EvaL AST
 evalAST :: Memory -> AST -> Maybe AST
@@ -88,16 +88,16 @@ evalAST mem (Define _ value) = evalAST mem value
 evalAST _ (Lambda params body) = Just (Lambda params body)
 -- Call eval
 evalAST mem (Call op args) =
-  case mapM (evalAST mem) args of
-    Just argv -> applyOp op argv
-    Nothing -> Nothing
+    case mapM (evalAST mem) args of
+        Just argv -> applyOp op argv
+        Nothing -> Nothing
 evalAST _ _ = Nothing
 
 execAST :: Memory -> AST -> Memory
 execAST mem (Define name value) =
-  case evalAST mem value of
-    Just val -> (name, val): mem
-    Nothing -> mem
+    case evalAST mem value of
+        Just val -> (name, val) : mem
+        Nothing -> mem
 execAST _ _ = []
 
 -- Apply basic operation

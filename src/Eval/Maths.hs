@@ -7,9 +7,9 @@
 
 module Eval.Maths (evalAdd, evalSub, evalMul, evalDiv, evalMod) where
 
+import Data.Fixed (mod')
 import GHC.Float (double2Int, int2Double)
 import Parsing.SExprToAst (Ast (..))
-import Data.Fixed (mod')
 
 evalMath :: (Double -> Double -> Double) -> [Ast] -> Maybe Ast
 evalMath f [AstInt i1, AstInt i2] = Just (AstInt (double2Int (f (int2Double i1) (int2Double i2))))
