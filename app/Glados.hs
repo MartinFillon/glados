@@ -24,7 +24,7 @@ handleParseError showColors (Left err) =
         >> return undefined
 
 parseToSexpr :: String -> IO ()
-parseToSexpr s = handleParseError True (parseSexpr s) >>= (\x -> print (sexprToAST x >>= evalAST))
+parseToSexpr s = handleParseError True (parseSexpr s) >>= (\x -> print (sexprToAST x))
 
 handleInput :: String -> IO ()
 handleInput = parseToSexpr

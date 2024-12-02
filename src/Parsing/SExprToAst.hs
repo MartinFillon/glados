@@ -38,7 +38,8 @@ instance Show Ast where
     show (AstSymbol n s) = '(' : n ++ " = " ++ show s ++ ")"
     show (Define a b) = "Define " ++ show a ++ " = " ++ show b
     show (Call (Function n a)) = "Call " ++ n ++ concatMap (\x -> ' ' : show x) a
-    show _ = "Not implemented"
+    show (Apply ast lAst) = show ast ++ ": " ++ concatMap (\x -> ' ' : show x) lAst
+    show (Lambda _ _) = "Lambda"
 
 instance Eq Ast where
     (==) :: Ast -> Ast -> Bool
