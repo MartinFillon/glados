@@ -1,6 +1,13 @@
+{-
+-- EPITECH PROJECT, 2024
+-- gladdos
+-- File description:
+-- Main
+-}
+
 module Main (main) where
 
-import Lib
+import Glados (glados)
 import System.Environment
 
 main :: IO ()
