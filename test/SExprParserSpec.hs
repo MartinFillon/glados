@@ -1,22 +1,71 @@
+{-
+-- EPITECH PROJECT, 2024
+-- gladdos
+-- File description:
+-- SExprParserSpec
+-}
+
 module SExprParserSpec (spec) where
 
-import Test.Hspec (Spec, context, describe, it, shouldBe)
-import Parsing.ParserSExpr (parseSexpr)
-import Data.SExpresso.SExpr (SExpr(SList, SAtom))
 import Data.Either (isLeft)
+import Parsing.ParserSExpr (Atom (..), ParserError, Sexpr (..), parseSexpr)
+import Test.Hspec (Spec, context, describe, it, shouldBe)
+
+parseSexpr' :: String -> Either ParserError (Sexpr Int Double)
+parseSexpr' = parseSexpr
 
 spec :: Spec
 spec = do
     describe "parsing string expression to object" $ do
-        context "basic valid addition" $ it "\"(+ 1 1)\" should be Right (SList () [SAtom \"+\", SAtom \"1\", SAtom \"1\"])" $ parseSexpr "(+ 1 1)" `shouldBe` Right (SList () [SAtom "+", SAtom "1", SAtom "1"])
-        context "basic valid subtraction" $ it "\"(- 1 -1)\" should be Right (SList () [SAtom \"-\", SAtom \"1\", SAtom \"-1\"])" $ parseSexpr "(- 1 -1)" `shouldBe` Right (SList () [SAtom "-", SAtom "1", SAtom "-1"])
-        context "basic valid multiplication" $ it "\"(* +1 1)\" should be Right (SList () [SAtom \"*\", SAtom \"+1\", SAtom \"1\"])" $ parseSexpr "(* +1 1)" `shouldBe` Right (SList () [SAtom "*", SAtom "+1", SAtom "1"])
-        context "basic valid division" $ it "\"(div 1 1)\" should be Right (SList () [SAtom \"div\", SAtom \"1\", SAtom \"1\"])" $ parseSexpr "(div 1 1)" `shouldBe` Right (SList () [SAtom "div", SAtom "1", SAtom "1"])
-        context "basic valid modulo" $ it "\"(mod 1 1)\" should be Right (SList () [SAtom \"mod\", SAtom \"1\", SAtom \"1\"])" $ parseSexpr "(mod 1 1)" `shouldBe` Right (SList () [SAtom "mod", SAtom "1", SAtom "1"])
-        context "basic valid if" $ it "\"(if #t 1 2)\" should be Right (SList () [SAtom \"if\", SAtom \"#t\", SAtom \"1\", SAtom \"2\"])" $ parseSexpr "(if #t 1 2)" `shouldBe` Right (SList () [SAtom "if", SAtom "#t", SAtom "1", SAtom "2"])
-        context "basic valid equality" $ it "\"(eq? foo #f)\" should be Right (SList () [SAtom \"eq?\", SAtom \"foo\", SAtom \"#f\"])" $ parseSexpr "(eq? foo #f)" `shouldBe` Right (SList () [SAtom "eq?", SAtom "foo", SAtom "#f"])
-        context "basic valid lower comparison" $ it "\"(< 9 15)\" should be Right (SList () [SAtom \"<\", SAtom \"9\", SAtom \"15\"])" $ parseSexpr "(< 9 15)" `shouldBe` Right (SList () [SAtom "<", SAtom "9", SAtom "15"])
-        context "valid variable name with numbers" $ it "\"(+ 2 foo123)\" should be Right (SList () [SAtom \"+\", SAtom \"2\", SAtom \"foo123\"])" $ parseSexpr "(+ 2 foo123)" `shouldBe` Right (SList () [SAtom "+", SAtom "2", SAtom "foo123"])
-        context "invalid input: no closing parenthesis" $ it "\"(+ 2 foo\" should be Left" $ isLeft (parseSexpr "(+ 2 foo") `shouldBe` True
-        context "invalid input: no opening parenthesis" $ it "\"+ 2 foo)\" should be Left" $ isLeft (parseSexpr "+ 2 foo)") `shouldBe` True
-        context "invalid input: invalid variable name" $ it "\"(+ 2 123foo)\" should be Left" $ isLeft (parseSexpr "(+ 2 123foo)") `shouldBe` True
+        context "basic valid addition" $
+            it "\"(+ 1 1)\" should be Right (List [Atom (String \"+\"), Atom (Number 1), Atom (Number 1)])" $
+                parseSexpr' "(+ 1 1)" `shouldBe` Right (List [Atom (String "+"), Atom (Number 1), Atom (Number 1)])
+
+        context "basic valid subtraction" $
+            it "\"(- 1 -1)\" should be Right (List [Atom (String \"-\"), Atom (Number 1), Atom (Number (-1)])" $
+                parseSexpr' "(- 1 -1)" `shouldBe` Right (List [Atom (String "-"), Atom (Number 1), Atom (Number (-1))])
+
+        context "basic valid multiplication" $
+            it "\"(* +1 1)\" should be Right (List [Atom (String \"*\"), Atom (Number 1), Atom (Number 1)])" $
+                parseSexpr' "(* +1 1)" `shouldBe` Right (List [Atom (String "*"), Atom (Number 1), Atom (Number 1)])
+
+        context "basic valid division" $
+            it "\"(div 1 1)\" should be Right (List [Atom (String \"div\"), Atom (Number 1), Atom (Number 1)])" $
+                parseSexpr' "(div 1 1)" `shouldBe` Right (List [Atom (String "div"), Atom (Number 1), Atom (Number 1)])
+
+        context "basic valid comparison" $
+            it "\"(< 1 1)\" should be Right (List [Atom (String \"<\"), Atom (Number 1), Atom (Number 1)])" $
+                parseSexpr' "(< 1 1)" `shouldBe` Right (List [Atom (String "<"), Atom (Number 1), Atom (Number 1)])
+
+        context "basic valid equality" $
+            it "\"(eq? 1 1)\" should be Right (List [Atom (String \"eq?\"), Atom (Number 1), Atom (Number 1)])" $
+                parseSexpr' "(eq? 1 1)" `shouldBe` Right (List [Atom (String "eq?"), Atom (Number 1), Atom (Number 1)])
+
+        context "basic valid if" $
+            it "\"(if 1 1 1)\" should be Right (List [Atom (String \"if\"), Atom (Number 1), Atom (Number 1), Atom (Number 1)])" $
+                parseSexpr' "(if 1 1 1)" `shouldBe` Right (List [Atom (String "if"), Atom (Number 1), Atom (Number 1), Atom (Number 1)])
+
+        context "basic valid modulo" $
+            it "\"(mod 1 1)\" should be Right (List [Atom (String \"mod\"), Atom (Number 1), Atom (Number 1)])" $
+                parseSexpr' "(mod 1 1)" `shouldBe` Right (List [Atom (String "mod"), Atom (Number 1), Atom (Number 1)])
+
+        context "valid multiple lists" $
+            it "\"(x (x 1 2 3 (A b))(a B)) should be Right (List [Atom (String \"x\"), List [Atom (String \"x\"), Atom (Number 1), Atom (Number 2), Atom (Number 3), List [Atom (String \"A\"), Atom (String \"b\")]], List [Atom (String \"a\"), Atom (String \"B\")])" $
+                parseSexpr' "(x (x 1 2 3 (A b))(a B))" `shouldBe` Right (List [Atom (String "x"), List [Atom (String "x"), Atom (Number 1), Atom (Number 2), Atom (Number 3), List [Atom (String "A"), Atom (String "b")]], List [Atom (String "a"), Atom (String "B")]])
+
+        context "Basic float" $
+            it "\"(+ 1.0 1.0)\" should be Right (List [Atom (String \"+\"), Atom (Float 1.0), Atom (Float 1.0)])" $
+                parseSexpr' "(+ 1.0 1.0)" `shouldBe` Right (List [Atom (String "+"), Atom (Float 1.0), Atom (Float 1.0)])
+
+        context "Invalid expression" $
+            it "\"(+ 1 1\" should be Left \"unexpected end of input\"" $
+                isLeft (parseSexpr' "(+ 1 1") `shouldBe` True
+
+        context "Simple bool" $
+            it "\"(#t)\" should be Right (Bool True)" $
+                parseSexpr' "(#t)"
+                    `shouldBe` Right
+                        (List [Atom (Bool True)])
+        context "Simple bool" $
+            it "\"(#f)\" should be Right (Bool False)" $
+                parseSexpr' "(#f)" `shouldBe` Right (List [Atom (Bool False)])

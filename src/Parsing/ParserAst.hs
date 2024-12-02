@@ -4,7 +4,6 @@
 -- File description:
 -- Parser
 -}
-
 {-# LANGUAGE OverloadedStrings #-}
 
 module Parsing.ParserAst (
@@ -26,24 +25,38 @@ module Parsing.ParserAst (
     lexeme,
     symbol,
     convertValue,
-    parseAst
+    parseAst,
 ) where
 
-import Data.Void ( Void )
-import Data.Text ( Text )
-import Text.Megaparsec ( Parsec, choice, many, between, (<?>), manyTill, some,
-    (<|>), empty, MonadParsec (try, eof), parse, ParseErrorBundle )
-import Text.Megaparsec.Char ( string, letterChar, alphaNumChar, char, space1 )
-import Control.Monad.Combinators.Expr
-    ( makeExprParser, Operator(..) )
-import qualified Text.Megaparsec.Char.Lexer as L
 import Control.Monad (void)
+import Control.Monad.Combinators.Expr (
+    Operator (..),
+    makeExprParser,
+ )
+import Data.Text (Text)
+import Data.Void (Void)
+import Text.Megaparsec (
+    MonadParsec (eof, try),
+    ParseErrorBundle,
+    Parsec,
+    between,
+    choice,
+    empty,
+    many,
+    manyTill,
+    parse,
+    some,
+    (<?>),
+    (<|>),
+ )
+import Text.Megaparsec.Char (alphaNumChar, char, letterChar, space1, string)
+import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = Parsec Void Text
 type ParserError = ParseErrorBundle Text Void
 
-data Ast =
-    AstVar String
+data Ast
+    = AstVar String
     | AstInt Integer
     | AstBool Bool
     | AstString String
@@ -91,32 +104,36 @@ double :: Parser Double
 double = lexeme L.float
 
 bool :: Parser Bool
-bool = lexeme $ choice
-    [ False <$ string "#f"
-    , True <$ string "#t"
-    ]
+bool =
+    lexeme $
+        choice
+            [ False <$ string "#f",
+              True <$ string "#t"
+            ]
 
 pKeyword :: Text -> Parser Text
 pKeyword keyword = lexeme (string keyword)
 
 convertValue :: Parser Ast
-convertValue = choice
-    [ AstDouble <$> try double
-    , AstInt <$> integer
-    , AstBool <$> bool
-    , AstChar <$> charLiteral
-    , AstString <$> stringLiteral
-    , AstVar <$> variable
-    ]
+convertValue =
+    choice
+        [ AstDouble <$> try double,
+          AstInt <$> integer,
+          AstBool <$> bool,
+          AstChar <$> charLiteral,
+          AstString <$> stringLiteral,
+          AstVar <$> variable
+        ]
 
 list :: Parser Ast -> Parser Ast
 list = between (symbol "(") (symbol ")")
 
 pTerm :: Parser Ast
-pTerm = choice
-    [ list pAst
-    , convertValue
-    ]
+pTerm =
+    choice
+        [ list pAst,
+          convertValue
+        ]
 
 binary :: Text -> (Ast -> Ast -> Ast) -> Operator Parser Ast
 binary name f = InfixL (f <$ symbol name)
@@ -127,16 +144,19 @@ postfix name f = Postfix (f <$ symbol name)
 
 operatorTable :: [[Operator Parser Ast]]
 operatorTable =
-    [
-        [ prefix "-" AstNegation
-        , prefix "+" id ]
-    ,   [ binary "*" AstProduct
-        , binary "div" AstDivision
-        , binary "mod" AstModulo ]
-    ,   [ binary "+" AstSum
-        , binary "-" AstSubtr ]
-    ,   [ binary "eq?" AstEq
-        , binary "<" AstLower ]
+    [   [ prefix "-" AstNegation,
+          prefix "+" id
+        ],
+        [ binary "*" AstProduct,
+          binary "div" AstDivision,
+          binary "mod" AstModulo
+        ],
+        [ binary "+" AstSum,
+          binary "-" AstSubtr
+        ],
+        [ binary "eq?" AstEq,
+          binary "<" AstLower
+        ]
     ]
 
 pAst :: Parser Ast
