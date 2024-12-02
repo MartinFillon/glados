@@ -86,15 +86,11 @@ sexprToAST (Atom (String s)) = Just (AstSymbol s Nothing)
 sexprToAST (List [Atom (String "define"), Atom (String s), expr]) =
     Define s <$> sexprToAST expr
 -- Adjust sexprToAST to handle lambda expressions
-sexprToAST (List [Atom (String "lambda"), List params, body]) = do
-    paramNames <- mapM getSymbol params
-    bodyAst <- sexprToAST body
-    return (Lambda paramNames bodyAst)
+sexprToAST (List [Atom (String "lambda"), List params, body]) =
+    (\paramNames bodyAst -> Lambda paramNames bodyAst) <$> mapM getSymbol params <*> sexprToAST body
+sexprToAST (List ((Atom (String s)) : a)) = mapM sexprToAST a >>= \argAsts -> Just (Call (Function s argAsts))
 -- Adjust sexprToAST to handle function applications
-sexprToAST (List (func : a)) = do
-    funcAst <- sexprToAST func
-    argAsts <- mapM sexprToAST a
-    return (Apply funcAst argAsts)
+sexprToAST (List (func : a)) = (\x y -> Apply x y) <$> sexprToAST func <*> mapM sexprToAST a
 sexprToAST _ = Nothing
 
 -----------

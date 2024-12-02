@@ -7,9 +7,9 @@
 
 module Glados (glados) where
 
+import ErrorBundlePretty (errorBundlePrettyFormatted)
 import Eval.Evaluator (evalAST)
 import GHC.GHCi.Helpers (flushAll)
-import ErrorBundlePretty (errorBundlePrettyFormatted)
 import Parsing.ParserSExpr (ParserError, parseSexpr)
 import Parsing.SExprToAst (sexprToAST)
 import System.Exit (ExitCode (..), exitWith)
@@ -24,7 +24,7 @@ handleParseError showColors (Left err) =
         >> return undefined
 
 parseToSexpr :: String -> IO ()
-parseToSexpr s = handleParseError True (parseSexpr s) >>= (\x -> print (sexprToAST x))
+parseToSexpr s = handleParseError True (parseSexpr s) >>= (\x -> print (sexprToAST x >>= evalAST))
 
 handleInput :: String -> IO ()
 handleInput = parseToSexpr
