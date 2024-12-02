@@ -4,7 +4,7 @@ repos:
       - id: fourmolu
         name: Haskell Formatter
         description: Formats Haskell code using Fourmolu
-        entry: stack exec -- fourmolu
+        entry: stack exec -- fourmolu --mode=check
         language: system
         files: \\*.hs$
 
