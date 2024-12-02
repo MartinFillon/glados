@@ -31,6 +31,4 @@ handleArgs args = case execParserPure defaultPrefs
         res -> handleParseResult res >> mempty
 
 main :: IO ()
-main = do
-    args <- getArgs
-    handleArgs args
+main = getArgs >>= handleArgs
