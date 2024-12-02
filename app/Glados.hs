@@ -29,8 +29,14 @@ handleParseError showColors (Left err) =
         >> exitWith (ExitFailure 84)
         >> return undefined
 
+printAndReturn :: Show a => a -> IO a
+printAndReturn x = print x >> return x
+
 parseToSexpr :: String -> IO ()
-parseToSexpr s = handleParseError True (parseSexpr s) >>= (\x -> print (sexprToAST x >>= evalAST))
+parseToSexpr s =
+    handleParseError True (parseSexpr s)
+        >>= printAndReturn
+        >>= (\x -> print (sexprToAST x >>= evalAST))
 
 handleInput :: String -> IO ()
 handleInput = parseToSexpr
@@ -45,7 +51,7 @@ checkBuf' s | countParenthesis s = handleInput s >> return ""
 checkBuf' s = return s
 
 checkBuf :: String -> String -> IO String
-checkBuf s i = checkBuf' (s ++ i)
+checkBuf s i = checkBuf' (s ++ ' ' : i)
 
 getLineFromStdin' :: String -> Bool -> Bool -> IO ()
 getLineFromStdin' _ _ True = return ()
