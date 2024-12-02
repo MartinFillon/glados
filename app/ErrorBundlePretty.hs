@@ -7,7 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Parsing.ErrorBundlePretty (
+module ErrorBundlePretty (
     ErrorItem (..),
     ErrorFancy (..),
     ParseError (..),
@@ -29,7 +29,7 @@ import safe Text.Megaparsec.Stream
       TraversableStream(reachOffset),
       VisualStream(tokensLength) )
 import safe Text.Megaparsec.State ( PosState(pstateSourcePos) )
-import Printer (Color(Blue, Orange), reset, Style (Bold))
+import Printer (Color(Red), reset, Style (Bold), getColorsFromConf)
 import safe Text.Megaparsec.Error
     ( errorOffset,
       showErrorItem,
@@ -38,7 +38,7 @@ import safe Text.Megaparsec.Error
       ParseError(..),
       ParseErrorBundle(..),
       ShowErrorComponent(..) )
-import Data.Maybe (isNothing)
+import Data.Maybe (isNothing, fromJust)
 import Data.Set (Set)
 import qualified Data.List.NonEmpty as NE
 import Data.List.NonEmpty (NonEmpty ((:|)))
@@ -52,8 +52,24 @@ errorBundlePrettyFormatted ::
   ) =>
   Bool ->
   ParseErrorBundle s e ->
+  IO String
+errorBundlePrettyFormatted showColors bundle = do
+  colors <- getColorsFromConf
+  if isNothing colors
+    then return $ errorBundlePrettyFormatted' False (Red,Red,Red) bundle
+    else return $ errorBundlePrettyFormatted' showColors (fromJust colors) bundle
+
+errorBundlePrettyFormatted' ::
+  forall s e.
+  ( VisualStream s,
+    TraversableStream s,
+    ShowErrorComponent e
+  ) =>
+  Bool ->
+  (Color, Color, Color) ->
+  ParseErrorBundle s e ->
   String
-errorBundlePrettyFormatted showColors ParseErrorBundle {..} =
+errorBundlePrettyFormatted' showColors (cWarning, cError, cInfo) ParseErrorBundle {..} =
   let (r, _) = foldl f (id, bundlePosState) bundleErrors
    in drop 1 (r "")
   where
@@ -86,15 +102,15 @@ errorBundlePrettyFormatted showColors ParseErrorBundle {..} =
                   rpshift = unPos (sourceColumn epos) - 1
                   slineLen = length sline
                in padding
-                    <> (if showColors then show Bold <> show Blue <> "|\n" else "|\n")
+                    <> (if showColors then show Bold <> show cInfo <> "|\n" else "|\n")
                     <> lineNumber
                     <> (if showColors then " | " <> reset else " | ")
-                    <> (if showColors then show Bold <> show Orange <> sline <> reset else sline)
+                    <> (if showColors then show Bold <> show cWarning <> sline <> reset else sline)
                     <> "\n"
                     <> padding
-                    <> (if showColors then show Bold <> show Blue <> "| " <> reset else "| ")
+                    <> (if showColors then show Bold <> show cInfo <> "| " <> reset else "| ")
                     <> rpadding
-                    <> (if showColors then show Bold <> show Orange <> pointer <> reset else pointer)
+                    <> (if showColors then show Bold <> show cError <> pointer <> reset else pointer)
                     <> "\n"
         pxy = Proxy :: Proxy s
         elen =

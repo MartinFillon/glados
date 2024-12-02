@@ -7,9 +7,9 @@
 
 module Glados (glados) where
 
+import ErrorBundlePretty (errorBundlePrettyFormatted)
 import Eval.Evaluator (evalAST)
 import GHC.GHCi.Helpers (flushAll)
-import Parsing.ErrorBundlePretty (errorBundlePrettyFormatted)
 import Parsing.ParserSExpr (ParserError, parseSexpr)
 import Parsing.SExprToAst (sexprToAST)
 import System.Exit (ExitCode (..), exitWith)
@@ -18,7 +18,8 @@ import System.IO (hIsTerminalDevice, isEOF, stdin)
 handleParseError :: Bool -> Either ParserError a -> IO a
 handleParseError _ (Right val) = return val
 handleParseError showColors (Left err) =
-    putStr (errorBundlePrettyFormatted showColors err)
+    errorBundlePrettyFormatted showColors err
+        >>= putStr
         >> exitWith (ExitFailure 84)
         >> return undefined
 

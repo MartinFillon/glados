@@ -23,10 +23,12 @@ dependencies:
   - base >= 4.7 && < 5
   - megaparsec
   - text
+  - directory
   - containers
   - deepseq
   - mtl
   - parser-combinators
+  - optparse-applicative
 
 ghc-options:
   - -Wall
