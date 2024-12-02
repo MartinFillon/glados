@@ -7,7 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Parsing.ErrorBundlePretty (
+module ErrorBundlePretty (
     ErrorItem (..),
     ErrorFancy (..),
     ParseError (..),
