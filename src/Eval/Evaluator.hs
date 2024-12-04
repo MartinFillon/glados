@@ -1,3 +1,11 @@
+{-
+-- EPITECH PROJECT, 2024
+-- gladdos
+-- File description:
+-- Evaluator
+-}
+{-# LANGUAGE LambdaCase #-}
+
 module Eval.Evaluator (evalAST) where
 
 import qualified Data.Map as Map
@@ -21,19 +29,11 @@ import Parsing.SExprToAst (Ast (..), Function (..))
 
 type FunctionRegistry = Map.Map String ([Ast] -> Either String Ast)
 
--- evalLambda :: [String] -> Ast -> [Ast] -> Either String Ast
--- evalLambda params body args
---     | length params == length args = do
---         evaluatedArgs <- mapM evalAST args
---         let substitutions = zip params evaluatedArgs
---         evalAST (substitute body substitutions)
---     | otherwise = Left "Lambda argument count mismatch"
 evalLambda :: [String] -> Ast -> [Ast] -> Either String Ast
-evalLambda params body args
-    | length params == length args = 
-        mapM evalAST args >>= \evaluatedArgs -> evalAST (substitute body (zip params evaluatedArgs))
+evalLambda params body evalArgs
+    | length params == length evalArgs = 
+        mapM evalAST evalArgs >>= \evaluatedArgs -> evalAST (substitute body (zip params evaluatedArgs))
     | otherwise = Left "Lambda argument count mismatch"
-
 
 evalIf :: [Ast] -> Either String Ast
 evalIf [AstBool True, trueExpr, _] = evalAST trueExpr
@@ -70,36 +70,23 @@ substitute (Lambda params body) subs =
     Lambda params (substitute body subs) -- No substitution inside lambda's params
 substitute other _ = other
 
+handleSymbolFunctionCall :: String -> [Ast] -> Ast -> Either String Ast
+handleSymbolFunctionCall n evalArgs func =
+    case func of
+        Lambda params body -> evalLambda params body evalArgs
+        _ -> Left $ "Undefined function: " ++ n
+
 evalAST :: Ast -> Either String Ast
 evalAST (Define n expr) = Right (AstSymbol n (Just expr))
--- evalAST (Apply func args) =
---     evalAST func >>= \funcEval ->
---         fmap (\f -> evalLambda (params f) (body f) args) funcEval
---         >>= either (const (Left "Apply expects a lambda function")) id
-evalAST (Apply func args) = do
-    funcEval <- evalAST func
-    case funcEval of
-        Lambda params body -> evalLambda params body args
+evalAST (Apply func evalArgs) =
+    evalAST func >>= \case
+        Lambda params body -> evalLambda params body evalArgs
         _ -> Left "Apply expects a lambda function"
-
 evalAST (Lambda params body) = Right (Lambda params body)
--- evalAST (Call (Function n args)) =
---     (Map.lookup n defaultRegistry >>= (\f -> mapM evalAST args >>= f)) 
---         `orElse` evalAST (AstSymbol n Nothing) >>= \func ->
---             case func of
---                 Lambda params body -> evalLambda params body args
---                 _ -> Left ("Undefined function: " ++ n)
-evalAST (Call (Function n args)) =
+evalAST (Call (Function n evalArgs)) =
     case Map.lookup n defaultRegistry of
-        Just f -> do
-            evaluatedArgs <- mapM evalAST args
-            f evaluatedArgs
-        Nothing -> do
-            func <- evalAST (AstSymbol n Nothing)
-            case func of
-                Lambda params body -> evalLambda params body args
-                _ -> Left $ "Undefined function: " ++ n
-
+        Just f -> mapM evalAST evalArgs >>= f
+        Nothing -> evalAST (AstSymbol n Nothing) >>= handleSymbolFunctionCall n evalArgs
 evalAST (AstFloat f) = Right (AstFloat f)
 evalAST (AstInt i) = Right (AstInt i)
 evalAST (AstBool b) = Right (AstBool b)

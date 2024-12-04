@@ -1,3 +1,10 @@
+{-
+-- EPITECH PROJECT, 2024
+-- gladdos
+-- File description:
+-- Maths
+-}
+
 module Eval.Maths (evalAdd, evalSub, evalMul, evalDiv, evalMod) where
 
 import Data.Fixed (mod')

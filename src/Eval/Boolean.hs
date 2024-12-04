@@ -1,3 +1,10 @@
+{-
+-- EPITECH PROJECT, 2024
+-- gladdos
+-- File description:
+-- Boolean
+-}
+
 module Eval.Boolean (
     evalAnd,
     evalOr,
