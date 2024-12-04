@@ -4,6 +4,7 @@
 -- File description:
 -- Evaluator
 -}
+{-# LANGUAGE LambdaCase #-}
 
 module Eval.Evaluator (evalAST) where
 
@@ -26,20 +27,18 @@ import Eval.Maths (
  )
 import Parsing.SExprToAst (Ast (..), Function (..))
 
-type FunctionRegistry = Map.Map String ([Ast] -> Maybe Ast)
+type FunctionRegistry = Map.Map String ([Ast] -> Either String Ast)
 
-evalLambda :: [String] -> Ast -> [Ast] -> Maybe Ast
-evalLambda params body a
-    | length params == length a = do
-        evaluatedArgs <- mapM evalAST a
-        let substitutions = zip params evaluatedArgs
-        evalAST (substitute body substitutions)
-    | otherwise = Nothing
+evalLambda :: [String] -> Ast -> [Ast] -> Either String Ast
+evalLambda params body evalArgs
+    | length params == length evalArgs = 
+        mapM evalAST evalArgs >>= \evaluatedArgs -> evalAST (substitute body (zip params evaluatedArgs))
+    | otherwise = Left "Lambda argument count mismatch"
 
-evalIf :: [Ast] -> Maybe Ast
+evalIf :: [Ast] -> Either String Ast
 evalIf [AstBool True, trueExpr, _] = evalAST trueExpr
 evalIf [AstBool False, _, falseExpr] = evalAST falseExpr
-evalIf _ = Nothing
+evalIf _ = Left "Invalid arguments to `if`"
 
 defaultRegistry :: FunctionRegistry
 defaultRegistry =
@@ -71,32 +70,25 @@ substitute (Lambda params body) subs =
     Lambda params (substitute body subs) -- No substitution inside lambda's params
 substitute other _ = other
 
-evalAST :: Ast -> Maybe Ast
-evalAST (Define n expr) = Just (AstSymbol n (evalAST expr))
-evalAST (Apply func a) = do
-    funcEval <- evalAST func
-    case funcEval of
-        Lambda params body ->
-            if length params == length a
-                then do
-                    evaluatedArgs <- mapM evalAST a
-                    let substitutions = zip params evaluatedArgs
-                    evalAST (substitute body substitutions)
-                else Nothing
-        _ -> Nothing
-evalAST (Lambda params body) = Just (Lambda params body)
-evalAST (Call (Function n x)) =
+handleSymbolFunctionCall :: String -> [Ast] -> Ast -> Either String Ast
+handleSymbolFunctionCall n evalArgs func =
+    case func of
+        Lambda params body -> evalLambda params body evalArgs
+        _ -> Left $ "Undefined function: " ++ n
+
+evalAST :: Ast -> Either String Ast
+evalAST (Define n expr) = Right (AstSymbol n (Just expr))
+evalAST (Apply func evalArgs) =
+    evalAST func >>= \case
+        Lambda params body -> evalLambda params body evalArgs
+        _ -> Left "Apply expects a lambda function"
+evalAST (Lambda params body) = Right (Lambda params body)
+evalAST (Call (Function n evalArgs)) =
     case Map.lookup n defaultRegistry of
-        Just f -> do
-            evaluatedArgs <- mapM evalAST x
-            f evaluatedArgs
-        Nothing -> do
-            func <- evalAST (AstSymbol n Nothing)
-            case func of
-                Lambda params body -> evalLambda params body x
-                _ -> Nothing
-evalAST (AstInt i) = Just (AstInt i)
-evalAST (AstBool b) = Just (AstBool b)
-evalAST (AstFloat f) = Just (AstFloat f)
-evalAST (AstSymbol s Nothing) = Just (AstSymbol s Nothing)
+        Just f -> mapM evalAST evalArgs >>= f
+        Nothing -> evalAST (AstSymbol n Nothing) >>= handleSymbolFunctionCall n evalArgs
+evalAST (AstFloat f) = Right (AstFloat f)
+evalAST (AstInt i) = Right (AstInt i)
+evalAST (AstBool b) = Right (AstBool b)
+evalAST (AstSymbol s Nothing) = Right (AstSymbol s Nothing)
 evalAST (AstSymbol _ (Just val)) = evalAST val
