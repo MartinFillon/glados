@@ -1,10 +1,3 @@
-{-
--- EPITECH PROJECT, 2024
--- gladdos
--- File description:
--- Boolean
--}
-
 module Eval.Boolean (
     evalAnd,
     evalOr,
@@ -16,36 +9,32 @@ module Eval.Boolean (
 
 import Parsing.SExprToAst (Ast (..))
 
-evalAnd :: [Ast] -> Maybe Ast
-evalAnd [AstBool b1, AstBool b2] = Just (AstBool ((&&) b1 b2))
-evalAnd _ = Nothing
+evalAnd :: [Ast] -> Either String Ast
+evalAnd [AstBool b1, AstBool b2] = Right (AstBool (b1 && b2))
+evalAnd _ = Left "Invalid arguments for `and`"
 
-evalOr :: [Ast] -> Maybe Ast
-evalOr [AstBool b1, AstBool b2] = Just (AstBool ((||) b1 b2))
-evalOr _ = Nothing
+evalOr :: [Ast] -> Either String Ast
+evalOr [AstBool b1, AstBool b2] = Right (AstBool (b1 || b2))
+evalOr _ = Left "Invalid arguments for `or`"
 
-evalNot :: [Ast] -> Maybe Ast
-evalNot [AstBool a] = Just $ AstBool (not a)
-evalNot _ = Nothing
+evalNot :: [Ast] -> Either String Ast
+evalNot [AstBool b] = Right (AstBool (not b))
+evalNot _ = Left "Invalid arguments for `not`"
 
-evalEq :: [Ast] -> Maybe Ast
-evalEq [AstInt i1, AstInt i2] = Just $ AstBool (i1 == i2)
-evalEq [AstFloat f1, AstFloat f2] = Just $ AstBool (f1 == f2)
-evalEq [AstInt i, AstFloat f] = Just $ AstBool (fromIntegral i == f)
-evalEq [AstFloat f, AstInt i] = Just $ AstBool (f == fromIntegral i)
-evalEq [AstBool b1, AstBool b2] = Just $ AstBool (b1 == b2)
-evalEq [AstBool b, AstInt i] = Just $ AstBool (b == (i /= 0))
-evalEq [AstInt i, AstBool b] = Just $ AstBool ((i /= 0) == b)
-evalEq [AstBool b, AstFloat f] = Just $ AstBool (b == (f /= 0))
-evalEq [AstFloat f, AstBool b] = Just $ AstBool ((f /= 0) == b)
-evalEq _ = Nothing
+evalEq :: [Ast] -> Either String Ast
+evalEq [AstInt i1, AstInt i2] = Right (AstBool (i1 == i2))
+evalEq [AstFloat f1, AstFloat f2] = Right (AstBool (f1 == f2))
+evalEq [AstInt i, AstFloat f] = Right (AstBool (fromIntegral i == f))
+evalEq [AstFloat f, AstInt i] = Right (AstBool (f == fromIntegral i))
+evalEq [AstBool b1, AstBool b2] = Right (AstBool (b1 == b2))
+evalEq _ = Left "Invalid arguments for equality"
 
-evalLt :: [Ast] -> Maybe Ast
-evalLt [AstInt i1, AstInt i2] = Just $ AstBool (i1 < i2)
-evalLt [AstFloat f1, AstFloat f2] = Just $ AstBool (f1 < f2)
-evalLt _ = Nothing
+evalLt :: [Ast] -> Either String Ast
+evalLt [AstInt i1, AstInt i2] = Right (AstBool (i1 < i2))
+evalLt [AstFloat f1, AstFloat f2] = Right (AstBool (f1 < f2))
+evalLt _ = Left "Invalid arguments for less-than"
 
-evalGt :: [Ast] -> Maybe Ast
-evalGt [AstInt i1, AstInt i2] = Just $ AstBool (i1 > i2)
-evalGt [AstFloat f1, AstFloat f2] = Just $ AstBool (f1 > f2)
-evalGt _ = Nothing
+evalGt :: [Ast] -> Either String Ast
+evalGt [AstInt i1, AstInt i2] = Right (AstBool (i1 > i2))
+evalGt [AstFloat f1, AstFloat f2] = Right (AstBool (f1 > f2))
+evalGt _ = Left "Invalid arguments for greater-than"

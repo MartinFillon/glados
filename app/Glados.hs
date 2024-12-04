@@ -11,7 +11,7 @@ import ErrorBundlePretty (errorBundlePrettyFormatted)
 import Eval.Evaluator (evalAST)
 import GHC.GHCi.Helpers (flushAll)
 import Parsing.ParserSExpr (ParserError, parseSexpr)
-import Parsing.SExprToAst (sexprToAST)
+import Parsing.SExprToAst (Ast (..), sexprToAST)
 import System.Exit (ExitCode (..), exitWith)
 import System.IO (hIsTerminalDevice, isEOF, stdin)
 
@@ -32,11 +32,20 @@ handleParseError showColors (Left err) =
 printAndReturn :: Show a => a -> IO a
 printAndReturn x = print x >> return x
 
+handleEvalResult :: Either String Ast -> IO ()
+handleEvalResult (Right result) = print result
+handleEvalResult (Left err) = putStrLn ("Error during evaluation: " ++ err)
+
 parseToSexpr :: String -> IO ()
 parseToSexpr s =
     handleParseError True (parseSexpr s)
         >>= printAndReturn
-        >>= (\x -> print (sexprToAST x >>= evalAST))
+        >>= (\sexpr -> case sexprToAST sexpr of
+            Nothing -> putStrLn "AST Conversion Error: Invalid SExpr"
+            Just ast -> handleEvalResult (evalAST ast)
+            )
+
+-- add memory
 
 handleInput :: String -> IO ()
 handleInput = parseToSexpr

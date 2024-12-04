@@ -55,13 +55,13 @@ getSymbol :: Sexpr Int Double -> Maybe String
 getSymbol (Atom (String s)) = Just s
 getSymbol _ = Nothing
 
-{-getInteger :: SExpr -> Maybe Int
-getInteger (Integer i) = Just i
-getInteger _ = Nothing
+-- getInteger :: SExpr -> Maybe Int
+-- getInteger (Integer i) = Just i
+-- getInteger _ = Nothing
 
-getList :: SExpr -> Maybe [SExpr]
-getList (List l) = Just l
-getList _ = Nothing-}
+-- getList :: SExpr -> Maybe [SExpr]
+-- getList (List l) = Just l
+-- getList _ = Nothing
 
 printTree :: Sexpr Int Double -> Maybe String
 printTree (Atom (String s)) = Just ("a " ++ show s)
