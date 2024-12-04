@@ -8,11 +8,12 @@
 module EvalAstSpec (spec) where
 
 import Eval.Evaluator (evalAST)
+import HelperSpec (shouldBeApproximatelyAst)
 import Parsing.SExprToAst (
     Ast (..),
     Function (..),
  )
-import Test.Hspec (Spec, context, describe, it, shouldBe)
+import Test.Hspec (Spec, context, describe, expectationFailure, it, shouldBe)
 
 spec :: Spec
 spec = describe "evalAST" $ do
@@ -22,16 +23,21 @@ spec = describe "evalAST" $ do
         it "negative integer" $ do
             evalAST (AstInt (-42)) `shouldBe` Right (AstInt (-42))
 
-    -- context "evaluates literal floats" $ do
-    --     it "float" $ do
-    --         evalAST (AstFloat 42.0) `shouldBe` Right (AstFloat 42.0)
-    --     it "negative float" $ do
-    --         evalAST (AstFloat (-42.0)) `shouldBe` Right (AstFloat (-42.0))
-
+    context "evaluates literal floats" $ do
+        it "float" $ do
+            let result = evalAST (AstFloat 42.0)
+            case result of
+                Right (AstFloat x) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 42.0)
+                _ -> expectationFailure "Expected AstFloat result"
+        it "negative float" $ do
+            let result = evalAST (AstFloat (-42.0)) 
+            case result of
+                Right (AstFloat x) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat (-42.0))
+                _ -> expectationFailure "Expected AstFloat result"
     it "evaluates Boolean true" $ do
         evalAST (AstBool True) `shouldBe` Right (AstBool True)
-    -- it "evaluates Boolean false" $ do
-    --     evalAST (AstBool False) `shouldBe` Right (AstBool False)
+    it "evaluates Boolean false" $ do
+        evalAST (AstBool False) `shouldBe` Right (AstBool False)
 
     describe "arithmetic operators" $ do
         context "evaluates addition" $ do
@@ -44,9 +50,11 @@ spec = describe "evalAST" $ do
             it "addition on negative values" $ do
                 evalAST (Call (Function "+" [AstInt (-1), AstInt (-83)]))
                     `shouldBe` Right (AstInt (-84))
-            -- it "addition on floats" $ do
-            --     evalAST (Call (Function "+" [AstFloat 1.0, AstFloat 2.0]))
-            --         `shouldBe` Right (AstFloat 3.0)
+            it "addition on floats" $ do
+                let result = evalAST (Call (Function "+" [AstFloat 1.0, AstFloat 2.0]))
+                    case result of
+                        Right (AstFloat x) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 3.0)
+                        _ -> expectationFailure "Expected AstFloat result"
 
         context "evaluates division" $ do
             it "division with positive values" $ do
@@ -55,9 +63,11 @@ spec = describe "evalAST" $ do
             it "division with positive and negative values" $ do
                 evalAST (Call (Function "/" [AstInt (-12), AstInt 4]))
                     `shouldBe` Right (AstInt (-3))
-            -- it "division with floats" $ do
-            --     evalAST (Call (Function "/" [AstFloat 4.0, AstFloat 2.0]))
-            --         `shouldBe` Right (AstFloat 2.0)
+            it "division with floats" $ do
+                let result = evalAST (Call (Function "/" [AstFloat 4.0, AstFloat 2.0]))
+                case result of
+                    Right (AstFloat x) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 2.0)
+                    _ -> expectationFailure "Expected AstFloat result"
             it "division with negative values" $ do
                 evalAST (Call (Function "div" [AstInt (-4), AstInt (-2)]))
                     `shouldBe` Right (AstInt 2)
@@ -78,9 +88,11 @@ spec = describe "evalAST" $ do
             it "multiplication with negative values" $ do
                 evalAST (Call (Function "*" [AstInt (-3), AstInt (-4)]))
                     `shouldBe` Right (AstInt 12)
-            -- it "multiplication with floats" $ do
-            --     evalAST (Call (Function "*" [AstFloat 3.0, AstFloat 4.0]))
-            --         `shouldBe` Right (AstFloat 12.0)
+            it "multiplication with floats" $ do
+                let result = evalAST (Call (Function "*" [AstFloat 3.0, AstFloat 4.0]))
+                case result of
+                    Right (AstFloat x) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 12.0)
+                    _ -> expectationFailure "Expected AstFloat result"
             it "multiplication with positive and negative values" $ do
                 evalAST (Call (Function "*" [AstInt (-3), AstInt 4]))
                     `shouldBe` Right (AstInt (-12))
@@ -98,13 +110,17 @@ spec = describe "evalAST" $ do
             it "modulo on negative values with mod" $ do
                 evalAST (Call (Function "mod" [AstInt (-10), AstInt (-4)]))
                     `shouldBe` Right (AstInt (-2))
-            -- it "modulo on floats with %" $ do
-            --     evalAST (Call (Function "%" [AstFloat 10.0, AstFloat 3.0]))
-            --         `shouldBe` Right (AstFloat 1.0)
-            -- it "modulo on floats with mod" $ do
-            --     evalAST (Call (Function "mod" [AstFloat 10.0, AstFloat 4.0]))
-            --         `shouldBe` Right (AstFloat 2.0)
-
+            it "modulo on floats with %" $ do
+                let result = evalAST (Call (Function "%" [AstFloat 10.0, AstFloat 3.0]))
+                case result of
+                    Right (AstFloat x) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 1.0)
+                    _ -> expectationFailure "Expected AstFloat result"
+            it "modulo on floats with mod" $ do
+                let result = evalAST (Call (Function "mod" [AstFloat 10.0, AstFloat 4.0]))
+                case result of
+                    Right (AstFloat x) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 2.0)
+                    _ -> expectationFailure "Expected AstFloat result"
+                
     describe "predicates" $ do
         context "evaluates equality" $ do
             it "equal positive integers" $ do
@@ -119,12 +135,12 @@ spec = describe "evalAST" $ do
             it "unequal negative integers" $ do
                 evalAST (Call (Function "eq?" [AstInt (-3), AstInt (-4)]))
                     `shouldBe` Right (AstBool False)
-            -- it "equal positive floats" $ do
-            --     evalAST (Call (Function "eq?" [AstFloat 4.0, AstFloat 4.0]))
-            --         `shouldBe` Right (AstBool True)
-            -- it "unequal positive floats" $ do
-            --     evalAST (Call (Function "eq?" [AstFloat 4.0, AstFloat 5.0]))
-            --         `shouldBe` Right (AstBool False)
+            it "equal positive floats" $ do
+                evalAST (Call (Function "eq?" [AstFloat 4.0, AstFloat 4.0]))
+                    `shouldBe` Right (AstBool True)
+            it "unequal positive floats" $ do
+                evalAST (Call (Function "eq?" [AstFloat 4.0, AstFloat 5.0]))
+                    `shouldBe` Right (AstBool False)
 
         context "evaluates less than" $ do
             it "positive numbers comparison" $ do

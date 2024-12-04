@@ -23,6 +23,7 @@ fclean: clean
 	$(RM) $(NAME)
 	$(RM) $(TEST_PATH)
 	$(RM) *.html
+	$(RM) glados.cabal
 
 re: fclean all
 
