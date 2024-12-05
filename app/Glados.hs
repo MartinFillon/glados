@@ -40,9 +40,9 @@ parseToSexpr :: String -> IO ()
 parseToSexpr s =
     handleParseError True (parseSexpr s)
         >>= printAndReturn
-        >>= (\sexpr -> case sexprToAST sexpr of
-            Nothing -> putStrLn "AST Conversion Error: Invalid SExpr"
-            Just ast -> handleEvalResult (evalAST ast)
+        >>= ( \sexpr -> case sexprToAST sexpr of
+                Nothing -> putStrLn "AST Conversion Error: Invalid SExpr"
+                Just ast -> handleEvalResult (evalAST ast)
             )
 
 -- add memory

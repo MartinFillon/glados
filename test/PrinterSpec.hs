@@ -4,7 +4,6 @@
 -- File description:
 -- PrinterSpec
 -}
-
 {-# LANGUAGE InstanceSigs #-}
 
 module PrinterSpec (spec) where

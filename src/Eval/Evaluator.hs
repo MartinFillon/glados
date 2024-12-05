@@ -31,7 +31,7 @@ type FunctionRegistry = Map.Map String ([Ast] -> Either String Ast)
 
 evalLambda :: [String] -> Ast -> [Ast] -> Either String Ast
 evalLambda params body evalArgs
-    | length params == length evalArgs = 
+    | length params == length evalArgs =
         mapM evalAST evalArgs >>= \evaluatedArgs -> evalAST (substitute body (zip params evaluatedArgs))
     | otherwise = Left "Lambda argument count mismatch"
 

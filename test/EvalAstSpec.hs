@@ -30,14 +30,16 @@ spec = describe "evalAST" $ do
                 Right (AstFloat x) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 42.0)
                 _ -> expectationFailure "Expected AstFloat result"
         it "negative float" $ do
-            let result = evalAST (AstFloat (-42.0)) 
+            let result = evalAST (AstFloat (-42.0))
             case result of
                 Right (AstFloat x) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat (-42.0))
                 _ -> expectationFailure "Expected AstFloat result"
-    it "evaluates Boolean true" $ do
-        evalAST (AstBool True) `shouldBe` Right (AstBool True)
-    it "evaluates Boolean false" $ do
-        evalAST (AstBool False) `shouldBe` Right (AstBool False)
+
+    context "evaluates literal booleans" $ do
+        it "evaluates Boolean true" $ do
+            evalAST (AstBool True) `shouldBe` Right (AstBool True)
+        it "evaluates Boolean false" $ do
+            evalAST (AstBool False) `shouldBe` Right (AstBool False)
 
     describe "arithmetic operators" $ do
         context "evaluates addition" $ do
@@ -52,9 +54,9 @@ spec = describe "evalAST" $ do
                     `shouldBe` Right (AstInt (-84))
             it "addition on floats" $ do
                 let result = evalAST (Call (Function "+" [AstFloat 1.0, AstFloat 2.0]))
-                    case result of
-                        Right (AstFloat x) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 3.0)
-                        _ -> expectationFailure "Expected AstFloat result"
+                case result of
+                    Right (AstFloat x) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 3.0)
+                    _ -> expectationFailure "Expected AstFloat result"
 
         context "evaluates division" $ do
             it "division with positive values" $ do
@@ -120,7 +122,7 @@ spec = describe "evalAST" $ do
                 case result of
                     Right (AstFloat x) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 2.0)
                     _ -> expectationFailure "Expected AstFloat result"
-                
+
     describe "predicates" $ do
         context "evaluates equality" $ do
             it "equal positive integers" $ do
@@ -155,6 +157,9 @@ spec = describe "evalAST" $ do
             it "false case for comparison" $ do
                 evalAST (Call (Function "<" [AstInt 5, AstInt 3]))
                     `shouldBe` Right (AstBool False)
+            it "positive float numbers comparison" $ do
+                evalAST (Call (Function "<" [AstFloat 3.0, AstFloat 5.0]))
+                    `shouldBe` Right (AstBool True)
 
         context "evaluates greater than" $ do
             it "positive numbers comparison" $ do
@@ -166,6 +171,9 @@ spec = describe "evalAST" $ do
             it "false case for comparison" $ do
                 evalAST (Call (Function ">" [AstInt (-3), AstInt (-2)]))
                     `shouldBe` Right (AstBool False)
+            it "positive float numbers comparison" $ do
+                evalAST (Call (Function ">" [AstFloat 7.0, AstFloat 2.0]))
+                    `shouldBe` Right (AstBool True)
 
         context "evaluates Boolean AND" $ do
             it "true and false" $ do
@@ -177,6 +185,9 @@ spec = describe "evalAST" $ do
             it "false and false" $ do
                 evalAST (Call (Function "and" [AstBool False, AstBool False]))
                     `shouldBe` Right (AstBool False)
+            it "error handling" $ do
+                evalAST (Call (Function "and" [AstBool True, AstInt 4]))
+                    `shouldBe` Left "Invalid arguments for `and`"
 
         context "evaluates Boolean OR" $ do
             it "true or false" $ do
@@ -188,6 +199,20 @@ spec = describe "evalAST" $ do
             it "false or false" $ do
                 evalAST (Call (Function "or" [AstBool False, AstBool False]))
                     `shouldBe` Right (AstBool False)
+            it "error handling" $ do
+                evalAST (Call (Function "or" [AstBool False, AstInt (-4)]))
+                    `shouldBe` Left "Invalid arguments for `or`"
+
+        context "evaluates Boolean NOT" $ do
+            it "true" $ do
+                evalAST (Call (Function "not" [AstBool True]))
+                    `shouldBe` Right (AstBool False)
+            it "false" $ do
+                evalAST (Call (Function "not" [AstBool False]))
+                    `shouldBe` Right (AstBool True)
+            it "error handling" $ do
+                evalAST (Call (Function "not" [AstBool False, AstInt (-4)]))
+                    `shouldBe` Left "Invalid arguments for `not`"
 
     describe "evaluates lambda calls" $ do
         context "basic lambda expressions" $ do
@@ -200,8 +225,8 @@ spec = describe "evalAST" $ do
                 evalAST (Apply lambdaExpr [AstInt 7, AstInt 5])
                     `shouldBe` Right (AstInt 2)
 
-    -- it "evaluates define" $ do
-    --     let defineExpr = Define "x" (AstInt 10)
-    --     let symbolX = evalAST defineExpr
-    --     evalAST (Call (Function "+" [AstSymbol "x" symbolX, AstInt 5]))
-    --         `shouldBe` Right (AstInt 15)
+-- it "evaluates define" $ do
+--     let defineExpr = Define "x" (AstInt 10)
+--     let symbolX = evalAST defineExpr
+--     evalAST (Call (Function "+" [AstSymbol "x" symbolX, AstInt 5]))
+--         `shouldBe` Right (AstInt 15)
