@@ -10,6 +10,7 @@ module Glados (glados) where
 import ErrorBundlePretty (errorBundlePrettyFormatted)
 import Eval.Evaluator (evalAST)
 import GHC.GHCi.Helpers (flushAll)
+import Memory (Memory, initMemory)
 import Parsing.ParserSExpr (ParserError, parseSexpr)
 import Parsing.SExprToAst (Ast (..), sexprToAST)
 import System.Exit (ExitCode (..), exitWith)
@@ -32,31 +33,32 @@ handleParseError showColors (Left err) =
 printAndReturn :: Show a => a -> IO a
 printAndReturn x = print x >> return x
 
-handleEvalResult :: Either String Ast -> IO ()
-handleEvalResult (Right result) = print result
+handleEvalResult :: Either String (Ast, Memory) -> IO ()
+handleEvalResult (Right (result, _)) = print result
+-- add debug here for mem
 handleEvalResult (Left err) = putStrLn ("Error during evaluation: " ++ err)
 
-parseToSexpr :: String -> IO ()
-parseToSexpr s =
+parseToSexpr :: Memory -> String -> IO ()
+parseToSexpr mem s =
     handleParseError True (parseSexpr s)
         >>= printAndReturn
         >>= ( \sexpr -> case sexprToAST sexpr of
+                Just ast -> handleEvalResult (evalAST mem ast)
                 Nothing -> putStrLn "AST Conversion Error: Invalid SExpr"
-                Just ast -> handleEvalResult (evalAST ast)
             )
 
 -- add memory
 
-handleInput :: String -> IO ()
+handleInput :: Memory -> String -> IO ()
 handleInput = parseToSexpr
 
-getContentFromFile :: String -> IO ()
-getContentFromFile filepath =
+getContentFromFile :: Memory -> String -> IO ()
+getContentFromFile mem filepath =
     readFile filepath
-        >>= parseToSexpr
+        >>= parseToSexpr mem
 
 checkBuf' :: String -> IO String
-checkBuf' s | countParenthesis s = handleInput s >> return ""
+checkBuf' s | countParenthesis s = handleInput initMemory s >> return ""
 checkBuf' s = return s
 
 checkBuf :: String -> String -> IO String
@@ -80,5 +82,5 @@ getContentFromStdin :: IO ()
 getContentFromStdin = hIsTerminalDevice stdin >>= getLineFromStdin ""
 
 glados :: Maybe String -> IO ()
-glados (Just filepath) = getContentFromFile filepath
+glados (Just filepath) = getContentFromFile initMemory filepath
 glados Nothing = getContentFromStdin
