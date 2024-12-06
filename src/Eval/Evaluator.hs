@@ -8,8 +8,11 @@
 
 module Eval.Evaluator (evalAST) where
 
+import Control.Monad (foldM)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
+
+-- import Debug.Trace (trace)
 import Eval.Boolean (
     evalAnd,
     evalEq,
@@ -94,11 +97,60 @@ substitute other _ = other
 -- evalAST (AstSymbol s Nothing) = Right (AstSymbol s Nothing)
 -- evalAST (AstSymbol _ (Just val)) = evalAST val
 
+evalAndAccumulate :: (Memory, [Ast]) -> Ast -> Either String (Memory, [Ast])
+evalAndAccumulate (mem, acc) arg = do
+    (evaluatedArg, newMem) <- evalAST mem arg
+    Right (newMem, acc ++ [evaluatedArg])
+
+evalLambda :: Memory -> [String] -> Ast -> [Ast] -> Either String (Ast, Memory)
+evalLambda mem params body args =
+    if length params /= length args
+        then Left "Lambda argument count mismatch"
+        else
+            let substitutions = zip params args
+                substitutedBody = substitute body substitutions
+             in evalAST mem substitutedBody
+
+handleSymbolFunctionCall :: Memory -> String -> [Ast] -> Ast -> Either String (Ast, Memory)
+handleSymbolFunctionCall mem _ evalArgs func =
+    case func of
+        Lambda params body -> evalLambda mem params body evalArgs
+        _ -> Left "Cannot call a non-lambda value"
+
 evalAST :: Memory -> Ast -> Either String (Ast, Memory)
-evalAST mem (Define n expr) = Right (AstSymbol n (Just expr), mem)
+evalAST mem (Define n expr) =
+    evalAST mem expr >>= \(evaluatedExpr, updatedMem) ->
+        Right (AstSymbol n (Just evaluatedExpr), updateMemory updatedMem n evaluatedExpr)
+evalAST mem (Apply func evalArgs) =
+    evalAST mem func >>= \(evaluatedFunc, memAfterFunc) ->
+        case evaluatedFunc of
+            Lambda params body ->
+                foldM evalArgsWithMem ([], memAfterFunc) evalArgs >>= \(evaluatedArgs, memAfterArgs) ->
+                    evalAST memAfterArgs (substitute body (zip params evaluatedArgs))
+            _ -> Left "Apply expects a lambda function"
+  where
+    evalArgsWithMem (accArgs, curMem) arg =
+        evalAST curMem arg >>= \(evaluatedArg, newMem) ->
+            Right (accArgs ++ [evaluatedArg], newMem)
 evalAST mem (Lambda params body) = Right (Lambda params body, mem)
+evalAST mem (Call (Function n evalArgs)) =
+    case Map.lookup n defaultRegistry of
+        Just f ->
+            foldM evalAndAccumulate (mem, []) evalArgs >>= \(newMem, evaluatedArgs) ->
+                case f evaluatedArgs of
+                    Right result -> Right (result, newMem)
+                    Left err -> Left err
+        Nothing ->
+            case readMemory mem n of
+                Just (Lambda params body) ->
+                    evalLambda mem params body evalArgs
+                Just otherAst ->
+                    handleSymbolFunctionCall mem n evalArgs otherAst
+                Nothing ->
+                    Left $ "Function not found: " ++ n
 evalAST mem (AstFloat f) = Right (AstFloat f, mem)
 evalAST mem (AstInt i) = Right (AstInt i, mem)
 evalAST mem (AstBool b) = Right (AstBool b, mem)
-evalAST mem (AstSymbol s Nothing) = Right (AstSymbol s Nothing, mem)
+evalAST mem (AstSymbol s Nothing) =
+    maybe (Right (AstSymbol s Nothing, mem)) (\val -> Right (val, mem)) (readMemory mem s)
 evalAST mem (AstSymbol _ (Just val)) = evalAST mem val
