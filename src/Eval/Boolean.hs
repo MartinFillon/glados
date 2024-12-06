@@ -14,34 +14,35 @@ module Eval.Boolean (
     evalGt,
 ) where
 
+import Memory (Memory)
 import Parsing.SExprToAst (Ast (..))
 
-evalAnd :: [Ast] -> Either String Ast
-evalAnd [AstBool b1, AstBool b2] = Right (AstBool (b1 && b2))
-evalAnd _ = Left "Invalid arguments for `and`"
+evalAnd :: Memory -> [Ast] -> Either String (Ast, Memory)
+evalAnd mem [AstBool b1, AstBool b2] = Right (AstBool (b1 && b2), mem)
+evalAnd _ _ = Left "Invalid arguments for `and`"
 
-evalOr :: [Ast] -> Either String Ast
-evalOr [AstBool b1, AstBool b2] = Right (AstBool (b1 || b2))
-evalOr _ = Left "Invalid arguments for `or`"
+evalOr :: Memory -> [Ast] -> Either String (Ast, Memory)
+evalOr mem [AstBool b1, AstBool b2] = Right (AstBool (b1 || b2), mem)
+evalOr _ _ = Left "Invalid arguments for `or`"
 
-evalNot :: [Ast] -> Either String Ast
-evalNot [AstBool b] = Right (AstBool (not b))
-evalNot _ = Left "Invalid arguments for `not`"
+evalNot :: Memory -> [Ast] -> Either String (Ast, Memory)
+evalNot mem [AstBool b] = Right (AstBool (not b), mem)
+evalNot _ _ = Left "Invalid arguments for `not`"
 
-evalEq :: [Ast] -> Either String Ast
-evalEq [AstInt i1, AstInt i2] = Right (AstBool (i1 == i2))
-evalEq [AstFloat f1, AstFloat f2] = Right (AstBool (f1 == f2))
-evalEq [AstInt i, AstFloat f] = Right (AstBool (fromIntegral i == f))
-evalEq [AstFloat f, AstInt i] = Right (AstBool (f == fromIntegral i))
-evalEq [AstBool b1, AstBool b2] = Right (AstBool (b1 == b2))
-evalEq _ = Left "Invalid arguments for equality"
+evalEq :: Memory -> [Ast] -> Either String (Ast, Memory)
+evalEq mem [AstInt i1, AstInt i2] = Right (AstBool (i1 == i2), mem)
+evalEq mem [AstFloat f1, AstFloat f2] = Right (AstBool (f1 == f2), mem)
+evalEq mem [AstInt i, AstFloat f] = Right (AstBool (fromIntegral i == f), mem)
+evalEq mem [AstFloat f, AstInt i] = Right (AstBool (f == fromIntegral i), mem)
+evalEq mem [AstBool b1, AstBool b2] = Right (AstBool (b1 == b2), mem)
+evalEq _ _ = Left "Invalid arguments for equality"
 
-evalLt :: [Ast] -> Either String Ast
-evalLt [AstInt i1, AstInt i2] = Right (AstBool (i1 < i2))
-evalLt [AstFloat f1, AstFloat f2] = Right (AstBool (f1 < f2))
-evalLt _ = Left "Invalid arguments for less-than"
+evalLt :: Memory -> [Ast] -> Either String (Ast, Memory)
+evalLt mem [AstInt i1, AstInt i2] = Right (AstBool (i1 < i2), mem)
+evalLt mem [AstFloat f1, AstFloat f2] = Right (AstBool (f1 < f2), mem)
+evalLt _ _ = Left "Invalid arguments for less-than"
 
-evalGt :: [Ast] -> Either String Ast
-evalGt [AstInt i1, AstInt i2] = Right (AstBool (i1 > i2))
-evalGt [AstFloat f1, AstFloat f2] = Right (AstBool (f1 > f2))
-evalGt _ = Left "Invalid arguments for greater-than"
+evalGt :: Memory -> [Ast] -> Either String (Ast, Memory)
+evalGt mem [AstInt i1, AstInt i2] = Right (AstBool (i1 > i2), mem)
+evalGt mem [AstFloat f1, AstFloat f2] = Right (AstBool (f1 > f2), mem)
+evalGt _ _ = Left "Invalid arguments for greater-than"

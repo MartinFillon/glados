@@ -31,18 +31,12 @@ import Eval.Maths (
 import Memory (Memory, readMemory, updateMemory)
 import Parsing.SExprToAst (Ast (..), Function (..))
 
-type FunctionRegistry = Map.Map String ([Ast] -> Either String Ast)
+type FunctionRegistry = Map.Map String (Memory -> [Ast] -> Either String (Ast, Memory))
 
--- evalLambda :: [String] -> Ast -> [Ast] -> Either String Ast
--- evalLambda params body evalArgs
---     | length params == length evalArgs =
---         mapM evalAST evalArgs >>= \evaluatedArgs -> evalAST (substitute body (zip params evaluatedArgs))
---     | otherwise = Left "Lambda argument count mismatch"
-
--- evalIf :: [Ast] -> Either String Ast
--- evalIf [AstBool True, trueExpr, _] = evalAST trueExpr
--- evalIf [AstBool False, _, falseExpr] = evalAST falseExpr
--- evalIf _ = Left "Invalid arguments to `if`"
+evalIf :: Memory -> [Ast] -> Either String (Ast, Memory)
+evalIf mem [AstBool True, trueExpr, _] = evalAST mem trueExpr
+evalIf mem [AstBool False, _, falseExpr] = evalAST mem falseExpr
+evalIf _ _ = Left "Invalid arguments to `if`"
 
 defaultRegistry :: FunctionRegistry
 defaultRegistry =
@@ -59,8 +53,8 @@ defaultRegistry =
           (">", evalGt),
           ("and", evalAnd),
           ("or", evalOr),
-          ("not", evalNot)
-          --   ("if", evalIf)
+          ("not", evalNot),
+          ("if", evalIf)
         ]
 
 substitute :: Ast -> [(String, Ast)] -> Ast
@@ -74,40 +68,17 @@ substitute (Lambda params body) subs =
     Lambda params (substitute body subs) -- No substitution inside lambda's params
 substitute other _ = other
 
--- handleSymbolFunctionCall :: String -> [Ast] -> Ast -> Either String Ast
--- handleSymbolFunctionCall n evalArgs func =
---     case func of
---         Lambda params body -> evalLambda params body evalArgs
---         _ -> Left $ "Undefined function: " ++ n
-
--- evalAST :: Ast -> Either String Ast
--- evalAST (Define n expr) = Right (AstSymbol n (Just expr))
--- evalAST (Apply func evalArgs) =
---     evalAST func >>= \case
---         Lambda params body -> evalLambda params body evalArgs
---         _ -> Left "Apply expects a lambda function"
--- evalAST (Lambda params body) = Right (Lambda params body)
--- evalAST (Call (Function n evalArgs)) =
---     case Map.lookup n defaultRegistry of
---         Just f -> mapM evalAST evalArgs >>= f
---         Nothing -> evalAST (AstSymbol n Nothing) >>= handleSymbolFunctionCall n evalArgs
--- evalAST (AstFloat f) = Right (AstFloat f)
--- evalAST (AstInt i) = Right (AstInt i)
--- evalAST (AstBool b) = Right (AstBool b)
--- evalAST (AstSymbol s Nothing) = Right (AstSymbol s Nothing)
--- evalAST (AstSymbol _ (Just val)) = evalAST val
-
 evalAndAccumulate :: (Memory, [Ast]) -> Ast -> Either String (Memory, [Ast])
 evalAndAccumulate (mem, acc) arg = do
     (evaluatedArg, newMem) <- evalAST mem arg
     Right (newMem, acc ++ [evaluatedArg])
 
 evalLambda :: Memory -> [String] -> Ast -> [Ast] -> Either String (Ast, Memory)
-evalLambda mem params body args =
-    if length params /= length args
+evalLambda mem params body lambdaArgs =
+    if length params /= length lambdaArgs
         then Left "Lambda argument count mismatch"
         else
-            let substitutions = zip params args
+            let substitutions = zip params lambdaArgs
                 substitutedBody = substitute body substitutions
              in evalAST mem substitutedBody
 
@@ -137,10 +108,11 @@ evalAST mem (Call (Function n evalArgs)) =
     case Map.lookup n defaultRegistry of
         Just f ->
             foldM evalAndAccumulate (mem, []) evalArgs >>= \(newMem, evaluatedArgs) ->
-                case f evaluatedArgs of
-                    Right result -> Right (result, newMem)
+                case f newMem evaluatedArgs of
+                    Right (result, _) -> Right (result, newMem)
                     Left err -> Left err
         Nothing ->
+            -- handle if
             case readMemory mem n of
                 Just (Lambda params body) ->
                     evalLambda mem params body evalArgs

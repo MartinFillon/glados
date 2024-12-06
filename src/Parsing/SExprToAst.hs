@@ -83,6 +83,8 @@ sexprToAST (Atom (Number i)) = Just (AstInt i)
 sexprToAST (Atom (Bool b)) = Just (AstBool b)
 sexprToAST (Atom (Float f)) = Just (AstFloat f)
 sexprToAST (Atom (String s)) = Just (AstSymbol s Nothing)
+sexprToAST (List [Atom (String "define"), List (Atom (String s) : params), body]) =
+    Define s <$> (Lambda <$> mapM getSymbol params <*> sexprToAST body)
 sexprToAST (List [Atom (String "define"), Atom (String s), expr]) =
     Define s <$> sexprToAST expr
 -- Adjust sexprToAST to handle lambda expressions
