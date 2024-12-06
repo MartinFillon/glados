@@ -73,6 +73,8 @@ evalAndAccumulate (mem, acc) arg = do
     (evaluatedArg, newMem) <- evalAST mem arg
     Right (newMem, acc ++ [evaluatedArg])
 
+-- to fix
+
 evalLambda :: Memory -> [String] -> Ast -> [Ast] -> Either String (Ast, Memory)
 evalLambda mem params body lambdaArgs =
     if length params /= length lambdaArgs
@@ -112,7 +114,6 @@ evalAST mem (Call (Function n evalArgs)) =
                     Right (result, _) -> Right (result, newMem)
                     Left err -> Left err
         Nothing ->
-            -- handle if
             case readMemory mem n of
                 Just (Lambda params body) ->
                     evalLambda mem params body evalArgs

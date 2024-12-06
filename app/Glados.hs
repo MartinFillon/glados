@@ -35,10 +35,8 @@ printAndReturn :: Show a => a -> IO a
 printAndReturn x = print x >> return x
 
 handleEvalResult :: Either String (Ast, Memory) -> IO ()
-handleEvalResult (Right (result, mem)) = do
-    print result
-    putStrLn "memory state:"
-    print mem
+handleEvalResult (Right (result, _)) = print result
+-- handleEvalResult (Right (result, mem)) = print result >> putStrLn "mem state: " >> print mem
 handleEvalResult (Left err) = putStrLn ("Error during evaluation: " ++ err)
 
 parseToSexpr :: Memory -> String -> IO Memory

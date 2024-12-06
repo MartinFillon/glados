@@ -15,13 +15,13 @@ type Memory = Map.Map String Ast
 
 updateMemory :: Memory -> String -> Ast -> Memory
 updateMemory mem var value =
-    trace ("Adding " ++ var ++ " to memory with value: " ++ show value) $
-        Map.insert var value mem
+    -- trace ("Adding " ++ var ++ " to memory with value: " ++ show value) $
+    Map.insert var value mem
 
 readMemory :: Memory -> String -> Maybe Ast
 readMemory mem symbol =
-    trace ("Reading " ++ symbol ++ " from memory") $
-        Map.lookup symbol mem
+    -- trace ("Reading " ++ symbol ++ " from memory") $
+    Map.lookup symbol mem
 
 initMemory :: Memory
 initMemory = Map.empty
