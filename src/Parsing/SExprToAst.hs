@@ -22,13 +22,14 @@ data Function = Function
 
 data Ast
     = Define String Ast
-    | Call Function -- function param1 param2
+    | Call Function -- function param1 param2 ...
     | AstInt Int
     | AstFloat Double
     | AstBool Bool
     | AstSymbol String (Maybe Ast) -- name value
     | Lambda [String] Ast
     | Apply Ast [Ast]
+    | AstVoid
 
 instance Show Ast where
     show :: Ast -> String
@@ -40,6 +41,7 @@ instance Show Ast where
     show (Call (Function n a)) = "Call " ++ n ++ concatMap (\x -> ' ' : show x) a
     show (Apply ast lAst) = show ast ++ ": " ++ concatMap (\x -> ' ' : show x) lAst
     show (Lambda _ _) = "Lambda"
+    show AstVoid = ""
 
 instance Eq Ast where
     (==) :: Ast -> Ast -> Bool

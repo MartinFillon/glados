@@ -15,32 +15,6 @@ Lambda
 
 -----
 
-cat superior.scm:
-```
-(define (> a b)
-    (if (eq? a b)
-        #f
-        (if (< a b)
-            #f
-            #t)))
-(> 10 -2)
-```
-
-- Got 
-```
-1:10:
-unexpected '('
-')'
-  |
-1 |  (define (> a b) (if (eq? a b) #f (if (< a b) #f #t)))
-  |          ^
-```
-
-- Expected
-```
-#t
-```
-
 cat factorial.scm:
 ```
 (define (fact x)

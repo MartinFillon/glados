@@ -4,7 +4,6 @@
 -- File description:
 -- Evaluator
 -}
--- {-# LANGUAGE LambdaCase #-}
 
 module Eval.Evaluator (evalAST) where
 
@@ -12,7 +11,6 @@ import Control.Monad (foldM)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 
--- import Debug.Trace (trace)
 import Eval.Boolean (
     evalAnd,
     evalEq,
@@ -69,11 +67,10 @@ substitute (Lambda params body) subs =
 substitute other _ = other
 
 evalAndAccumulate :: (Memory, [Ast]) -> Ast -> Either String (Memory, [Ast])
-evalAndAccumulate (mem, acc) arg = do
-    (evaluatedArg, newMem) <- evalAST mem arg
-    Right (newMem, acc ++ [evaluatedArg])
-
--- to fix
+evalAndAccumulate (mem, acc) arg = 
+    case evalAST mem arg of
+        Right (evaluatedArg, newMem) -> Right (newMem, acc ++ [evaluatedArg])
+        Left err -> Left err
 
 evalLambda :: Memory -> [String] -> Ast -> [Ast] -> Either String (Ast, Memory)
 evalLambda mem params body lambdaArgs =
@@ -93,7 +90,8 @@ handleSymbolFunctionCall mem _ evalArgs func =
 evalAST :: Memory -> Ast -> Either String (Ast, Memory)
 evalAST mem (Define n expr) =
     evalAST mem expr >>= \(evaluatedExpr, updatedMem) ->
-        Right (AstSymbol n (Just evaluatedExpr), updateMemory updatedMem n evaluatedExpr)
+        -- Right (AstVoid, updateMemory updatedMem n evaluatedExpr)
+        Right (AstSymbol n (Just evaluatedExpr), updateMemory updatedMem n evaluatedExpr) -- add case for when Maybe AstSymbol String (Maybe Ast)
 evalAST mem (Apply func evalArgs) =
     evalAST mem func >>= \(evaluatedFunc, memAfterFunc) ->
         case evaluatedFunc of
