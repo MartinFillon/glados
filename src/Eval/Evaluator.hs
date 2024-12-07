@@ -79,10 +79,10 @@ evalLambda :: Memory -> [String] -> Ast -> [Ast] -> Either String (Ast, Memory)
 evalLambda mem params body lambdaArgs =
     if length params /= length lambdaArgs
         then Left "Lambda argument count mismatch"
-        else
-            let substitutions = zip params lambdaArgs
-                substitutedBody = substitute body substitutions
-             in evalAST mem substitutedBody
+        else evalAST mem substitutedBody
+    where
+        substitutions = zip params lambdaArgs
+        substitutedBody = substitute body substitutions
 
 handleSymbolFunctionCall :: Memory -> String -> [Ast] -> Ast -> Either String (Ast, Memory)
 handleSymbolFunctionCall mem _ evalArgs func =
