@@ -36,16 +36,16 @@ printAndReturn x = print x >> return x
 
 handleEvalResult :: Either String (Ast, Memory) -> IO ()
 handleEvalResult (Right (result, _)) = print result
--- handleEvalResult (Right (result, mem)) = print result >> putStrLn "mem state: " >> print mem
-handleEvalResult (Left err) = putStrLn ("Error during evaluation: " ++ err)
+handleEvalResult (Left err) =
+    putStrLn ("Error during evaluation: " ++ err) >> exitWith (ExitFailure 84)
 
 parseToSexpr :: Memory -> String -> IO Memory
 parseToSexpr mem s =
     handleParseError True (parseSexpr s)
         >>= printAndReturn
         >>= maybe
-            (putStrLn "AST Conversion Error: Invalid SExpr" >> return mem)
-            ( \ast ->
+            (putStrLn "AST Conversion Error: Invalid SExpr" >> exitWith (ExitFailure 84))
+            (\ast ->
                 handleEvalResult (evalAST mem ast)
                     >> return (either (const mem) snd (evalAST mem ast))
             )
