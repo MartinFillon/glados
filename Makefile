@@ -23,16 +23,20 @@ fclean: clean
 	$(RM) $(NAME)
 	$(RM) $(TEST_PATH)
 	$(RM) *.html
+	$(RM) glados.cabal
 
 re: fclean all
 
 tests_run:
+	$(RM) $(TEST_PATH)
 	$(shell stack test --allow-different-user)
 
 coverage:
+	$(RM) $(TEST_PATH)
 	stack test --coverage
 
 report:
+	$(RM) $(TEST_PATH)
 	stack test
 	stack exec hpc markup $(TEST_PATH)
 	echo "Coverage report generated. Open the \`hpc_index.html\` file in your browser."

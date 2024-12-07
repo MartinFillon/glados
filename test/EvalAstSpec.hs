@@ -2,190 +2,232 @@
 -- EPITECH PROJECT, 2024
 -- gladdos
 -- File description:
--- EvalAstSpec
+-- EvalAst initMemorySpec
 -}
 
 module EvalAstSpec (spec) where
 
 import Eval.Evaluator (evalAST)
+import HelperSpec (shouldBeApproximatelyAst)
+import Memory (initMemory)
 import Parsing.SExprToAst (
     Ast (..),
     Function (..),
  )
-import Test.Hspec (Spec, context, describe, it, shouldBe)
+import Test.Hspec (Spec, context, describe, expectationFailure, it, shouldBe)
 
 spec :: Spec
-spec = describe "evalAST" $ do
+spec = describe "evalAST initMemory" $ do
     context "evaluates literal integers" $ do
         it "positive integer" $ do
-            evalAST (AstInt 42) `shouldBe` Right (AstInt 42)
+            evalAST initMemory (AstInt 42) `shouldBe` Right (AstInt 42, initMemory)
         it "negative integer" $ do
-            evalAST (AstInt (-42)) `shouldBe` Right (AstInt (-42))
+            evalAST initMemory (AstInt (-42)) `shouldBe` Right (AstInt (-42), initMemory)
 
-    -- context "evaluates literal floats" $ do
-    --     it "float" $ do
-    --         evalAST (AstFloat 42.0) `shouldBe` Right (AstFloat 42.0)
-    --     it "negative float" $ do
-    --         evalAST (AstFloat (-42.0)) `shouldBe` Right (AstFloat (-42.0))
+    context "evaluates literal floats" $ do
+        it "float" $ do
+            let result = evalAST initMemory (AstFloat 42.0)
+            case result of
+                Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 42.0)
+                _ -> expectationFailure "Expected AstFloat result"
+        it "negative float" $ do
+            let result = evalAST initMemory (AstFloat (-42.0))
+            case result of
+                Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat (-42.0))
+                _ -> expectationFailure "Expected AstFloat result"
 
-    it "evaluates Boolean true" $ do
-        evalAST (AstBool True) `shouldBe` Right (AstBool True)
-    -- it "evaluates Boolean false" $ do
-    --     evalAST (AstBool False) `shouldBe` Right (AstBool False)
+    context "evaluates literal booleans" $ do
+        it "evaluates Boolean true" $ do
+            evalAST initMemory (AstBool True) `shouldBe` Right (AstBool True, initMemory)
+        it "evaluates Boolean false" $ do
+            evalAST initMemory (AstBool False) `shouldBe` Right (AstBool False, initMemory)
 
     describe "arithmetic operators" $ do
         context "evaluates addition" $ do
             it "addition on positive values" $ do
-                evalAST (Call (Function "+" [AstInt 1, AstInt 2]))
-                    `shouldBe` Right (AstInt 3)
+                evalAST initMemory (Call (Function "+" [AstInt 1, AstInt 2]))
+                    `shouldBe` Right (AstInt 3, initMemory)
             it "addition on positive and negative values" $ do
-                evalAST (Call (Function "+" [AstInt (-11), AstInt 2]))
-                    `shouldBe` Right (AstInt (-9))
+                evalAST initMemory (Call (Function "+" [AstInt (-11), AstInt 2]))
+                    `shouldBe` Right (AstInt (-9), initMemory)
             it "addition on negative values" $ do
-                evalAST (Call (Function "+" [AstInt (-1), AstInt (-83)]))
-                    `shouldBe` Right (AstInt (-84))
-            -- it "addition on floats" $ do
-            --     evalAST (Call (Function "+" [AstFloat 1.0, AstFloat 2.0]))
-            --         `shouldBe` Right (AstFloat 3.0)
+                evalAST initMemory (Call (Function "+" [AstInt (-1), AstInt (-83)]))
+                    `shouldBe` Right (AstInt (-84), initMemory)
+            it "addition on floats" $ do
+                let result = evalAST initMemory (Call (Function "+" [AstFloat 1.0, AstFloat 2.0]))
+                case result of
+                    Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 3.0)
+                    _ -> expectationFailure "Expected AstFloat result"
 
         context "evaluates division" $ do
             it "division with positive values" $ do
-                evalAST (Call (Function "/" [AstInt 4, AstInt 2]))
-                    `shouldBe` Right (AstInt 2)
+                evalAST initMemory (Call (Function "/" [AstInt 4, AstInt 2]))
+                    `shouldBe` Right (AstInt 2, initMemory)
             it "division with positive and negative values" $ do
-                evalAST (Call (Function "/" [AstInt (-12), AstInt 4]))
-                    `shouldBe` Right (AstInt (-3))
-            -- it "division with floats" $ do
-            --     evalAST (Call (Function "/" [AstFloat 4.0, AstFloat 2.0]))
-            --         `shouldBe` Right (AstFloat 2.0)
+                evalAST initMemory (Call (Function "/" [AstInt (-12), AstInt 4]))
+                    `shouldBe` Right (AstInt (-3), initMemory)
+            it "division with floats" $ do
+                let result = evalAST initMemory (Call (Function "/" [AstFloat 4.0, AstFloat 2.0]))
+                case result of
+                    Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 2.0)
+                    _ -> expectationFailure "Expected AstFloat result"
             it "division with negative values" $ do
-                evalAST (Call (Function "div" [AstInt (-4), AstInt (-2)]))
-                    `shouldBe` Right (AstInt 2)
+                evalAST initMemory (Call (Function "div" [AstInt (-4), AstInt (-2)]))
+                    `shouldBe` Right (AstInt 2, initMemory)
             it "division to round up" $ do
-                evalAST (Call (Function "div" [AstInt (-4), AstInt 3]))
-                    `shouldBe` Right (AstInt (-1))
+                evalAST initMemory (Call (Function "div" [AstInt (-4), AstInt 3]))
+                    `shouldBe` Right (AstInt (-1), initMemory)
             it "division by zero" $ do
-                evalAST (Call (Function "/" [AstInt 4, AstInt 0]))
+                evalAST initMemory (Call (Function "/" [AstInt 4, AstInt 0]))
                     `shouldBe` Left "Division by zero"
             it "division by zero with floats" $ do
-                evalAST (Call (Function "/" [AstFloat 4.0, AstFloat 0.0]))
+                evalAST initMemory (Call (Function "/" [AstFloat 4.0, AstFloat 0.0]))
                     `shouldBe` Left "Division by zero"
 
         context "evaluates multiplication" $ do
             it "multiplication with positive values" $ do
-                evalAST (Call (Function "*" [AstInt 3, AstInt 4]))
-                    `shouldBe` Right (AstInt 12)
+                evalAST initMemory (Call (Function "*" [AstInt 3, AstInt 4]))
+                    `shouldBe` Right (AstInt 12, initMemory)
             it "multiplication with negative values" $ do
-                evalAST (Call (Function "*" [AstInt (-3), AstInt (-4)]))
-                    `shouldBe` Right (AstInt 12)
-            -- it "multiplication with floats" $ do
-            --     evalAST (Call (Function "*" [AstFloat 3.0, AstFloat 4.0]))
-            --         `shouldBe` Right (AstFloat 12.0)
+                evalAST initMemory (Call (Function "*" [AstInt (-3), AstInt (-4)]))
+                    `shouldBe` Right (AstInt 12, initMemory)
+            it "multiplication with floats" $ do
+                let result = evalAST initMemory (Call (Function "*" [AstFloat 3.0, AstFloat 4.0]))
+                case result of
+                    Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 12.0)
+                    _ -> expectationFailure "Expected AstFloat result"
             it "multiplication with positive and negative values" $ do
-                evalAST (Call (Function "*" [AstInt (-3), AstInt 4]))
-                    `shouldBe` Right (AstInt (-12))
+                evalAST initMemory (Call (Function "*" [AstInt (-3), AstInt 4]))
+                    `shouldBe` Right (AstInt (-12), initMemory)
 
         context "evaluates modulo" $ do
             it "modulo on positive values with %" $ do
-                evalAST (Call (Function "%" [AstInt 10, AstInt 3]))
-                    `shouldBe` Right (AstInt 1)
+                evalAST initMemory (Call (Function "%" [AstInt 10, AstInt 3]))
+                    `shouldBe` Right (AstInt 1, initMemory)
             it "modulo on positive values with mod" $ do
-                evalAST (Call (Function "mod" [AstInt 10, AstInt 4]))
-                    `shouldBe` Right (AstInt 2)
+                evalAST initMemory (Call (Function "mod" [AstInt 10, AstInt 4]))
+                    `shouldBe` Right (AstInt 2, initMemory)
             it "modulo on negative values with %" $ do
-                evalAST (Call (Function "%" [AstInt (-10), AstInt 3]))
-                    `shouldBe` Right (AstInt 2)
+                evalAST initMemory (Call (Function "%" [AstInt (-10), AstInt 3]))
+                    `shouldBe` Right (AstInt 2, initMemory)
             it "modulo on negative values with mod" $ do
-                evalAST (Call (Function "mod" [AstInt (-10), AstInt (-4)]))
-                    `shouldBe` Right (AstInt (-2))
-            -- it "modulo on floats with %" $ do
-            --     evalAST (Call (Function "%" [AstFloat 10.0, AstFloat 3.0]))
-            --         `shouldBe` Right (AstFloat 1.0)
-            -- it "modulo on floats with mod" $ do
-            --     evalAST (Call (Function "mod" [AstFloat 10.0, AstFloat 4.0]))
-            --         `shouldBe` Right (AstFloat 2.0)
+                evalAST initMemory (Call (Function "mod" [AstInt (-10), AstInt (-4)]))
+                    `shouldBe` Right (AstInt (-2), initMemory)
+            it "modulo on floats with %" $ do
+                let result = evalAST initMemory (Call (Function "%" [AstFloat 10.0, AstFloat 3.0]))
+                case result of
+                    Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 1.0)
+                    _ -> expectationFailure "Expected AstFloat result"
+            it "modulo on floats with mod" $ do
+                let result = evalAST initMemory (Call (Function "mod" [AstFloat 10.0, AstFloat 4.0]))
+                case result of
+                    Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 2.0)
+                    _ -> expectationFailure "Expected AstFloat result"
 
     describe "predicates" $ do
         context "evaluates equality" $ do
             it "equal positive integers" $ do
-                evalAST (Call (Function "eq?" [AstInt 4, AstInt 4]))
-                    `shouldBe` Right (AstBool True)
+                evalAST initMemory (Call (Function "eq?" [AstInt 4, AstInt 4]))
+                    `shouldBe` Right (AstBool True, initMemory)
             it "unequal positive integers" $ do
-                evalAST (Call (Function "eq?" [AstInt 4, AstInt 5]))
-                    `shouldBe` Right (AstBool False)
+                evalAST initMemory (Call (Function "eq?" [AstInt 4, AstInt 5]))
+                    `shouldBe` Right (AstBool False, initMemory)
             it "equal negative integers" $ do
-                evalAST (Call (Function "eq?" [AstInt (-3), AstInt (-3)]))
-                    `shouldBe` Right (AstBool True)
+                evalAST initMemory (Call (Function "eq?" [AstInt (-3), AstInt (-3)]))
+                    `shouldBe` Right (AstBool True, initMemory)
             it "unequal negative integers" $ do
-                evalAST (Call (Function "eq?" [AstInt (-3), AstInt (-4)]))
-                    `shouldBe` Right (AstBool False)
-            -- it "equal positive floats" $ do
-            --     evalAST (Call (Function "eq?" [AstFloat 4.0, AstFloat 4.0]))
-            --         `shouldBe` Right (AstBool True)
-            -- it "unequal positive floats" $ do
-            --     evalAST (Call (Function "eq?" [AstFloat 4.0, AstFloat 5.0]))
-            --         `shouldBe` Right (AstBool False)
+                evalAST initMemory (Call (Function "eq?" [AstInt (-3), AstInt (-4)]))
+                    `shouldBe` Right (AstBool False, initMemory)
+            it "equal positive floats" $ do
+                evalAST initMemory (Call (Function "eq?" [AstFloat 4.0, AstFloat 4.0]))
+                    `shouldBe` Right (AstBool True, initMemory)
+            it "unequal positive floats" $ do
+                evalAST initMemory (Call (Function "eq?" [AstFloat 4.0, AstFloat 5.0]))
+                    `shouldBe` Right (AstBool False, initMemory)
 
         context "evaluates less than" $ do
             it "positive numbers comparison" $ do
-                evalAST (Call (Function "<" [AstInt 3, AstInt 5]))
-                    `shouldBe` Right (AstBool True)
+                evalAST initMemory (Call (Function "<" [AstInt 3, AstInt 5]))
+                    `shouldBe` Right (AstBool True, initMemory)
             it "negative and positive comparison" $ do
-                evalAST (Call (Function "<" [AstInt (-3), AstInt 5]))
-                    `shouldBe` Right (AstBool True)
+                evalAST initMemory (Call (Function "<" [AstInt (-3), AstInt 5]))
+                    `shouldBe` Right (AstBool True, initMemory)
             it "negative numbers comparison" $ do
-                evalAST (Call (Function "<" [AstInt (-5), AstInt (-3)]))
-                    `shouldBe` Right (AstBool True)
+                evalAST initMemory (Call (Function "<" [AstInt (-5), AstInt (-3)]))
+                    `shouldBe` Right (AstBool True, initMemory)
             it "false case for comparison" $ do
-                evalAST (Call (Function "<" [AstInt 5, AstInt 3]))
-                    `shouldBe` Right (AstBool False)
+                evalAST initMemory (Call (Function "<" [AstInt 5, AstInt 3]))
+                    `shouldBe` Right (AstBool False, initMemory)
+            it "positive float numbers comparison" $ do
+                evalAST initMemory (Call (Function "<" [AstFloat 3.0, AstFloat 5.0]))
+                    `shouldBe` Right (AstBool True, initMemory)
 
         context "evaluates greater than" $ do
             it "positive numbers comparison" $ do
-                evalAST (Call (Function ">" [AstInt 7, AstInt 2]))
-                    `shouldBe` Right (AstBool True)
+                evalAST initMemory (Call (Function ">" [AstInt 7, AstInt 2]))
+                    `shouldBe` Right (AstBool True, initMemory)
             it "negative and positive comparison" $ do
-                evalAST (Call (Function ">" [AstInt (-2), AstInt (-7)]))
-                    `shouldBe` Right (AstBool True)
+                evalAST initMemory (Call (Function ">" [AstInt (-2), AstInt (-7)]))
+                    `shouldBe` Right (AstBool True, initMemory)
             it "false case for comparison" $ do
-                evalAST (Call (Function ">" [AstInt (-3), AstInt (-2)]))
-                    `shouldBe` Right (AstBool False)
+                evalAST initMemory (Call (Function ">" [AstInt (-3), AstInt (-2)]))
+                    `shouldBe` Right (AstBool False, initMemory)
+            it "positive float numbers comparison" $ do
+                evalAST initMemory (Call (Function ">" [AstFloat 7.0, AstFloat 2.0]))
+                    `shouldBe` Right (AstBool True, initMemory)
 
         context "evaluates Boolean AND" $ do
             it "true and false" $ do
-                evalAST (Call (Function "and" [AstBool True, AstBool False]))
-                    `shouldBe` Right (AstBool False)
+                evalAST initMemory (Call (Function "and" [AstBool True, AstBool False]))
+                    `shouldBe` Right (AstBool False, initMemory)
             it "true and true" $ do
-                evalAST (Call (Function "and" [AstBool True, AstBool True]))
-                    `shouldBe` Right (AstBool True)
+                evalAST initMemory (Call (Function "and" [AstBool True, AstBool True]))
+                    `shouldBe` Right (AstBool True, initMemory)
             it "false and false" $ do
-                evalAST (Call (Function "and" [AstBool False, AstBool False]))
-                    `shouldBe` Right (AstBool False)
+                evalAST initMemory (Call (Function "and" [AstBool False, AstBool False]))
+                    `shouldBe` Right (AstBool False, initMemory)
+            it "error handling" $ do
+                evalAST initMemory (Call (Function "and" [AstBool True, AstInt 4]))
+                    `shouldBe` Left "Invalid arguments for `and`"
 
         context "evaluates Boolean OR" $ do
             it "true or false" $ do
-                evalAST (Call (Function "or" [AstBool True, AstBool False]))
-                    `shouldBe` Right (AstBool True)
+                evalAST initMemory (Call (Function "or" [AstBool True, AstBool False]))
+                    `shouldBe` Right (AstBool True, initMemory)
             it "false or true" $ do
-                evalAST (Call (Function "or" [AstBool False, AstBool True]))
-                    `shouldBe` Right (AstBool True)
+                evalAST initMemory (Call (Function "or" [AstBool False, AstBool True]))
+                    `shouldBe` Right (AstBool True, initMemory)
             it "false or false" $ do
-                evalAST (Call (Function "or" [AstBool False, AstBool False]))
-                    `shouldBe` Right (AstBool False)
+                evalAST initMemory (Call (Function "or" [AstBool False, AstBool False]))
+                    `shouldBe` Right (AstBool False, initMemory)
+            it "error handling" $ do
+                evalAST initMemory (Call (Function "or" [AstBool False, AstInt (-4)]))
+                    `shouldBe` Left "Invalid arguments for `or`"
+
+        context "evaluates Boolean NOT" $ do
+            it "true" $ do
+                evalAST initMemory (Call (Function "not" [AstBool True]))
+                    `shouldBe` Right (AstBool False, initMemory)
+            it "false" $ do
+                evalAST initMemory (Call (Function "not" [AstBool False]))
+                    `shouldBe` Right (AstBool True, initMemory)
+            it "error handling" $ do
+                evalAST initMemory (Call (Function "not" [AstBool False, AstInt (-4)]))
+                    `shouldBe` Left "Invalid arguments for `not`"
 
     describe "evaluates lambda calls" $ do
         context "basic lambda expressions" $ do
             it "simple addition lambda" $ do
                 let lambdaExpr = Lambda ["x", "y"] (Call (Function "+" [AstSymbol "x" Nothing, AstSymbol "y" Nothing]))
-                evalAST (Apply lambdaExpr [AstInt 10, AstInt 2])
-                    `shouldBe` Right (AstInt 12)
+                evalAST initMemory (Apply lambdaExpr [AstInt 10, AstInt 2])
+                    `shouldBe` Right (AstInt 12, initMemory)
             it "simple subtraction lambda" $ do
                 let lambdaExpr = Lambda ["a", "b"] (Call (Function "-" [AstSymbol "a" Nothing, AstSymbol "b" Nothing]))
-                evalAST (Apply lambdaExpr [AstInt 7, AstInt 5])
-                    `shouldBe` Right (AstInt 2)
+                evalAST initMemory (Apply lambdaExpr [AstInt 7, AstInt 5])
+                    `shouldBe` Right (AstInt 2, initMemory)
 
-    -- it "evaluates define" $ do
-    --     let defineExpr = Define "x" (AstInt 10)
-    --     let symbolX = evalAST defineExpr
-    --     evalAST (Call (Function "+" [AstSymbol "x" symbolX, AstInt 5]))
-    --         `shouldBe` Right (AstInt 15)
+-- it "evaluates define" $ do
+--     let defineExpr = Define "x" (AstInt 10)
+--     let symbolX = evalAST initMemory defineExpr
+--     evalAST initMemory (Call (Function "+" [AstSymbol "x" symbolX, AstInt 5]))
+--         `shouldBe` Right (AstInt 15)
