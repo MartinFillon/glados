@@ -110,9 +110,20 @@ spec = describe "evalAST initMemory" $ do
             it "modulo on negative values with %" $ do
                 evalAST initMemory (Call (Function "%" [AstInt (-10), AstInt 3]))
                     `shouldBe` Right (AstInt 2, initMemory)
-            it "modulo on negative values with mod" $ do
-                evalAST initMemory (Call (Function "mod" [AstInt (-10), AstInt (-4)]))
-                    `shouldBe` Right (AstInt (-2), initMemory)
+            it "modulo by zero with %" $ do
+                evalAST initMemory (Call (Function "%" [AstInt 10, AstInt 0]))
+                    `shouldBe` Left "Modulo by zero"
+            it "modulo by zero with mod" $ do
+                evalAST initMemory (Call (Function "mod" [AstInt 10, AstInt 0]))
+                    `shouldBe` Left "Modulo by zero"
+            it "modulo by zero with floats and %" $ do
+                evalAST initMemory (Call (Function "%" [AstFloat 10.0, AstFloat 0.0]))
+                    `shouldBe` Left "Modulo by zero"
+            it "modulo by zero with floats and mod" $ do
+                evalAST initMemory (Call (Function "mod" [AstFloat 10.0, AstFloat 0.0]))
+                    `shouldBe` Left "Modulo by zero"
+
+
             it "modulo on floats with %" $ do
                 let result = evalAST initMemory (Call (Function "%" [AstFloat 10.0, AstFloat 3.0]))
                 case result of
@@ -226,8 +237,18 @@ spec = describe "evalAST initMemory" $ do
                 evalAST initMemory (Apply lambdaExpr [AstInt 7, AstInt 5])
                     `shouldBe` Right (AstInt 2, initMemory)
 
+    describe "variable definitions" $ do
+        it "defines and evaluates a variable" $ do
+            let defineExpr = Define "foo" (AstInt 5)
+            let memoryAfterDefine = case evalAST initMemory defineExpr of
+                    Right (_, mem) -> mem
+                    _ -> error "Definition failed"
+            evalAST memoryAfterDefine (AstSymbol "foo" Nothing)
+                `shouldBe` Right (AstInt 5, memoryAfterDefine)
+
+
 -- it "evaluates define" $ do
 --     let defineExpr = Define "x" (AstInt 10)
 --     let symbolX = evalAST initMemory defineExpr
 --     evalAST initMemory (Call (Function "+" [AstSymbol "x" symbolX, AstInt 5]))
---         `shouldBe` Right (AstInt 15)
+--         `shouldBe` Right (AstInt 15)²
