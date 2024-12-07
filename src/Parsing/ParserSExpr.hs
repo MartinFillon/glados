@@ -8,8 +8,6 @@
 
 module Parsing.ParserSExpr (
     parseSexpr,
-    pOperator,
-    pOperator',
     pVariable,
     pDigit,
     lineComment,
@@ -29,13 +27,14 @@ import Text.Megaparsec (
     between,
     choice,
     empty,
+    noneOf,
     parse,
     some,
     try,
     (<?>),
     (<|>),
  )
-import Text.Megaparsec.Char (alphaNumChar, char, letterChar, string)
+import Text.Megaparsec.Char (char, letterChar, string)
 import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = Parsec Void String
@@ -50,35 +49,27 @@ data Atom i f
 
 data Sexpr i f = Atom (Atom i f) | List [Sexpr i f] deriving (Show, Eq)
 
-pOperator :: Parser (Atom i f)
-pOperator = String <$> pOperator'
+bonusChar' :: String
+bonusChar' = "+-<>*?!=&|^%/~_#$;:"
 
-pOperator' :: Parser String
-pOperator' =
-    choice
-        [ "+",
-          "-",
-          "*",
-          "<",
-          "eq?",
-          "if",
-          "div",
-          "mod"
-        ]
+bonusChar :: Parser Char
+bonusChar = choice $ char <$> bonusChar'
 
 pVariable :: Parser (Atom i f)
 pVariable = String <$> pVariable'
 
 pVariable' :: Parser String
-pVariable' = (:) <$> letterChar <*> many alphaNumChar <?> "variable"
+pVariable' =
+    (:) <$> (try letterChar <|> bonusChar) <*> many (noneOf (" \t\n\r()" :: [Char]))
+        <?> "variable"
 
 sce :: Parser ()
 sce = L.space empty empty empty
 
-pDigit :: (Num i) => Parser (Atom i f)
+pDigit :: Num i => Parser (Atom i f)
 pDigit = Number <$> L.signed sce L.decimal
 
-pFloat :: (RealFloat f) => Parser (Atom i f)
+pFloat :: RealFloat f => Parser (Atom i f)
 pFloat = Float <$> L.signed sce L.float
 
 parseFalse :: Parser (Atom i f)
@@ -95,7 +86,6 @@ convertValue =
     choice
         [ try pFloat,
           try pDigit,
-          pOperator,
           try pBool,
           try pVariable
         ]
@@ -104,7 +94,11 @@ lineComment :: Parser ()
 lineComment = L.skipLineComment ";"
 
 sc :: Parser ()
-sc = L.space (void $ some (char ' ' <|> char '\t' <|> char '\r' <|> char '\n')) lineComment empty
+sc =
+    L.space
+        (void $ some (char ' ' <|> char '\t' <|> char '\r' <|> char '\n'))
+        lineComment
+        empty
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
