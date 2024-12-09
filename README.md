@@ -4,7 +4,7 @@ Generic Language and Data Operand Syntax
 
 ## Build
 
-To build the project, we use Makefile and Stack (Haskell's build tool). 
+To build the project, we use Makefile and Stack (Haskell's build tool).
 
 To build the project, run the following command:
 
@@ -18,7 +18,7 @@ if you want to use the `stack` build system (with formatting), run;
 stack build
 ```
 
-This will trigger the build process using `stack`, which will compile all necessary Haskell files and their dependencies based on the `stack.yaml` configuration. 
+This will trigger the build process using `stack`, which will compile all necessary Haskell files and their dependencies based on the `stack.yaml` configuration.
 
 This command ensures that all the modules are correctly compiled and linked.
 
@@ -127,4 +127,4 @@ Make sure you have the following tools installed:
 
 ## Features
 
-For a detailed list of features, please refer to the [FUNCTIONNALITY.md](FUNCTIONNALITY.md) file.
+For a detailed list of features, please refer to the [FEATURES.md](FEATURES.md) file.
