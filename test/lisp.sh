@@ -83,6 +83,16 @@ else
     print_red "❌ lambda3.scm failed: Got '$output'"
 fi
 
+# lambda4.scm
+print_bold "Running lambda4.scm..."
+output=$(./glados < test/test_files/lambda4.scm)
+print_yellow "got '$output'"
+if [ "$output" == "8" ]; then
+    print_green "✅ lambda4.scm passed!"
+else
+    print_red "❌ lambda4.scm failed: Got '$output'"
+fi
+
 # function1.scm
 print_bold "Running function1.scm..."
 output=$(./glados < test/test_files/function1.scm)

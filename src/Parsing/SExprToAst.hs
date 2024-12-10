@@ -38,7 +38,7 @@ instance Show Ast where
     show (AstBool b) = if b then "#t" else "#f"
     show (AstSymbol n s) = '(' : n ++ " = " ++ show s ++ ")"
     show (Define a b) = "Define " ++ show a ++ " = " ++ show b
-    show (Call (Function n a)) = "Call " ++ "((" ++ n ++ ")" ++ concatMap (\x -> ' ' : show x) a ++ ")"
+    show (Call (Function n a)) = "Call " ++ n ++ " (" ++ concatMap (\x -> ' ' : show x) a ++ ")"
     show (Apply ast lAst) = show ast ++ ": " ++ concatMap (\x -> ' ' : show x) lAst
     show (Lambda _ expr) = "Lambda: " ++ show expr
     show AstVoid = "Void"
@@ -97,4 +97,4 @@ sexprToAST (List ((Atom (String s)) : a)) = mapM sexprToAST a >>= \argAsts -> Ju
 sexprToAST (List (func : a)) = Apply <$> sexprToAST func <*> mapM sexprToAST a
 sexprToAST _ = Nothing
 
------------
+------------

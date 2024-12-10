@@ -16,6 +16,7 @@ import Parsing.ParserSExpr (ParserError, parseSexpr)
 import Parsing.SExprToAst (Ast (..), sexprToAST)
 import System.Exit (ExitCode (..), exitWith)
 import System.IO (hIsTerminalDevice, hPutStrLn, isEOF, stderr, stdin)
+import Debug.Trace (trace)
 
 pError :: String -> IO ()
 pError str = hPutStrLn stderr str >> exitWith (ExitFailure 84)
@@ -38,17 +39,17 @@ printAndReturn :: Show a => a -> IO a
 printAndReturn x = print x >> return x
 
 handleEvalResult :: Either String (Ast, Memory) -> IO ()
-handleEvalResult (Right (result, _)) =
-    if show result == "Void"
-        then return ()
-        else print result
+handleEvalResult (Right (result, _))
+    | show result == "Void" = return ()
+    | otherwise = print result
 handleEvalResult (Left err) =
     pError ("*** ERROR : " ++ err)
 
 parseToSexpr :: Memory -> String -> IO Memory
 parseToSexpr mem s =
+    trace ("mem: " ++ show mem) $
     handleParseError True (parseSexpr s)
-        -- >>= printAndReturn
+        >>= printAndReturn
         >>= maybe
             (pError "*** ERROR : Invalid SExpr" >> exitWith (ExitFailure 84))
             ( \ast ->
