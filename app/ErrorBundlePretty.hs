@@ -86,7 +86,10 @@ errorBundlePrettyFormatted' showColors (cWarning, cError, cInfo) ParseErrorBundl
             "\n"
                 <> (if showColors then show Bold <> sourcePosPretty epos else sourcePosPretty epos)
                 <> ":\n"
-                <> (if showColors then parseErrorTextPrettyFormatted e <> reset else parseErrorTextPrettyFormatted e)
+                <> ( if showColors
+                        then parseErrorTextPrettyFormatted e <> reset
+                        else parseErrorTextPrettyFormatted e
+                   )
                 <> offendingLine
         offendingLine =
             case msline of
@@ -124,12 +127,12 @@ errorBundlePrettyFormatted' showColors (cWarning, cError, cInfo) ParseErrorBundl
                 FancyError _ xs ->
                     E.foldl' (\a b -> max a (errorFancyLength b)) 1 xs
 
-errorItemLength :: (VisualStream s) => Proxy s -> ErrorItem (Token s) -> Int
+errorItemLength :: VisualStream s => Proxy s -> ErrorItem (Token s) -> Int
 errorItemLength pxy = \case
     Tokens ts -> tokensLength pxy ts
     _ -> 1
 
-errorFancyLength :: (ShowErrorComponent e) => ErrorFancy e -> Int
+errorFancyLength :: ShowErrorComponent e => ErrorFancy e -> Int
 errorFancyLength = \case
     ErrorCustom a -> errorComponentLen a
     _ -> 1
@@ -143,7 +146,9 @@ parseErrorTextPrettyFormatted (TrivialError _ us ps) =
     if isNothing us && E.null ps
         then "unknown parse error\n"
         else
-            messageItemsPretty "unexpected " (showErrorItem pxy `E.map` maybe E.empty E.singleton us)
+            messageItemsPretty
+                "unexpected "
+                (showErrorItem pxy `E.map` maybe E.empty E.singleton us)
                 <> messageItemsPretty "" (showErrorItem pxy `E.map` ps)
   where
     pxy = Proxy :: Proxy s
@@ -163,7 +168,7 @@ orList (x :| []) = x
 orList (x :| [y]) = x <> " or " <> y
 orList xs = intercalate ", " (NE.init xs) <> ", or " <> NE.last xs
 
-showErrorFancy :: (ShowErrorComponent e) => ErrorFancy e -> String
+showErrorFancy :: ShowErrorComponent e => ErrorFancy e -> String
 showErrorFancy = \case
     ErrorFail msg -> msg
     ErrorIndentation ord ref actual ->

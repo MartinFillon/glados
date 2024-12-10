@@ -7,12 +7,18 @@
 
 module Eval.Maths (evalAdd, evalSub, evalMul, evalDiv, evalMod) where
 
+import Data.Data (typeOf)
 import Data.Fixed (mod')
 import GHC.Float (double2Int, int2Double)
 import Memory (Memory)
 import Parsing.SExprToAst (Ast (..))
 
-evalMath :: String -> (Double -> Double -> Double) -> Memory -> [Ast] -> Either String (Ast, Memory)
+evalMath ::
+    String ->
+    (Double -> Double -> Double) ->
+    Memory ->
+    [Ast] ->
+    Either String (Ast, Memory)
 evalMath _ f mem [AstInt i1, AstInt i2] =
     Right (AstInt (double2Int (f (int2Double i1) (int2Double i2))), mem)
 evalMath _ f mem [AstFloat f1, AstFloat f2] =
@@ -21,6 +27,11 @@ evalMath _ f mem [AstInt i, AstFloat f1] =
     Right (AstFloat (f (int2Double i) f1), mem)
 evalMath _ f mem [AstFloat f1, AstInt i] =
     Right (AstFloat (f f1 (int2Double i)), mem)
+evalMath opname _ _ [a, b]
+    | typeOf a == typeOf AstInt || typeOf a == typeOf AstFloat =
+        Left ("Arguments " ++ show b ++ " out of bound for operation " ++ opname)
+    | otherwise =
+        Left ("Arguments " ++ show a ++ " out of bound for operation " ++ opname)
 evalMath opname _ _ _ = Left ("Invalid arguments for operation " ++ opname)
 
 evalAdd :: Memory -> [Ast] -> Either String (Ast, Memory)
@@ -45,6 +56,10 @@ evalDiv mem [AstInt i, AstFloat f]
 evalDiv mem [AstFloat f, AstInt i]
     | i /= 0 = Right (AstFloat (f / fromIntegral i), mem)
     | otherwise = Left "Division by zero"
+evalDiv _ [a, b]
+    | typeOf a == typeOf AstInt || typeOf a == typeOf AstFloat =
+        Left ("Arguments " ++ show b ++ " out of bound for division")
+    | otherwise = Left ("Arguments " ++ show a ++ " out of bound for division")
 evalDiv _ _ = Left "Invalid arguments for division"
 
 evalMod :: Memory -> [Ast] -> Either String (Ast, Memory)
@@ -60,4 +75,8 @@ evalMod mem [AstInt i, AstFloat f]
 evalMod mem [AstFloat f, AstInt i]
     | i /= 0 = Right (AstFloat (f `mod'` fromIntegral i), mem)
     | otherwise = Left "Modulo by zero"
+evalMod _ [a, b]
+    | typeOf a == typeOf AstInt || typeOf a == typeOf AstFloat =
+        Left ("Arguments " ++ show b ++ " out of bound for modulo")
+    | otherwise = Left ("Arguments " ++ show a ++ " out of bound for modulo")
 evalMod _ _ = Left "Invalid arguments for modulo"

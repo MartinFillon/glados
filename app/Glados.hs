@@ -15,7 +15,10 @@ import Memory (Memory, initMemory)
 import Parsing.ParserSExpr (ParserError, parseSexpr)
 import Parsing.SExprToAst (Ast (..), sexprToAST)
 import System.Exit (ExitCode (..), exitWith)
-import System.IO (hIsTerminalDevice, isEOF, stdin)
+import System.IO (hIsTerminalDevice, hPutStrLn, isEOF, stderr, stdin)
+
+pError :: String -> IO ()
+pError str = hPutStrLn stderr str >> exitWith (ExitFailure 84)
 
 countChar :: Char -> String -> Int
 countChar c s = length (filter (== c) s)
@@ -27,25 +30,26 @@ handleParseError :: Bool -> Either ParserError a -> IO a
 handleParseError _ (Right val) = return val
 handleParseError showColors (Left err) =
     errorBundlePrettyFormatted showColors err
-        >>= putStr
+        >>= pError
         >> exitWith (ExitFailure 84)
         >> return undefined
 
-printAndReturn :: Show a => a -> IO a
-printAndReturn x = print x >> return x
+-- printAndReturn :: Show a => a -> IO a
+-- printAndReturn x = print x >> return x
 
 handleEvalResult :: Either String (Ast, Memory) -> IO ()
-handleEvalResult (Right (result, _)) = print result
+handleEvalResult (Right (result, _))
+    | show result == "Void" = return ()
+    | otherwise = print result
 handleEvalResult (Left err) =
-    putStrLn ("Error during evaluation: " ++ err) >> exitWith (ExitFailure 84)
+    pError ("*** ERROR : " ++ err)
 
 parseToSexpr :: Memory -> String -> IO Memory
 parseToSexpr mem s =
     handleParseError True (parseSexpr s)
-        >>= printAndReturn
         >>= maybe
-            (putStrLn "AST Conversion Error: Invalid SExpr" >> exitWith (ExitFailure 84))
-            (\ast ->
+            (pError "*** ERROR : Invalid SExpr" >> exitWith (ExitFailure 84))
+            ( \ast ->
                 handleEvalResult (evalAST mem ast)
                     >> return (either (const mem) snd (evalAST mem ast))
             )

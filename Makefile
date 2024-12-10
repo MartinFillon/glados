@@ -31,6 +31,9 @@ tests_run:
 	$(RM) $(TEST_PATH)
 	$(shell stack test --allow-different-user)
 
+functional_tests:
+	./test/lisp.sh
+
 coverage:
 	$(RM) $(TEST_PATH)
 	stack test --coverage
@@ -41,4 +44,4 @@ report:
 	stack exec hpc markup $(TEST_PATH)
 	echo "Coverage report generated. Open the \`hpc_index.html\` file in your browser."
 
-.PHONY: all fclean re clean $(NAME) tests_run coverage report
+.PHONY: all fclean re clean $(NAME) tests_run coverage report functional_tests
