@@ -10,10 +10,7 @@ module EvalAstSpec (spec) where
 import Eval.Evaluator (evalAST)
 import HelperSpec (shouldBeApproximatelyAst)
 import Memory (initMemory)
-import Parsing.SExprToAst (
-    Ast (..),
-    Function (..),
- )
+import Parsing.SExprToAst (Ast (..), Function (..))
 import Test.Hspec (Spec, context, describe, expectationFailure, it, shouldBe)
 
 spec :: Spec
@@ -123,7 +120,6 @@ spec = describe "evalAST initMemory" $ do
                 evalAST initMemory (Call (Function "mod" [AstFloat 10.0, AstFloat 0.0]))
                     `shouldBe` Left "Modulo by zero"
 
-
             it "modulo on floats with %" $ do
                 let result = evalAST initMemory (Call (Function "%" [AstFloat 10.0, AstFloat 3.0]))
                 case result of
@@ -199,7 +195,7 @@ spec = describe "evalAST initMemory" $ do
                     `shouldBe` Right (AstBool False, initMemory)
             it "error handling" $ do
                 evalAST initMemory (Call (Function "and" [AstBool True, AstInt 4]))
-                    `shouldBe` Left "Invalid arguments for `and`"
+                    `shouldBe` Left "Arguments #t out of bound for `and`"
 
         context "evaluates Boolean OR" $ do
             it "true or false" $ do
@@ -213,7 +209,7 @@ spec = describe "evalAST initMemory" $ do
                     `shouldBe` Right (AstBool False, initMemory)
             it "error handling" $ do
                 evalAST initMemory (Call (Function "or" [AstBool False, AstInt (-4)]))
-                    `shouldBe` Left "Invalid arguments for `or`"
+                    `shouldBe` Left "Arguments #f out of bound for `or`"
 
         context "evaluates Boolean NOT" $ do
             it "true" $ do
@@ -224,16 +220,22 @@ spec = describe "evalAST initMemory" $ do
                     `shouldBe` Right (AstBool True, initMemory)
             it "error handling" $ do
                 evalAST initMemory (Call (Function "not" [AstBool False, AstInt (-4)]))
-                    `shouldBe` Left "Invalid arguments for `not`"
+                    `shouldBe` Left "Invalid arguments [#f,-4] for `not`"
 
     describe "evaluates lambda calls" $ do
         context "basic lambda expressions" $ do
             it "simple addition lambda" $ do
-                let lambdaExpr = Lambda ["x", "y"] (Call (Function "+" [AstSymbol "x" Nothing, AstSymbol "y" Nothing]))
+                let lambdaExpr =
+                        Lambda
+                            ["x", "y"]
+                            (Call (Function "+" [AstSymbol "x" AstVoid, AstSymbol "y" AstVoid]))
                 evalAST initMemory (Apply lambdaExpr [AstInt 10, AstInt 2])
                     `shouldBe` Right (AstInt 12, initMemory)
             it "simple subtraction lambda" $ do
-                let lambdaExpr = Lambda ["a", "b"] (Call (Function "-" [AstSymbol "a" Nothing, AstSymbol "b" Nothing]))
+                let lambdaExpr =
+                        Lambda
+                            ["a", "b"]
+                            (Call (Function "-" [AstSymbol "a" AstVoid, AstSymbol "b" AstVoid]))
                 evalAST initMemory (Apply lambdaExpr [AstInt 7, AstInt 5])
                     `shouldBe` Right (AstInt 2, initMemory)
 
@@ -243,9 +245,37 @@ spec = describe "evalAST initMemory" $ do
             let memoryAfterDefine = case evalAST initMemory defineExpr of
                     Right (_, mem) -> mem
                     _ -> error "Definition failed"
-            evalAST memoryAfterDefine (AstSymbol "foo" Nothing)
+            evalAST memoryAfterDefine (AstSymbol "foo" AstVoid)
                 `shouldBe` Right (AstInt 5, memoryAfterDefine)
 
+    describe "evaluate condition" $ do
+        it "evaluates condition true" $ do
+            let conditionExpr = Condition (Function "if" [AstBool True, AstInt 10, AstInt 5])
+            evalAST initMemory conditionExpr `shouldBe` Right (AstInt 10, initMemory)
+        it "evaluates condition false" $ do
+            let conditionExpr = Condition (Function "if" [AstBool False, AstInt 10, AstInt 42])
+            evalAST initMemory conditionExpr `shouldBe` Right (AstInt 42, initMemory)
+
+    describe "recursive compter" $ do
+        it "stops at 0" $ do
+            let recursiveCounter =
+                    Lambda
+                        ["x"]
+                        ( Condition
+                            ( Function
+                                "if"
+                                [ Call (Function "eq?" [AstSymbol "x" AstVoid, AstInt 0]),
+                                  AstInt 0,
+                                  Call (Function "self" [Call (Function "-" [AstSymbol "x" AstVoid, AstInt 1])])
+                                ]
+                            )
+                        )
+            let memoryAfterDefine = case evalAST initMemory (Define "self" recursiveCounter) of
+                    Right (_, mem) -> mem
+                    _ -> error "Definition failed"
+            case evalAST memoryAfterDefine (Call (Function "self" [AstInt 5])) of
+                Right (x, _) -> x `shouldBe` AstInt 0
+                _ -> expectationFailure "Expected AstInt 0"
 
 -- it "evaluates define" $ do
 --     let defineExpr = Define "x" (AstInt 10)

@@ -12,7 +12,6 @@ module Eval.Evaluator (evalAST) where
 
 import Control.Monad (foldM)
 import qualified Data.Map as Map
-
 import Eval.Boolean (
     evalAnd,
     evalEq,
@@ -78,6 +77,12 @@ substitute (Call (Function n subArgs)) subs mem =
             Call (Function n subArgs)
         Nothing ->
             Call (Function n (map (\arg -> substitute arg subs mem) subArgs))
+substitute (Condition (Function n subArgs)) subs mem =
+    case lookup n subs of
+        Just _ ->
+            Condition (Function n subArgs)
+        Nothing ->
+            Condition (Function n (map (\arg -> substitute arg subs mem) subArgs))
 substitute (Lambda params body) subs mem =
     Lambda params (substitute body subs mem)
 substitute other _ _ = other
@@ -125,14 +130,15 @@ evalDefinedFunction m n args' = evalDefinedFunction' m n args' (readMemory m n)
 evalOperator :: Memory -> String -> [Ast] -> Either String (Ast, Memory)
 evalOperator m n args' =
     maybeToEither
-        ("Function " ++ show n ++ " not defined")
+        "Not a valid operator"
         (Map.lookup n defaultRegistry)
         >>= (\f -> f m args')
 
 evalCall' :: Memory -> String -> [Ast] -> Either String (Ast, Memory)
 evalCall' m n args' = case evalOperator m n args' of
     Right (result, mem) -> Right (result, mem)
-    Left _ -> evalDefinedFunction m n args'
+    Left "Not a valid operator" -> evalDefinedFunction m n args'
+    Left err -> Left err
 
 evalCall :: Memory -> String -> [Ast] -> Either String (Ast, Memory)
 evalCall m n args' = evalArgs m args' >>= \a -> evalCall' m n a

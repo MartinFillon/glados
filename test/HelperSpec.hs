@@ -8,7 +8,7 @@
 module HelperSpec (shouldBeApproximatelyAst) where
 
 import Parsing.SExprToAst (Ast (..))
-import Test.Hspec
+import Test.Hspec (Expectation, expectationFailure, shouldBe)
 
 shouldBeApproximatelyAst :: Ast -> Ast -> Expectation
 shouldBeApproximatelyAst (AstFloat x) (AstFloat y) =

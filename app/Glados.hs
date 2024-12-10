@@ -8,7 +8,6 @@
 module Glados (glados) where
 
 import qualified Control.Monad as Monad
-import Debug.Trace (trace)
 import ErrorBundlePretty (errorBundlePrettyFormatted)
 import Eval.Evaluator (evalAST)
 import GHC.GHCi.Helpers (flushAll)
@@ -47,16 +46,14 @@ handleEvalResult (Left err) =
 
 parseToSexpr :: Memory -> String -> IO Memory
 parseToSexpr mem s =
-    trace ("mem: " ++ show mem) $
-        handleParseError True (parseSexpr s)
-            >>= maybe
-                (pError "*** ERROR : Invalid SExpr" >> exitWith (ExitFailure 84))
-                ( \ast ->
-                    trace (show ast) $
-                        handleEvalResult (evalAST mem ast)
-                            >> return (either (const mem) snd (evalAST mem ast))
-                )
-                . sexprToAST
+    handleParseError True (parseSexpr s)
+        >>= maybe
+            (pError "*** ERROR : Invalid SExpr" >> exitWith (ExitFailure 84))
+            ( \ast ->
+                handleEvalResult (evalAST mem ast)
+                    >> return (either (const mem) snd (evalAST mem ast))
+            )
+            . sexprToAST
 
 handleInput :: Memory -> String -> IO Memory
 handleInput = parseToSexpr
