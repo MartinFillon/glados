@@ -8,6 +8,7 @@
 module Glados (glados) where
 
 import qualified Control.Monad as Monad
+import Debug.Trace (trace)
 import ErrorBundlePretty (errorBundlePrettyFormatted)
 import Eval.Evaluator (evalAST)
 import GHC.GHCi.Helpers (flushAll)
@@ -16,7 +17,6 @@ import Parsing.ParserSExpr (ParserError, parseSexpr)
 import Parsing.SExprToAst (Ast (..), sexprToAST)
 import System.Exit (ExitCode (..), exitWith)
 import System.IO (hIsTerminalDevice, hPutStrLn, isEOF, stderr, stdin)
-import Debug.Trace (trace)
 
 pError :: String -> IO ()
 pError str = hPutStrLn stderr str >> exitWith (ExitFailure 84)
@@ -35,8 +35,8 @@ handleParseError showColors (Left err) =
         >> exitWith (ExitFailure 84)
         >> return undefined
 
-printAndReturn :: Show a => a -> IO a
-printAndReturn x = print x >> return x
+-- printAndReturn :: Show a => a -> IO a
+-- printAndReturn x = print x >> return x
 
 handleEvalResult :: Either String (Ast, Memory) -> IO ()
 handleEvalResult (Right (result, _))
@@ -48,15 +48,15 @@ handleEvalResult (Left err) =
 parseToSexpr :: Memory -> String -> IO Memory
 parseToSexpr mem s =
     trace ("mem: " ++ show mem) $
-    handleParseError True (parseSexpr s)
-        >>= printAndReturn
-        >>= maybe
-            (pError "*** ERROR : Invalid SExpr" >> exitWith (ExitFailure 84))
-            ( \ast ->
-                handleEvalResult (evalAST mem ast)
-                    >> return (either (const mem) snd (evalAST mem ast))
-            )
-            . sexprToAST
+        handleParseError True (parseSexpr s)
+            >>= maybe
+                (pError "*** ERROR : Invalid SExpr" >> exitWith (ExitFailure 84))
+                ( \ast ->
+                    trace (show ast) $
+                        handleEvalResult (evalAST mem ast)
+                            >> return (either (const mem) snd (evalAST mem ast))
+                )
+                . sexprToAST
 
 handleInput :: Memory -> String -> IO Memory
 handleInput = parseToSexpr
