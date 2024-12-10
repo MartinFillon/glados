@@ -13,3 +13,4 @@ glados
 *.lisp
 *.tix
 .hpc
+*.html
