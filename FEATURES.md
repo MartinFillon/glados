@@ -295,9 +295,9 @@ Evaluates one of the branches depending on **foo**
 There is a configuration file called `list-colors.conf` containing informations on colors used for Megaparsec parsing errors.</br>
 If the file doesn't exist, it is created with default colors:
 ```conf
-warnings="255;0;255"
-errors="255;0;0"
-infos="0;0;255"
+warnings="255;0;255" ; Magenta
+errors="255;0;0"     ; Red
+infos="0;0;255"      ; Blue
 ```
 For accessibility purposes, these colors can be changed directly inside the file using format `R;G;B`, or by using the `--setup-colors` flag, formatted like so:
 ```bash
