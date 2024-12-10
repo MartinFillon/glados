@@ -7,7 +7,6 @@
 {-# LANGUAGE InstanceSigs #-}
 
 module Parsing.SExprToAst (
-    printTree,
     sexprToAST,
     Ast (..),
     Function (..),
@@ -54,6 +53,8 @@ instance Eq Ast where
     (Call (Function n1 a1)) == (Call (Function n2 a2)) = n1 == n2 && a1 == a2
     (Condition (Function n1 a1)) == (Condition (Function n2 a2)) = n1 == n2 && a1 == a2
     (Lambda p1 b1) == (Lambda p2 b2) = p1 == p2 && b1 == b2
+    AstVoid == AstVoid = True
+    (Apply a1 l1) == (Apply a2 l2) = a1 == a2 && l1 == l2
     _ == _ = False
 
 getSymbol :: Sexpr Int Double -> Maybe String
@@ -68,18 +69,18 @@ getSymbol _ = Nothing
 -- getList (List l) = Just l
 -- getList _ = Nothing
 
-printTree :: Sexpr Int Double -> Maybe String
-printTree (Atom (String s)) = Just ("a " ++ show s)
-printTree (Atom (Number i)) = Just ("an " ++ show i)
-printTree (Atom (Float f)) = Just ("a " ++ show f)
-printTree (Atom (Bool True)) = Just "Bool: #t"
-printTree (Atom (Bool False)) = Just "Bool: #f"
-printTree (List [x]) = printTree x
-printTree (List (x : xs)) =
-    (\a b -> a ++ ", " ++ b)
-        <$> printTree x
-        <*> printTree (List xs)
-printTree (List []) = Nothing
+-- printTree :: Sexpr Int Double -> Maybe String
+-- printTree (Atom (String s)) = Just ("a " ++ show s)
+-- printTree (Atom (Number i)) = Just ("an " ++ show i)
+-- printTree (Atom (Float f)) = Just ("a " ++ show f)
+-- printTree (Atom (Bool True)) = Just "Bool: #t"
+-- printTree (Atom (Bool False)) = Just "Bool: #f"
+-- printTree (List [x]) = printTree x
+-- printTree (List (x : xs)) =
+-- (\a b -> a ++ ", " ++ b)
+-- <$> printTree x
+-- <*> printTree (List xs)
+-- printTree (List []) = Nothing
 
 ------------ Sexpr -> AST
 
