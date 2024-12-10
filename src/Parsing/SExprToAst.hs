@@ -26,7 +26,7 @@ data Ast
     | AstInt Int
     | AstFloat Double
     | AstBool Bool
-    | AstSymbol String (Maybe Ast) -- name value
+    | AstSymbol String Ast -- name value
     | Lambda [String] Ast
     | Apply Ast [Ast]
     | AstVoid
@@ -38,10 +38,10 @@ instance Show Ast where
     show (AstBool b) = if b then "#t" else "#f"
     show (AstSymbol n s) = '(' : n ++ " = " ++ show s ++ ")"
     show (Define a b) = "Define " ++ show a ++ " = " ++ show b
-    show (Call (Function n a)) = "Call " ++ n ++ concatMap (\x -> ' ' : show x) a
+    show (Call (Function n a)) = "Call " ++ "((" ++ n ++ ")" ++ concatMap (\x -> ' ' : show x) a ++ ")"
     show (Apply ast lAst) = show ast ++ ": " ++ concatMap (\x -> ' ' : show x) lAst
-    show (Lambda _ _) = "Lambda"
-    show AstVoid = ""
+    show (Lambda _ expr) = "Lambda: " ++ show expr
+    show AstVoid = "Void"
 
 instance Eq Ast where
     (==) :: Ast -> Ast -> Bool
@@ -84,7 +84,7 @@ sexprToAST :: Sexpr Int Double -> Maybe Ast
 sexprToAST (Atom (Number i)) = Just (AstInt i)
 sexprToAST (Atom (Bool b)) = Just (AstBool b)
 sexprToAST (Atom (Float f)) = Just (AstFloat f)
-sexprToAST (Atom (String s)) = Just (AstSymbol s Nothing)
+sexprToAST (Atom (String s)) = Just (AstSymbol s AstVoid)
 sexprToAST (List [Atom (String "define"), List (Atom (String s) : params), body]) =
     Define s <$> (Lambda <$> mapM getSymbol params <*> sexprToAST body)
 sexprToAST (List [Atom (String "define"), Atom (String s), expr]) =

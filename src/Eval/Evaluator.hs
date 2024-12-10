@@ -56,20 +56,27 @@ defaultRegistry =
         ]
 
 substitute :: Ast -> [(String, Ast)] -> Ast
-substitute (AstSymbol n Nothing) subs =
-    fromMaybe (AstSymbol n Nothing) (lookup n subs)
 substitute (Define n value) subs =
     Define n (substitute value subs)
+substitute (AstSymbol n AstVoid) subs =
+    case lookup n subs of
+        Just val -> val
+        Nothing -> AstSymbol n AstVoid -- No substitution inside function names
+        -- substitute (AstSymbol n AstVoid) subs =
+        --     fromMaybe (AstSymbol n AstVoid) (lookup n subs)
 substitute (Call (Function n a)) subs =
     Call (Function n (map (`substitute` subs) a))
+-- substitute (Lambda params body) subs =
+--     Lambda params (substitute body (filter (\(k, _) -> k `notElem` params) subs))
 substitute (Lambda params body) subs =
     Lambda params (substitute body subs) -- No substitution inside lambda's params
 substitute other _ = other
 
 evalAndAccumulate :: (Memory, [Ast]) -> Ast -> Either String (Memory, [Ast])
-evalAndAccumulate (mem, acc) arg = 
+evalAndAccumulate (mem, acc) arg =
     case evalAST mem arg of
-        Right (evaluatedArg, newMem) -> Right (newMem, acc ++ [evaluatedArg])
+        Right (evaluatedArg, newMem) ->
+            Right (newMem, acc ++ [evaluatedArg])
         Left err -> Left err
 
 evalLambda :: Memory -> [String] -> Ast -> [Ast] -> Either String (Ast, Memory)
@@ -77,9 +84,9 @@ evalLambda mem params body lambdaArgs =
     if length params /= length lambdaArgs
         then Left "Lambda argument count mismatch"
         else evalAST mem substitutedBody
-    where
-        substitutions = zip params lambdaArgs
-        substitutedBody = substitute body substitutions
+  where
+    substitutions = zip params lambdaArgs
+    substitutedBody = substitute body substitutions
 
 handleSymbolFunctionCall :: Memory -> String -> [Ast] -> Ast -> Either String (Ast, Memory)
 handleSymbolFunctionCall mem _ evalArgs func =
@@ -90,8 +97,7 @@ handleSymbolFunctionCall mem _ evalArgs func =
 evalAST :: Memory -> Ast -> Either String (Ast, Memory)
 evalAST mem (Define n expr) =
     evalAST mem expr >>= \(evaluatedExpr, updatedMem) ->
-        -- Right (AstVoid, updateMemory updatedMem n evaluatedExpr)
-        Right (AstSymbol n (Just evaluatedExpr), updateMemory updatedMem n evaluatedExpr) -- add case for when Maybe AstSymbol String (Maybe Ast)
+        Right (AstVoid, updateMemory updatedMem n evaluatedExpr)
 evalAST mem (Apply func evalArgs) =
     evalAST mem func >>= \(evaluatedFunc, memAfterFunc) ->
         case evaluatedFunc of
@@ -103,13 +109,15 @@ evalAST mem (Apply func evalArgs) =
     evalArgsWithMem (accArgs, curMem) arg =
         evalAST curMem arg >>= \(evaluatedArg, newMem) ->
             Right (accArgs ++ [evaluatedArg], newMem)
-evalAST mem (Lambda params body) = Right (Lambda params body, mem)
+evalAST mem (Lambda params body) =
+    Right (Lambda params body, mem)
 evalAST mem (Call (Function n evalArgs)) =
     case Map.lookup n defaultRegistry of
         Just f ->
             foldM evalAndAccumulate (mem, []) evalArgs >>= \(newMem, evaluatedArgs) ->
                 case f newMem evaluatedArgs of
-                    Right (result, _) -> Right (result, newMem)
+                    Right (result, _) ->
+                        Right (result, newMem)
                     Left err -> Left err
         Nothing ->
             case readMemory mem n of
@@ -119,9 +127,12 @@ evalAST mem (Call (Function n evalArgs)) =
                     handleSymbolFunctionCall mem n evalArgs otherAst
                 Nothing ->
                     Left $ "Function not found: " ++ n
-evalAST mem (AstFloat f) = Right (AstFloat f, mem)
-evalAST mem (AstInt i) = Right (AstInt i, mem)
-evalAST mem (AstBool b) = Right (AstBool b, mem)
-evalAST mem (AstSymbol s Nothing) =
-    maybe (Right (AstSymbol s Nothing, mem)) (\val -> Right (val, mem)) (readMemory mem s)
-evalAST mem (AstSymbol _ (Just val)) = evalAST mem val
+evalAST mem (AstFloat f) =
+    Right (AstFloat f, mem)
+evalAST mem (AstInt i) =
+    Right (AstInt i, mem)
+evalAST mem (AstBool b) =
+    Right (AstBool b, mem)
+evalAST mem (AstSymbol s AstVoid) =
+    maybe (Right (AstSymbol s AstVoid, mem)) (\val -> Right (val, mem)) (readMemory mem s)
+evalAST mem (AstSymbol _ val) = evalAST mem val
