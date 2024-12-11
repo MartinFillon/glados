@@ -173,12 +173,12 @@ else
     print_red "❌ superior.scm failed: Got '$output'"
 fi
 
-# # factorial.scm
-# echo "Running factorial.scm..."
-# output=$(./glados < test/test_files/factorial.scm)
-# print_yellow "got '$output'"
-# if [ "$output" == "3628800" ]; then
-#     print_green "✅ factorial.scm passed!"
-# else
-#     print_red "❌ factorial.scm failed: Got '$output'"
-# fi
+# factorial.scm
+echo "Running factorial.scm..."
+output=$(./glados < test/test_files/factorial.scm)
+print_yellow "got '$output'"
+if [ "$output" == "3628800" ]; then
+    print_green "✅ factorial.scm passed!"
+else
+    print_red "❌ factorial.scm failed: Got '$output'"
+fi

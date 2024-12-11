@@ -5,13 +5,17 @@
 -- Maths
 -}
 
-module Eval.Maths (evalAdd, evalSub, evalMul, evalDiv, evalMod) where
+module Eval.Maths (evalAdd, evalSub, evalMul, evalDiv, evalMod, isNumeric) where
 
-import Data.Data (typeOf)
 import Data.Fixed (mod')
 import GHC.Float (double2Int, int2Double)
 import Memory (Memory)
 import Parsing.SExprToAst (Ast (..))
+
+isNumeric :: Ast -> Bool
+isNumeric (AstInt _) = True
+isNumeric (AstFloat _) = True
+isNumeric _ = False
 
 evalMath ::
     String ->
@@ -28,7 +32,7 @@ evalMath _ f mem [AstInt i, AstFloat f1] =
 evalMath _ f mem [AstFloat f1, AstInt i] =
     Right (AstFloat (f f1 (int2Double i)), mem)
 evalMath opname _ _ [a, b]
-    | typeOf a == typeOf AstInt || typeOf a == typeOf AstFloat =
+    | isNumeric a =
         Left ("Arguments " ++ show b ++ " out of bound for operation " ++ opname)
     | otherwise =
         Left ("Arguments " ++ show a ++ " out of bound for operation " ++ opname)
@@ -57,7 +61,7 @@ evalDiv mem [AstFloat f, AstInt i]
     | i /= 0 = Right (AstFloat (f / fromIntegral i), mem)
     | otherwise = Left "Division by zero"
 evalDiv _ [a, b]
-    | typeOf a == typeOf AstInt || typeOf a == typeOf AstFloat =
+    | isNumeric a =
         Left ("Arguments " ++ show b ++ " out of bound for division")
     | otherwise = Left ("Arguments " ++ show a ++ " out of bound for division")
 evalDiv _ _ = Left "Invalid arguments for division"
@@ -76,7 +80,7 @@ evalMod mem [AstFloat f, AstInt i]
     | i /= 0 = Right (AstFloat (f `mod'` fromIntegral i), mem)
     | otherwise = Left "Modulo by zero"
 evalMod _ [a, b]
-    | typeOf a == typeOf AstInt || typeOf a == typeOf AstFloat =
+    | isNumeric a =
         Left ("Arguments " ++ show b ++ " out of bound for modulo")
     | otherwise = Left ("Arguments " ++ show a ++ " out of bound for modulo")
 evalMod _ _ = Left "Invalid arguments for modulo"
