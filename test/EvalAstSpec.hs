@@ -8,6 +8,7 @@
 module EvalAstSpec (spec) where
 
 import Eval.Evaluator (evalAST)
+import Eval.Maths (isNumeric)
 import HelperSpec (shouldBeApproximatelyAst)
 import Memory (initMemory)
 import Parsing.SExprToAst (Ast (..), Function (..))
@@ -55,6 +56,16 @@ spec = describe "evalAST initMemory" $ do
                 case result of
                     Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 3.0)
                     _ -> expectationFailure "Expected AstFloat result"
+            it "addition on float and int values" $ do
+                let result = evalAST initMemory (Call (Function "+" [AstInt 10, AstFloat 2.3]))
+                case result of
+                    Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 12.3)
+                    _ -> expectationFailure "Expected AstFloat result"
+            it "addition on float and int values" $ do
+                let result = evalAST initMemory (Call (Function "+" [AstFloat 0.3, AstInt (-1)]))
+                case result of
+                    Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat (-0.7))
+                    _ -> expectationFailure "Expected AstFloat result"
 
         context "evaluates division" $ do
             it "division with positive values" $ do
@@ -80,6 +91,16 @@ spec = describe "evalAST initMemory" $ do
             it "division by zero with floats" $ do
                 evalAST initMemory (Call (Function "/" [AstFloat 4.0, AstFloat 0.0]))
                     `shouldBe` Left "Division by zero"
+            it "division on float and int values" $ do
+                let result = evalAST initMemory (Call (Function "div" [AstInt 25, AstFloat 2.5]))
+                case result of
+                    Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 10.0)
+                    _ -> expectationFailure "Expected AstFloat result"
+            it "division on float and int values" $ do
+                let result = evalAST initMemory (Call (Function "div" [AstFloat 4.8, AstInt 2]))
+                case result of
+                    Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 2.4)
+                    _ -> expectationFailure "Expected AstFloat result"
 
         context "evaluates multiplication" $ do
             it "multiplication with positive values" $ do
@@ -96,6 +117,16 @@ spec = describe "evalAST initMemory" $ do
             it "multiplication with positive and negative values" $ do
                 evalAST initMemory (Call (Function "*" [AstInt (-3), AstInt 4]))
                     `shouldBe` Right (AstInt (-12), initMemory)
+            it "multiplication on float and int values" $ do
+                let result = evalAST initMemory (Call (Function "*" [AstInt 10, AstFloat 2.3]))
+                case result of
+                    Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 23.0)
+                    _ -> expectationFailure "Expected AstFloat result"
+            it "multiplication on float and int values" $ do
+                let result = evalAST initMemory (Call (Function "*" [AstFloat 0.3, AstInt (-1)]))
+                case result of
+                    Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat (-0.3))
+                    _ -> expectationFailure "Expected AstFloat result"
 
         context "evaluates modulo" $ do
             it "modulo on positive values with %" $ do
@@ -119,7 +150,16 @@ spec = describe "evalAST initMemory" $ do
             it "modulo by zero with floats and mod" $ do
                 evalAST initMemory (Call (Function "mod" [AstFloat 10.0, AstFloat 0.0]))
                     `shouldBe` Left "Modulo by zero"
-
+            it "modulo on float and int values" $ do
+                let result = evalAST initMemory (Call (Function "mod" [AstInt 10, AstFloat 2.5]))
+                case result of
+                    Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 0.0)
+                    _ -> expectationFailure "Expected AstFloat result"
+            it "modulo on float and int values" $ do
+                let result = evalAST initMemory (Call (Function "mod" [AstFloat 4.5, AstInt 25]))
+                case result of
+                    Right (AstFloat x, _) -> shouldBeApproximatelyAst (AstFloat x) (AstFloat 4.5)
+                    _ -> expectationFailure "Expected AstFloat result"
             it "modulo on floats with %" $ do
                 let result = evalAST initMemory (Call (Function "%" [AstFloat 10.0, AstFloat 3.0]))
                 case result of
@@ -277,8 +317,11 @@ spec = describe "evalAST initMemory" $ do
                 Right (x, _) -> x `shouldBe` AstInt 0
                 _ -> expectationFailure "Expected AstInt 0"
 
--- it "evaluates define" $ do
---     let defineExpr = Define "x" (AstInt 10)
---     let symbolX = evalAST initMemory defineExpr
---     evalAST initMemory (Call (Function "+" [AstSymbol "x" symbolX, AstInt 5]))
---         `shouldBe` Right (AstInt 15)²
+    describe "util functions" $ do
+        context "checks for numeric types in AST" $ do
+            it "is an int numeric" $ do
+                isNumeric (AstInt 3) `shouldBe` True
+            it "is a float numeric" $ do
+                isNumeric (AstFloat 3.4) `shouldBe` True
+            it "is not a numeric" $ do
+                isNumeric (AstBool True) `shouldBe` False
