@@ -1,12 +1,14 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Printer (
     Paint (..),
     Style (..),
     Color (..),
     ColorCode (..),
+    Config (..),
     reset,
     setColors,
     setColors',
@@ -16,6 +18,10 @@ module Printer (
     parseColor',
     parseRGB,
     parseConf,
+    confDefaultValues,
+    confFilepath,
+    parseColors,
+    ParserError,
 ) where
 
 import Data.Either (rights)
@@ -23,14 +29,24 @@ import Data.List (find)
 import Data.Text (Text, pack, splitOn, unpack)
 import Data.Void (Void)
 import Data.Word (Word8)
-import Parsing.ParserAst (lexeme, stringLiteral, variable)
+
+-- import Parsing.ParserAst (lexeme, stringLiteral, variable)
+
+import Control.Monad (void)
 import System.Directory (doesFileExist)
 import Text.Megaparsec (
     ParseErrorBundle,
     Parsec,
+    empty,
+    many,
+    manyTill,
     runParser,
+    some,
+    (<?>),
+    (<|>),
  )
-import Text.Megaparsec.Char (char)
+import Text.Megaparsec.Char (alphaNumChar, char, letterChar)
+import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = Parsec Void Text
 type ParserError = ParseErrorBundle Text Void
@@ -48,9 +64,9 @@ data Config = Config
     { key :: String,
       value :: String
     }
-    deriving (Show)
+    deriving (Show, Eq)
 
-newtype ColorCode = ColorCode (Word8, Word8, Word8)
+newtype ColorCode = ColorCode (Word8, Word8, Word8) deriving (Eq)
 
 instance Show ColorCode where
     show :: ColorCode -> String
@@ -66,6 +82,7 @@ data Color
     | White
     | Orange
     | RGB ColorCode
+    deriving (Eq)
 
 instance Show Color where
     show :: Color -> String
@@ -121,6 +138,21 @@ setColors w e i =
 setColors' :: Maybe (Color, Color, Color) -> IO ()
 setColors' (Just (w, e, i)) = setColors w e i
 setColors' Nothing = mempty
+
+lineComment :: Parser ()
+lineComment = L.skipLineComment ";"
+
+sc :: Parser ()
+sc = L.space (void $ some (char ' ' <|> char '\t')) lineComment empty
+
+lexeme :: Parser a -> Parser a
+lexeme = L.lexeme sc
+
+stringLiteral :: Parser String
+stringLiteral = char '\"' *> manyTill L.charLiteral (char '\"')
+
+variable :: Parser String
+variable = lexeme ((:) <$> letterChar <*> many alphaNumChar <?> "variable")
 
 keyParser :: Parser String
 keyParser = variable

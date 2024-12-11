@@ -59,8 +59,8 @@ evalIf mem [AstBool False, _, falseExpr] =
     evalAST mem falseExpr
 evalIf _ _ = Left "Invalid arguments to `if`"
 
-evalCondtion :: Memory -> String -> Ast -> [Ast] -> Either String (Ast, Memory)
-evalCondtion m n cond x = evalArgs m [cond] >>= \a -> evalCall' m n (a ++ x)
+evalCondition :: Memory -> String -> Ast -> [Ast] -> Either String (Ast, Memory)
+evalCondition m n cond x = evalArgs m [cond] >>= \a -> evalCall' m n (a ++ x)
 
 substitute' :: Maybe Ast -> String -> Memory -> Ast
 substitute' (Just val) _ _ = val
@@ -72,20 +72,31 @@ substitute (Define n value) subs mem =
 substitute (AstSymbol n _) subs mem =
     substitute' (lookup n subs) n mem
 substitute (Call (Function n subArgs)) subs mem =
-    case lookup n subs of
-        Just _ ->
-            Call (Function n subArgs)
-        Nothing ->
-            Call (Function n (map (\arg -> substitute arg subs mem) subArgs))
+    substituteFunction Call n subArgs subs mem
 substitute (Condition (Function n subArgs)) subs mem =
-    case lookup n subs of
-        Just _ ->
-            Condition (Function n subArgs)
-        Nothing ->
-            Condition (Function n (map (\arg -> substitute arg subs mem) subArgs))
+    substituteFunction Condition n subArgs subs mem
+-- substitute (Call (Function n subArgs)) subs mem =
+--     case lookup n subs of
+--         Just _ ->
+--             Call (Function n subArgs)
+--         Nothing ->
+--             Call (Function n (map (\arg -> substitute arg subs mem) subArgs))
+-- substitute (Condition (Function n subArgs)) subs mem =
+--     case lookup n subs of
+--         Just _ ->
+--             Condition (Function n subArgs)
+--         Nothing ->
+--             Condition (Function n (map (\arg -> substitute arg subs mem) subArgs))
 substitute (Lambda params body) subs mem =
     Lambda params (substitute body subs mem)
 substitute other _ _ = other
+
+
+substituteFunction :: (Function -> Ast) -> String -> [Ast] -> [(String, Ast)] -> Memory -> Ast
+substituteFunction constructor n subArgs subs mem =
+    case lookup n subs of
+        Just _  -> constructor (Function n subArgs)
+        Nothing -> constructor (Function n (map (\arg -> substitute arg subs mem) subArgs))
 
 evalLambda :: Memory -> [String] -> Ast -> [Ast] -> Either String (Ast, Memory)
 evalLambda mem params body lambdaArgs
@@ -163,7 +174,7 @@ evalAST mem (Apply func ag) =
 evalAST mem (Lambda params body) =
     Right (Lambda params body, mem)
 evalAST mem (Condition (Function n (cond : ag))) =
-    evalCondtion mem n cond ag
+    evalCondition mem n cond ag
 evalAST mem (Call (Function n ag)) = evalCall mem n ag
 evalAST mem (AstFloat f) =
     Right (AstFloat f, mem)

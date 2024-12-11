@@ -67,3 +67,4 @@ tests:
     dependencies:
       - glados
       - hspec
+      - hspec-megaparsec
