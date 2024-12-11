@@ -8,6 +8,7 @@ module Printer (
     Style (..),
     Color (..),
     ColorCode (..),
+    Config (..),
     reset,
     setColors,
     setColors',
@@ -17,6 +18,10 @@ module Printer (
     parseColor',
     parseRGB,
     parseConf,
+    confDefaultValues,
+    confFilepath,
+    parseColors,
+    ParserError,
 ) where
 
 import Data.Either (rights)
@@ -59,9 +64,9 @@ data Config = Config
     { key :: String,
       value :: String
     }
-    deriving (Show)
+    deriving (Show, Eq)
 
-newtype ColorCode = ColorCode (Word8, Word8, Word8)
+newtype ColorCode = ColorCode (Word8, Word8, Word8) deriving (Eq)
 
 instance Show ColorCode where
     show :: ColorCode -> String
@@ -77,6 +82,7 @@ data Color
     | White
     | Orange
     | RGB ColorCode
+    deriving (Eq)
 
 instance Show Color where
     show :: Color -> String
