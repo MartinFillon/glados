@@ -61,27 +61,6 @@ getSymbol :: Sexpr Int Double -> Maybe String
 getSymbol (Atom (String s)) = Just s
 getSymbol _ = Nothing
 
--- getInteger :: SExpr -> Maybe Int
--- getInteger (Integer i) = Just i
--- getInteger _ = Nothing
-
--- getList :: SExpr -> Maybe [SExpr]
--- getList (List l) = Just l
--- getList _ = Nothing
-
--- printTree :: Sexpr Int Double -> Maybe String
--- printTree (Atom (String s)) = Just ("a " ++ show s)
--- printTree (Atom (Number i)) = Just ("an " ++ show i)
--- printTree (Atom (Float f)) = Just ("a " ++ show f)
--- printTree (Atom (Bool True)) = Just "Bool: #t"
--- printTree (Atom (Bool False)) = Just "Bool: #f"
--- printTree (List [x]) = printTree x
--- printTree (List (x : xs)) =
--- (\a b -> a ++ ", " ++ b)
--- <$> printTree x
--- <*> printTree (List xs)
--- printTree (List []) = Nothing
-
 ------------ Sexpr -> AST
 
 sexprToAST :: Sexpr Int Double -> Maybe Ast
@@ -93,12 +72,10 @@ sexprToAST (List [Atom (String "define"), List (Atom (String s) : params), body]
     Define s <$> (Lambda <$> mapM getSymbol params <*> sexprToAST body)
 sexprToAST (List [Atom (String "define"), Atom (String s), expr]) =
     Define s <$> sexprToAST expr
--- Adjust sexprToAST to handle lambda expressions
 sexprToAST (List [Atom (String "lambda"), List params, body]) =
     Lambda <$> mapM getSymbol params <*> sexprToAST body
 sexprToAST (List ((Atom (String "if")) : a)) = mapM sexprToAST a >>= \argAsts -> Just (Condition (Function "if" argAsts))
 sexprToAST (List ((Atom (String s)) : a)) = mapM sexprToAST a >>= \argAsts -> Just (Call (Function s argAsts))
--- Adjust sexprToAST to handle function applications
 sexprToAST (List (func : a)) = Apply <$> sexprToAST func <*> mapM sexprToAST a
 sexprToAST _ = Nothing
 
