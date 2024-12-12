@@ -98,6 +98,10 @@ pre-commit install
 
 This will set up the hooks for your local repository.
 
+Additionally, for conventional commits run:
+```sh
+pre-commit install --hook-type commit-msg
+```
 
 #### Manually Run Pre-commit Hooks:
 
