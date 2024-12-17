@@ -20,7 +20,10 @@ data Insts
     | Call
     | JumpF Int
     | PushArg Int
+    | PushFromEnv String
     deriving (Show)
+
+type Env = [(String, Val)]
 
 type Stack = [Val]
 
@@ -50,12 +53,19 @@ getArg _ [] = Left "Arg not found"
 getArg 0 (x : _) = Right x
 getArg n (_ : xs) = getArg (n - 1) xs
 
-exec :: [Val] -> [Insts] -> Stack -> Either String Val
-exec _ (Ret : _) (x : _) = Right x
-exec a (Push x : xs) s = exec a xs (x : s)
-exec a (Call : xs) (S f : s) = execOp f s >>= exec a xs
-exec a (Call : xs) (I i : s) = exec s i [] >>= (\r -> exec a xs (r : s))
-exec a (PushArg n : xs) s = getArg n a >>= (\x -> exec a xs (x : s))
-exec a (JumpF n : xs) (B False : s) = exec a (skip xs n) s
-exec a (JumpF _ : xs) (B True : s) = exec a xs s
-exec _ _ _ = Left "Missing infos"
+getEnv :: String -> Env -> Either String Val
+getEnv _ [] = Left "Arg not found"
+getEnv s ((x, v) : xs)
+    | s == x = Right v
+    | otherwise = getEnv s xs
+
+exec :: Env -> [Val] -> [Insts] -> Stack -> Either String Val
+exec _ _ (Ret : _) (x : _) = Right x
+exec e a (Push x : xs) s = exec e a xs (x : s)
+exec e a (Call : xs) (S f : s) = execOp f s >>= exec e a xs
+exec e a (Call : xs) (I i : s) = exec e s i [] >>= (\r -> exec e a xs (r : s))
+exec e a (PushArg n : xs) s = getArg n a >>= (\x -> exec e a xs (x : s))
+exec e a (JumpF n : xs) (B False : s) = exec e a (skip xs n) s
+exec e a (JumpF _ : xs) (B True : s) = exec e a xs s
+exec e a (PushFromEnv n : xs) s = getEnv n e >>= (\r -> exec e a xs (r : s))
+exec _ _ _ _ = Left "Missing infos"
