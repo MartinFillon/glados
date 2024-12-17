@@ -7,17 +7,17 @@
 
 module VirtualMachine.Instructions (Insts (..), exec, execOp, Val (..)) where
 
-type Op = String
-
 data Val
     = N Int
     | B Bool
+    | S String
+    | I [Insts]
     deriving (Show)
 
 data Insts
     = Push Val
     | Ret
-    | Call Op
+    | Call
     | JumpF Int
     | PushArg Int
     deriving (Show)
@@ -45,15 +45,16 @@ skip [] _ = []
 skip x 0 = x
 skip (_ : xs) n = skip xs (n - 1)
 
-getArg :: Int -> [Int] -> Either String Val
+getArg :: Int -> [Val] -> Either String Val
 getArg _ [] = Left "Arg not found"
-getArg 0 (x : _) = Right (N x)
+getArg 0 (x : _) = Right x
 getArg n (_ : xs) = getArg (n - 1) xs
 
-exec :: [Int] -> [Insts] -> Stack -> Either String Val
+exec :: [Val] -> [Insts] -> Stack -> Either String Val
 exec _ (Ret : _) (x : _) = Right x
 exec a (Push x : xs) s = exec a xs (x : s)
-exec a (Call x : xs) s = execOp x s >>= exec a xs
+exec a (Call : xs) (S f : s) = execOp f s >>= exec a xs
+exec a (Call : xs) (I i : s) = exec s i [] >>= (\r -> exec a xs (r : s))
 exec a (PushArg n : xs) s = getArg n a >>= (\x -> exec a xs (x : s))
 exec a (JumpF n : xs) (B False : s) = exec a (skip xs n) s
 exec a (JumpF _ : xs) (B True : s) = exec a xs s
