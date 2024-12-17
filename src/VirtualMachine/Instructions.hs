@@ -19,6 +19,7 @@ data Insts
     | Ret
     | Call Op
     | JumpF Int
+    | PushArg Int
     deriving (Show)
 
 type Stack = [Val]
@@ -44,10 +45,16 @@ skip [] _ = []
 skip x 0 = x
 skip (_ : xs) n = skip xs (n - 1)
 
-exec :: [Insts] -> Stack -> Either String Val
-exec (Ret : _) (x : _) = Right x
-exec (Push x : xs) s = exec xs (x : s)
-exec (Call x : xs) s = execOp x s >>= exec xs
-exec (JumpF n : xs) (B False : s) = exec (skip xs n) s
-exec (JumpF _ : xs) (B True : s) = exec xs s
-exec _ _ = Left "Missing infos"
+getArg :: Int -> [Int] -> Either String Val
+getArg _ [] = Left "Arg not found"
+getArg 0 (x : _) = Right (N x)
+getArg n (_ : xs) = getArg (n - 1) xs
+
+exec :: [Int] -> [Insts] -> Stack -> Either String Val
+exec _ (Ret : _) (x : _) = Right x
+exec a (Push x : xs) s = exec a xs (x : s)
+exec a (Call x : xs) s = execOp x s >>= exec a xs
+exec a (PushArg n : xs) s = getArg n a >>= (\x -> exec a xs (x : s))
+exec a (JumpF n : xs) (B False : s) = exec a (skip xs n) s
+exec a (JumpF _ : xs) (B True : s) = exec a xs s
+exec _ _ _ = Left "Missing infos"
