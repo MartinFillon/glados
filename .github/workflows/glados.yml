@@ -38,7 +38,7 @@ jobs:
         run: |
           cd maryl
           sudo make
-          sudo stack test -allow-different-user
+          sudo stack test --allow-different-user
 
   push_to_mirror:
     needs: [check_stack_build]
