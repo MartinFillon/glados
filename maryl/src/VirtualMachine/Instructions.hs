@@ -6,7 +6,17 @@
 -}
 {-# LANGUAGE InstanceSigs #-}
 
-module VirtualMachine.Instructions (Insts (..), Val (..), Op (..)) where
+module VirtualMachine.Instructions (
+    Insts (..),
+    Val (..),
+    Op (..),
+    push,
+    call,
+    ret,
+    noop,
+    pushArg,
+    jumpf,
+) where
 
 import Data.Char (ord)
 import Data.Int (Int64)
@@ -18,14 +28,14 @@ data Op = Op
       name :: String,
       inst :: Insts
     }
-    deriving (Show)
+    deriving (Show, Eq)
 
 data Val
     = N Int64
     | B Bool
     | C Char
     | L [Val]
-    deriving (Show)
+    deriving (Show, Eq)
 
 -- d64
 -- lc5char\0
@@ -60,7 +70,7 @@ data Insts
     | JumpF Int64
     | PushArg Int64
     | Noop
-    deriving (Show)
+    deriving (Show, Eq)
 
 instance ToBytes Insts where
     toByte :: Insts -> [Word8]

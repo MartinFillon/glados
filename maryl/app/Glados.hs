@@ -5,7 +5,7 @@
 -- Gladdos
 -}
 
-module Glados (glados) where
+module Glados (glados, handleParseError) where
 
 import qualified Control.Monad as Monad
 import ErrorBundlePretty (errorBundlePrettyFormatted)
