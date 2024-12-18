@@ -7,6 +7,7 @@
 
 module Glados (glados, handleParseError) where
 
+import ArgsHandling (Mode (..))
 import qualified Control.Monad as Monad
 import ErrorBundlePretty (errorBundlePrettyFormatted)
 import Eval.Evaluator (evalAST)
@@ -16,6 +17,7 @@ import Parsing.ParserSExpr (ParserError, parseSexpr)
 import Parsing.SExprToAst (Ast (..), sexprToAST)
 import System.Exit (ExitCode (..), exitWith)
 import System.IO (hIsTerminalDevice, hPutStrLn, isEOF, stderr, stdin)
+import VirtualMachine (vm)
 
 pError :: String -> IO ()
 pError str = hPutStrLn stderr str >> exitWith (ExitFailure 84)
@@ -92,6 +94,7 @@ getContentFromStdin mem =
     hIsTerminalDevice stdin
         >>= getLineFromStdin mem ""
 
-glados :: Maybe String -> IO ()
-glados (Just filepath) = Monad.void (getContentFromFile initMemory filepath)
-glados Nothing = getContentFromStdin initMemory
+glados :: Mode -> Maybe String -> IO ()
+glados Compile (Just filepath) = Monad.void (getContentFromFile initMemory filepath)
+glados Compile Nothing = getContentFromStdin initMemory
+glados Vm x = vm x
