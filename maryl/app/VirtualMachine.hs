@@ -7,5 +7,9 @@
 
 module VirtualMachine (vm) where
 
+import Utils (handleParseError, pError)
+import VirtualMachine.Parser (parseAssembly)
+
 vm :: Maybe String -> IO ()
-vm = print
+vm Nothing = pError "A file is required for the vm to run"
+vm (Just s) = readFile s >>= (handleParseError True . parseAssembly) >>= print

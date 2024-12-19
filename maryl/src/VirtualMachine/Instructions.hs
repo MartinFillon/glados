@@ -4,7 +4,6 @@
 -- File description:
 -- Instructions
 -}
-{-# LANGUAGE InstanceSigs #-}
 
 module VirtualMachine.Instructions (
     Insts (..),
@@ -16,17 +15,20 @@ module VirtualMachine.Instructions (
     noop,
     pushArg,
     jumpf,
+    jump,
+    Label,
 ) where
 
-import Data.Char (ord)
 import Data.Int (Int64)
 import Data.Word (Word8)
-import VirtualMachine.Bytes (ToBytes (..))
+
+type Label = Maybe String
 
 data Op = Op
     { code :: Word8,
       name :: String,
-      inst :: Insts
+      inst :: Insts,
+      label :: Label
     }
     deriving (Show, Eq)
 
@@ -34,74 +36,79 @@ data Val
     = N Int64
     | B Bool
     | C Char
+    | S String
     | L [Val]
     deriving (Show, Eq)
 
 -- d64
 -- lc5char\0
 
-instance ToBytes Val where
-    toByte :: Val -> [Word8]
-    toByte (N n) = fromIntegral (ord 'i') : toByte n
-    toByte (B False) = fromIntegral (ord 'b') : [0]
-    toByte (B True) = fromIntegral (ord 'b') : [1]
-    toByte (C c) = fromIntegral (ord 'c') : [fromIntegral (ord c)]
-    toByte (L s@(N _ : _)) =
-        fromIntegral (ord 'l')
-            : fromIntegral (ord 'i')
-            : toByte (length s)
-            ++ concatMap toByte s
-    toByte (L s@(B _ : _)) =
-        fromIntegral (ord 'l')
-            : fromIntegral (ord 'b')
-            : toByte (length s)
-            ++ concatMap toByte s
-    toByte (L s@(C _ : _)) =
-        fromIntegral (ord 'l')
-            : fromIntegral (ord 'c')
-            : toByte (length s)
-            ++ concatMap toByte s
-    toByte _ = []
+-- instance ToBytes Val where
+--     toByte :: Val -> [Word8]
+--     toByte (N n) = fromIntegral (ord 'i') : toByte n
+--     toByte (B False) = fromIntegral (ord 'b') : [0]
+--     toByte (B True) = fromIntegral (ord 'b') : [1]
+--     toByte (C c) = fromIntegral (ord 'c') : [fromIntegral (ord c)]
+--     toByte (L s@(N _ : _)) =
+--         fromIntegral (ord 'l')
+--             : fromIntegral (ord 'i')
+--             : toByte (length s)
+--             ++ concatMap toByte s
+--     toByte (L s@(B _ : _)) =
+--         fromIntegral (ord 'l')
+--             : fromIntegral (ord 'b')
+--             : toByte (length s)
+--             ++ concatMap toByte s
+--     toByte (L s@(C _ : _)) =
+--         fromIntegral (ord 'l')
+--             : fromIntegral (ord 'c')
+--             : toByte (length s)
+--             ++ concatMap toByte s
+--     toByte _ = []
 
 data Insts
     = Push Val
     | Ret
     | Call
-    | JumpF Int64
+    | JumpF (Either Int64 String)
+    | Jump (Either Int64 String)
     | PushArg Int64
     | Noop
     deriving (Show, Eq)
 
-instance ToBytes Insts where
-    toByte :: Insts -> [Word8]
-    toByte Noop = [code noop]
-    toByte Ret = [code ret]
-    toByte Call = [code call]
-    toByte (Push x) = code (push x) : toByte x
-    toByte (PushArg x) = code (pushArg x) : toByte x
-    toByte (JumpF f) = code (jumpf f) : toByte f
+-- instance ToBytes Insts where
+--     toByte :: Insts -> [Word8]
+--     toByte Noop = [code noop]
+--     toByte Ret = [code ret]
+--     toByte Call = [code call]
+--     toByte (Push x) = code (push x) : toByte x
+--     toByte (PushArg x) = code (pushArg x) : toByte x
+--     toByte (JumpF f) = code (jumpf f) : toByte f
 
 type Env = [(String, Val)]
 
 type Stack = [Val]
 
-noop :: Op
+noop :: Label -> Op
 noop = Op 0 "Noop" Noop
 
-call :: Op
+call :: Label -> Op
 call = Op 1 "Call" Call
 
-push :: Val -> Op
-push x = Op 2 "Push" (Push x)
+push :: Label -> Val -> Op
+push l x = Op 2 "Push" (Push x) l
 
-ret :: Op
+ret :: Label -> Op
 ret = Op 3 "Ret" Ret
 
-jumpf :: Int64 -> Op
-jumpf x = Op 4 "JumpF" (JumpF x)
+jumpf :: Label -> Either Int64 String -> Op
+jumpf l x = Op 4 "JumpF" (JumpF x) l
 
-pushArg :: Int64 -> Op
-pushArg x = Op 5 "PushArg" (PushArg x)
+jump :: Label -> Either Int64 String -> Op
+jump l x = Op 6 "Jump" (Jump x) l
+
+pushArg :: Label -> Int64 -> Op
+pushArg l x = Op 5 "PushArg" (PushArg x) l
 
 -- execOp :: String -> Stack -> Either String Stack
 -- execOp "Add" (N x : N y : stack) = Right (N ((+) x y) : stack)

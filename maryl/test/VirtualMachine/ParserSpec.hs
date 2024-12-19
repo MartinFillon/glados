@@ -35,3 +35,7 @@ spec = do
             parseAssembly "call" `shouldBe` Right [call]
         it "should parse pushArg with arg" $ do
             parseAssembly "pushArg 64" `shouldBe` Right [pushArg 64]
+        it "should parse push with char" $ do
+            parseAssembly "push a" `shouldBe` Right [push $ C 'a']
+        it "should parse push with string" $ do
+            parseAssembly "push \"42\"" `shouldBe` Right [push $ S "42"]

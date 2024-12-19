@@ -5,36 +5,25 @@
 -- Gladdos
 -}
 
-module Glados (glados, handleParseError) where
+module Glados (glados) where
 
 import ArgsHandling (Mode (..))
 import qualified Control.Monad as Monad
-import ErrorBundlePretty (errorBundlePrettyFormatted)
 import Eval.Evaluator (evalAST)
 import GHC.GHCi.Helpers (flushAll)
 import Memory (Memory, initMemory)
-import Parsing.ParserSExpr (ParserError, parseSexpr)
+import Parsing.ParserSExpr (parseSexpr)
 import Parsing.SExprToAst (Ast (..), sexprToAST)
 import System.Exit (ExitCode (..), exitWith)
-import System.IO (hIsTerminalDevice, hPutStrLn, isEOF, stderr, stdin)
+import System.IO (hIsTerminalDevice, isEOF, stdin)
+import Utils (handleParseError, pError)
 import VirtualMachine (vm)
-
-pError :: String -> IO ()
-pError str = hPutStrLn stderr str >> exitWith (ExitFailure 84)
 
 countChar :: Char -> String -> Int
 countChar c s = length (filter (== c) s)
 
 countParenthesis :: String -> Bool
 countParenthesis s = countChar '(' s == countChar ')' s
-
-handleParseError :: Bool -> Either ParserError a -> IO a
-handleParseError _ (Right val) = return val
-handleParseError showColors (Left err) =
-    errorBundlePrettyFormatted showColors err
-        >>= pError
-        >> exitWith (ExitFailure 84)
-        >> return undefined
 
 -- printAndReturn :: Show a => a -> IO a
 -- printAndReturn x = print x >> return x
