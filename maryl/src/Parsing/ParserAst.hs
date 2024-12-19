@@ -12,7 +12,6 @@ module Parsing.ParserAst (
     pAst,
     pIf,
     pElse,
-    pTest,
     pReturn,
     operatorTable,
     binary,
@@ -52,13 +51,18 @@ import Text.Megaparsec (
     parse,
     some,
     (<?>),
-    (<|>), optional,
+    (<|>), optional, sepBy, noneOf,
  )
-import Text.Megaparsec.Char (alphaNumChar, char, letterChar, space1, string)
+import Text.Megaparsec.Char (char, letterChar, space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
+
+data Function = Function
+    { name :: String,
+      args :: [Ast]
+    } deriving (Eq, Ord, Show)
 
 data Ast
     = AstVar String
@@ -67,27 +71,10 @@ data Ast
     | AstString String
     | AstChar Char
     | AstDouble Double
-    | AstNegation Ast
-    | AstInc Ast
-    | AstDec Ast
-    | AstList Ast
-    | AstSum Ast Ast
-    | AstSubtr Ast Ast
-    | AstProduct Ast Ast
-    | AstDivision Ast Ast
-    | AstModulo Ast Ast
-    | AstExp Ast Ast
-    | AstNot Ast
-    | AstEq Ast Ast
-    | AstNotEq Ast Ast
-    | AstLower Ast Ast
-    | AstLowerEq Ast Ast
-    | AstHigher Ast Ast
-    | AstHigherEq Ast Ast
-    | AstOr Ast Ast
-    | AstBinOr Ast Ast
-    | AstAnd Ast Ast
-    | AstBinAnd Ast Ast
+    | AstBinaryFunc String Ast Ast
+    | AstPostfixFunc String Ast
+    | AstPrefixFunc String Ast
+    | AstFunc Function
     | AstIf Ast Ast [Ast] (Maybe Ast) -- if cond do [else if] (Maybe else)
     | AstTernary Ast Ast Ast -- cond ? do : else
     | AstReturn Ast
@@ -97,10 +84,11 @@ data Ast
     | AstDefineMinus Ast Ast
     | AstDefineMul Ast Ast
     | AstDefineDiv Ast Ast
+    | AstLoop Ast Ast -- cond AstBlock
     deriving (Eq, Ord, Show)
 
 lineComment :: Parser ()
-lineComment = L.skipLineComment ";"
+lineComment = L.skipLineComment "//"
 
 scn :: Parser ()
 scn = L.space space1 lineComment empty
@@ -120,8 +108,16 @@ charLiteral = between (char '\'') (char '\'') L.charLiteral
 stringLiteral :: Parser String
 stringLiteral = char '\"' *> manyTill L.charLiteral (char '\"')
 
+bonusChar' :: String
+bonusChar' = "+-<>*?!=&|^%/~_#$;:"
+
+bonusChar :: Parser Char
+bonusChar = choice $ char <$> bonusChar'
+
 variable :: Parser String
-variable = lexeme ((:) <$> letterChar <*> many alphaNumChar <?> "variable")
+variable =
+    (:) <$> (try letterChar <|> bonusChar) <*> many (noneOf (" \t\n\r()," :: [Char]))
+        <?> "variable"
 
 integer :: Parser Integer
 integer = lexeme L.decimal
@@ -156,14 +152,27 @@ convertValue =
 list :: Parser Ast -> Parser Ast
 list = between (symbol "(") (symbol ")")
 
+listVariables :: Parser [Ast]
+listVariables = between (symbol "(") (symbol ")") (pAst `sepBy` lexeme ",")
+
 block :: Parser [Ast]
 block = between (symbol "{") (symbol "}") (many pAst)
 
+pFunc :: Parser Ast
+pFunc = do
+    n <- variable
+    a <- listVariables
+    return $ AstFunc (Function {name=n, args=a})
+
+pLoop :: Parser Ast
+pLoop = do
+    string "while" >> sc
+    cond <- list pAst
+    toDo <- AstBlock <$> block
+    return $ AstLoop cond toDo
+
 pReturn :: Parser Ast
 pReturn = string "return" >> sc >> pAst
-
-pTest :: Parser String
-pTest = try $ string "test"
 
 pElse :: Parser (Maybe Ast)
 pElse = optional $ string "else" >> sc >> AstBlock <$> block >>= \b -> return b
@@ -186,51 +195,53 @@ pIf = do
 pTerm :: Parser Ast
 pTerm =
     choice
-        [ pIf,
+        [ try pIf,
+          try pLoop,
+          try pFunc,
           list pAst,
           convertValue
         ]
 
-binary :: String -> (Ast -> Ast -> Ast) -> Operator Parser Ast
-binary name f = InfixL (f <$ symbol name)
+binary :: String -> (a -> a -> a) -> Operator Parser a
+binary n f = InfixL (f <$ symbol n)
 
-prefix, postfix :: String -> (Ast -> Ast) -> Operator Parser Ast
-prefix name f = Prefix (f <$ symbol name)
-postfix name f = Postfix (f <$ symbol name)
+prefix, postfix :: String -> (a -> a) -> Operator Parser a
+prefix n f = Prefix (f <$ symbol n)
+postfix n f = Postfix (f <$ symbol n)
 
-ternary :: (Ast -> Ast -> Ast -> Ast) -> Operator Parser Ast
+ternary :: (a -> a -> a -> a) -> Operator Parser a
 ternary f = TernR ((f <$ lexeme (char ':')) <$ lexeme (char '?'))
 
 operatorTable :: [[Operator Parser Ast]]
 operatorTable =
-    [   [ prefix "--" AstDec,
-          prefix "-" AstNegation,
-          prefix "++" AstInc,
+    [   [ prefix "--" (AstPrefixFunc "--"),
+          prefix "-" (AstPrefixFunc "-"),
+          prefix "++" (AstPrefixFunc "++"),
           prefix "+" id,
-          prefix "!" AstNot
+          prefix "!" (AstPrefixFunc "!")
         ],
-        [ postfix "++" AstInc,
-          postfix "--" AstDec
+        [ postfix "++" (AstPostfixFunc "++"),
+          postfix "--" (AstPostfixFunc "--")
         ],
-        [ binary "**" AstExp,
-          binary "*" AstProduct,
-          binary "/" AstDivision,
-          binary "%" AstModulo
+        [ binary "**" (AstBinaryFunc "**"),
+          binary "*" (AstBinaryFunc "*"),
+          binary "/" (AstBinaryFunc "/"),
+          binary "%" (AstBinaryFunc "%")
         ],
-        [ binary "+" AstSum,
-          binary "-" AstSubtr,
-          binary "|" AstBinOr,
-          binary "&" AstBinAnd
+        [ binary "+" (AstBinaryFunc "+"),
+          binary "-" (AstBinaryFunc "-"),
+          binary "|" (AstBinaryFunc "|"),
+          binary "&" (AstBinaryFunc "&")
         ],
-        [ binary "==" AstEq,
-          binary "!=" AstNotEq,
-          binary ">" AstHigher,
-          binary ">=" AstHigherEq,
-          binary "<" AstLower,
-          binary "<=" AstLowerEq
+        [ binary "==" (AstBinaryFunc "=="),
+          binary "!=" (AstBinaryFunc "!="),
+          binary ">" (AstBinaryFunc ">"),
+          binary ">=" (AstBinaryFunc ">="),
+          binary "<" (AstBinaryFunc "<"),
+          binary "<=" (AstBinaryFunc "<=")
         ],
-        [ binary "||" AstOr,
-          binary "&&" AstAnd
+        [ binary "||" (AstBinaryFunc "||"),
+          binary "&&" (AstBinaryFunc "&&")
         ],
         [ ternary AstTernary ],
         [ binary "=" AstDefine,
