@@ -12,7 +12,7 @@
 
 module VirtualMachine.Parser (parseAssembly) where
 
-import Control.Applicative (Alternative (..))
+import Control.Applicative (Alternative (..), optional)
 import Control.Monad (void)
 import Data.Int (Int64)
 import Data.Void (Void)
@@ -78,23 +78,11 @@ parseVal =
     lexeme $
         choice [try parseBool, try parseDigit, try parseString, try parseChar]
 
-parsePush :: Parser Op
-parsePush = lexeme (push Nothing <$ lexeme (string "push") <*> parseVal)
-
-parseRet :: Parser Op
-parseRet = lexeme (ret Nothing <$ lexeme (string "ret"))
-
-parseCall :: Parser Op
-parseCall = lexeme (call Nothing <$ lexeme (string "call"))
-
 parseLabel :: Parser String
 parseLabel = lexeme $ (:) <$> char '.' <*> many alphaNumChar
 
--- parseOp :: String -> Parser a -> Parser a
--- parseOp s p = string
-
-parseLabel' :: Parser (Maybe String)
-parseLabel' = choice [try (Just <$> parseLabel), return Nothing]
+parseOp :: (Maybe String -> a -> Op) -> String -> Parser a -> Parser Op
+parseOp f s p = (\l _ v -> f l v) <$> optional parseLabel <*> lexeme (string s) <*> p
 
 parseJumpVal' :: Parser (Either Int64 String)
 parseJumpVal' = lexeme $ Left <$> parseInt
@@ -105,14 +93,23 @@ parseJumpVal'' = lexeme $ Right <$> parseLabel
 parseJumpVal :: Parser (Either Int64 String)
 parseJumpVal = choice [try parseJumpVal', parseJumpVal'']
 
+parsePush :: Parser Op
+parsePush = lexeme (parseOp push "push" parseVal)
+
+parseRet :: Parser Op
+parseRet = lexeme (parseOp (\l _ -> ret l) "ret" (pure ()))
+
+parseCall :: Parser Op
+parseCall = lexeme (parseOp (\l _ -> call l) "call" (pure ()))
+
 parseJumpF :: Parser Op
-parseJumpF = lexeme (jumpf Nothing <$ lexeme (string "jumpf") <*> parseJumpVal)
+parseJumpF = lexeme (parseOp jumpf "jumpf" parseJumpVal)
 
 parseJump :: Parser Op
-parseJump = lexeme (jump Nothing <$ lexeme (string "jump") <*> parseJumpVal)
+parseJump = lexeme (parseOp jump "jump" parseJumpVal)
 
 parsePushArg :: Parser Op
-parsePushArg = lexeme (pushArg Nothing <$ lexeme (string "pushArg") <*> parseInt)
+parsePushArg = lexeme (parseOp pushArg "pushArg" parseInt)
 
 parseKeyWords :: Parser Op
 parseKeyWords =
