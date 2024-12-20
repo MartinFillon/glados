@@ -11,6 +11,7 @@ module ArgsHandling (
     parseSetupColors,
     handleOptionsReturn,
     Options (..),
+    Mode (..),
 ) where
 
 import Data.Text (pack, splitOn)
@@ -19,6 +20,7 @@ import Options.Applicative (
     ParserResult (Success),
     bashCompleter,
     completer,
+    flag,
     help,
     long,
     metavar,
@@ -30,9 +32,12 @@ import Printer (Color, parseColor')
 import System.Exit (ExitCode (ExitFailure), exitWith)
 import System.IO (hPutStrLn, stderr)
 
+data Mode = Vm | Compile deriving (Show)
+
 data Options = Options
     { filepath :: Maybe FilePath,
-      setupColors :: Maybe String
+      setupColors :: Maybe String,
+      mode :: Mode
     }
     deriving (Show)
 
@@ -53,6 +58,11 @@ parseOptions =
                         )
                     <> completer (bashCompleter "file")
                 )
+            )
+        <*> flag
+            Compile
+            Vm
+            ( long "vm" <> help "Enable vm mode instead of compile mode"
             )
 
 parsePart :: [String] -> String -> Maybe Color

@@ -8,7 +8,7 @@
 module Main (main) where
 
 import ArgsHandling (
-    Options (filepath, setupColors),
+    Options (..),
     parseOptions,
     parseSetupColors,
  )
@@ -37,7 +37,7 @@ handleArgs args = case execParserPure
     defaultPrefs
     (info (parseOptions <**> helper) fullDesc)
     args of
-    Success opts -> handleColorsSetup opts >> glados (filepath opts)
+    Success opts -> handleColorsSetup opts >> glados (mode opts) (filepath opts)
     Failure res -> hPutStrLn stderr display >> exitWith exit
       where
         (display, exitCode) = renderFailure res ""
