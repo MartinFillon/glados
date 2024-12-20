@@ -55,17 +55,27 @@ import Text.Megaparsec (
  )
 import Text.Megaparsec.Char (char, letterChar, space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
+import Data.Maybe (fromMaybe)
 
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
+
+data MarylType = String | Integer | Double | Char | Bool | Void deriving (Eq, Ord, Show)
 
 data Function = Function
     { name :: String,
       args :: [Ast]
     } deriving (Eq, Ord, Show)
 
+data Variable = Variable
+    { vName :: String,
+      vType :: MarylType,
+      vValue :: Ast
+    } deriving (Eq, Ord, Show)
+
 data Ast
     = AstVar String
+    | AstVoid
     | AstInt Integer
     | AstBool Bool
     | AstString String
@@ -79,12 +89,8 @@ data Ast
     | AstTernary Ast Ast Ast -- cond ? do : else
     | AstReturn Ast
     | AstBlock [Ast]
-    | AstDefine Ast Ast -- first must be AstVar
-    | AstDefinePlus Ast Ast
-    | AstDefineMinus Ast Ast
-    | AstDefineMul Ast Ast
-    | AstDefineDiv Ast Ast
     | AstLoop Ast Ast -- cond AstBlock
+    | AstDefineTyped Variable
     deriving (Eq, Ord, Show)
 
 lineComment :: Parser ()
@@ -116,7 +122,7 @@ bonusChar = choice $ char <$> bonusChar'
 
 variable :: Parser String
 variable =
-    (:) <$> (try letterChar <|> bonusChar) <*> many (noneOf (" \t\n\r()," :: [Char]))
+    (:) <$> (try letterChar <|> bonusChar) <*> many (noneOf (" \t\n\r(),=" :: [Char]))
         <?> "variable"
 
 integer :: Parser Integer
@@ -158,6 +164,39 @@ listVariables = between (symbol "(") (symbol ")") (pAst `sepBy` lexeme ",")
 block :: Parser [Ast]
 block = between (symbol "{") (symbol "}") (many pAst)
 
+types :: Parser String
+types = choice
+    [ "int"
+    , "float"
+    , "string"
+    , "char"
+    , "bool"
+    , "void"
+    ]
+
+getType :: String -> MarylType
+getType "int" = Integer
+getType "float" = Double
+getType "string" = String
+getType "char" = Char
+getType "bool" = Bool
+getType _ = Void
+
+optionalValue :: Parser (Maybe Ast)
+optionalValue = optional $ do
+    sc
+    _ <- string "="
+    sc
+    pAst
+
+pDeclaration :: Parser Ast
+pDeclaration = do
+    t <- types
+    sc
+    n <- variable
+    v <- optionalValue
+    return $ AstDefineTyped (Variable {vName=n, vType=getType t, vValue=fromMaybe AstVoid v})
+
 pFunc :: Parser Ast
 pFunc = do
     n <- variable
@@ -198,6 +237,7 @@ pTerm =
         [ try pIf,
           try pLoop,
           try pFunc,
+          try pDeclaration,
           list pAst,
           convertValue
         ]
@@ -244,12 +284,7 @@ operatorTable =
           binary "&&" (AstBinaryFunc "&&")
         ],
         [ ternary AstTernary ],
-        [ binary "=" AstDefine,
-          binary "+=" AstDefinePlus,
-          binary "-=" AstDefineMinus,
-          binary "*=" AstDefineMul,
-          binary "/=" AstDefineDiv
-        ]
+        [ binary "=" (AstBinaryFunc "=") ]
     ]
 
 pAst :: Parser Ast
