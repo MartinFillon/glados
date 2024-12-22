@@ -30,7 +30,8 @@ module Parsing.ParserAst (
     convertValue,
     parseAst,
     ternary,
-    Ast (..),
+    listVariables',
+    Ast (..)
 ) where
 
 import Control.Monad (void)
@@ -161,7 +162,6 @@ convertValue =
           AstBool <$> bool,
           AstChar <$> charLiteral,
           AstString <$> stringLiteral,
-          AstReturn <$> pReturn,
           AstBlock <$> block,
           AstVar <$> lexeme variable
         ]
@@ -170,7 +170,10 @@ list :: Parser Ast
 list = between (symbol "(") (symbol ")") pExpr
 
 listVariables :: Parser [Ast]
-listVariables = between (symbol "(") (symbol ")") (pTerm `sepBy` lexeme ",")
+listVariables = between (symbol "(") (symbol ")") (convertValue `sepBy` lexeme ",")
+
+listVariables' :: Parser [Ast]
+listVariables' = between (symbol "(") (symbol ")") ((types >> sc >> convertValue) `sepBy` lexeme ",")
 
 block :: Parser [Ast]
 block = between (symbol "{") (symbol "}") (many pTerm)
@@ -199,7 +202,7 @@ optionalValue = optional $ do
     sc
     _ <- string "="
     sc
-    pExpr <* semi
+    pExpr
 
 pDeclarationVar :: Parser Ast
 pDeclarationVar = do
@@ -214,7 +217,7 @@ pDeclarationFunc = do
     t <- types
     sc
     n <- variable
-    a <- listVariables
+    a <- listVariables'
     b <- block
     return $ AstDefineFunc (Function {fName = n, fArgs = a, fBody = b, fType = getType t})
 
@@ -255,12 +258,13 @@ pIf = do
 pTerm :: Parser Ast
 pTerm =
     choice
-        [ try pIf,
+        [ AstReturn <$> (pReturn <* semi),
+          try pIf,
           try pLoop,
           try pFunc <* semi,
           try pDeclarationFunc,
-          try pDeclarationVar,
-          list,
+          try pDeclarationVar <* semi,
+          try list,
           pExpr <* semi
         ]
 
