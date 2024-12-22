@@ -206,3 +206,30 @@ initialMemory = Map.fromList
         ("set", Op operatorSet)
     ]
 
+exec :: Memory -> Args -> Insts -> Stack -> Either String Value
+exec _ _ [] [] = Left "No value on stack"
+exec _ _ [] (v : _) = Right v
+exec mem args (Noop : is) stack = exec mem args is stack
+exec mem args (Push val : is) stack = exec mem args is (val : stack)
+exec mem args (PushArg i : is) stack
+    | i >= 0 && i < length args = exec mem args is (args !! i : stack)
+    | otherwise = Left "PushArg index out of range"
+
+exec mem args (Call key : is) stack =
+    case Map.lookup key mem of
+        Just (Op f) -> case f stack of
+            Right result -> exec mem args is (result : drop 2 stack)
+            Left err -> Left err
+        Just (Bi code) -> case exec mem stack code [] of
+            Right res -> exec mem args is (res : stack)
+            Left err -> Left err
+        _ -> Left ("Call on invalid or missing key: " ++ key)
+
+exec mem args (JumpIfFalse n : is) (B b : stack)
+    | not b = exec mem args (drop n is) stack
+    | otherwise = exec mem args is stack
+
+exec _ _ (JumpIfFalse _ : _) _ = Left "JumpIfFalse needs a bool on the stack"
+exec _ _ (Ret : _) [] = Left "Error Stack on Ret"
+exec _ _ (Ret : _) (top : _) = Right top
+
