@@ -30,7 +30,7 @@ module Parsing.ParserAst (
     convertValue,
     parseAst,
     ternary,
-    Ast (..)
+    Ast (..),
 ) where
 
 import Control.Monad (void)
@@ -38,9 +38,10 @@ import Control.Monad.Combinators.Expr (
     Operator (..),
     makeExprParser,
  )
+import Data.Maybe (fromMaybe)
 import Data.Void (Void)
 import Text.Megaparsec (
-    MonadParsec (eof, try, token, takeWhileP),
+    MonadParsec (eof, try),
     ParseErrorBundle,
     Parsec,
     between,
@@ -48,14 +49,16 @@ import Text.Megaparsec (
     empty,
     many,
     manyTill,
+    noneOf,
+    optional,
     parse,
+    sepBy,
     some,
     (<?>),
-    (<|>), optional, sepBy, noneOf, sepBy1, anySingle, endBy, single,
+    (<|>),
  )
-import Text.Megaparsec.Char (char, letterChar, space1, string, alphaNumChar)
+import Text.Megaparsec.Char (char, letterChar, space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
-import Data.Maybe (fromMaybe)
 
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
@@ -67,13 +70,15 @@ data Function = Function
       fArgs :: [Ast],
       fBody :: [Ast],
       fType :: MarylType
-    } deriving (Eq, Ord, Show)
+    }
+    deriving (Eq, Ord, Show)
 
 data Variable = Variable
     { vName :: String,
       vType :: MarylType,
       vValue :: Ast
-    } deriving (Eq, Ord, Show)
+    }
+    deriving (Eq, Ord, Show)
 
 data Ast
     = AstVar String
@@ -165,20 +170,21 @@ list :: Parser Ast
 list = between (symbol "(") (symbol ")") pExpr
 
 listVariables :: Parser [Ast]
-listVariables = between (symbol "(") (symbol ")") (pExpr `sepBy` lexeme ",")
+listVariables = between (symbol "(") (symbol ")") (pTerm `sepBy` lexeme ",")
 
 block :: Parser [Ast]
-block = between (symbol "{") (symbol "}") (many $ pExpr <* semi)
+block = between (symbol "{") (symbol "}") (many pTerm)
 
 types :: Parser String
-types = choice
-    [ "int"
-    , "float"
-    , "string"
-    , "char"
-    , "bool"
-    , "void"
-    ]
+types =
+    choice
+        [ "int",
+          "float",
+          "string",
+          "char",
+          "bool",
+          "void"
+        ]
 
 getType :: String -> MarylType
 getType "int" = Integer
@@ -201,7 +207,7 @@ pDeclarationVar = do
     sc
     n <- variable
     v <- optionalValue
-    return $ AstDefineVar (Variable {vName=n, vType=getType t, vValue=fromMaybe AstVoid v})
+    return $ AstDefineVar (Variable {vName = n, vType = getType t, vValue = fromMaybe AstVoid v})
 
 pDeclarationFunc :: Parser Ast
 pDeclarationFunc = do
@@ -210,13 +216,13 @@ pDeclarationFunc = do
     n <- variable
     a <- listVariables
     b <- block
-    return $ AstDefineFunc (Function {fName=n, fArgs=a, fBody=b, fType=getType t})
+    return $ AstDefineFunc (Function {fName = n, fArgs = a, fBody = b, fType = getType t})
 
 pFunc :: Parser Ast
 pFunc = do
     n <- variable
     a <- listVariables
-    return $ AstFunc (Function {fName=n, fArgs=a, fBody=[], fType=Void})
+    return $ AstFunc (Function {fName = n, fArgs = a, fBody = [], fType = Void})
 
 pLoop :: Parser Ast
 pLoop = do
@@ -226,25 +232,25 @@ pLoop = do
     return $ AstLoop cond toDo
 
 pReturn :: Parser Ast
-pReturn = string "return" >> sc >> pExpr <* semi
+pReturn = string "return" >> sc >> pExpr
 
 pElse :: Parser (Maybe Ast)
 pElse = optional $ string "else" >> sc >> AstBlock <$> block >>= \b -> return b
 
 pElseIf :: Parser Ast
 pElseIf = try $ do
-  string "else if" >> sc
-  cond <- list
-  toDo <- AstBlock <$> block
-  return $ AstIf cond toDo [] Nothing
+    string "else if" >> sc
+    cond <- list
+    toDo <- AstBlock <$> block
+    return $ AstIf cond toDo [] Nothing
 
 pIf :: Parser Ast
 pIf = do
-  string "if" >> sc
-  cond <- list
-  toDo <- AstBlock <$> block
-  elseIf <- many pElseIf
-  AstIf cond toDo elseIf <$> pElse
+    string "if" >> sc
+    cond <- list
+    toDo <- AstBlock <$> block
+    elseIf <- many pElseIf
+    AstIf cond toDo elseIf <$> pElse
 
 pTerm :: Parser Ast
 pTerm =
@@ -299,8 +305,8 @@ operatorTable =
         [ binary "||" (AstBinaryFunc "||"),
           binary "&&" (AstBinaryFunc "&&")
         ],
-        [ ternary AstTernary ],
-        [ binary "=" (AstBinaryFunc "=") ]
+      [ternary AstTernary],
+      [binary "=" (AstBinaryFunc "=")]
     ]
 
 pExpr :: Parser Ast
