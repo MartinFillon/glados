@@ -111,6 +111,9 @@ lexeme = L.lexeme sc
 symbol :: String -> Parser String
 symbol = L.symbol sc
 
+semi :: Parser String
+semi = symbol ";"
+
 charLiteral :: Parser Char
 charLiteral = between (char '\'') (char '\'') L.charLiteral
 
@@ -118,14 +121,14 @@ stringLiteral :: Parser String
 stringLiteral = char '\"' *> manyTill L.charLiteral (char '\"')
 
 bonusChar' :: String
-bonusChar' = "+-<>*?!=&|^%/~_#$;:"
+bonusChar' = "_"
 
 bonusChar :: Parser Char
 bonusChar = choice $ char <$> bonusChar'
 
 variable :: Parser String
 variable =
-    (:) <$> (try letterChar <|> bonusChar) <*> many (noneOf (" \t\n\r(),=" :: [Char]))
+    (:) <$> (try letterChar <|> bonusChar) <*> many (noneOf (" \t\n\r(),=;" :: [Char]))
         <?> "variable"
 
 integer :: Parser Integer
@@ -158,14 +161,14 @@ convertValue =
           AstVar <$> lexeme variable
         ]
 
-list :: Parser Ast -> Parser Ast
-list = between (symbol "(") (symbol ")")
+list :: Parser Ast
+list = between (symbol "(") (symbol ")") pExpr
 
 listVariables :: Parser [Ast]
-listVariables = between (symbol "(") (symbol ")") (pAst `sepBy` lexeme ",")
+listVariables = between (symbol "(") (symbol ")") (pExpr `sepBy` lexeme ",")
 
 block :: Parser [Ast]
-block = between (symbol "{") (symbol "}") (many pAst)
+block = between (symbol "{") (symbol "}") (many $ pExpr <* semi)
 
 types :: Parser String
 types = choice
@@ -190,7 +193,7 @@ optionalValue = optional $ do
     sc
     _ <- string "="
     sc
-    pAst
+    pExpr <* semi
 
 pDeclarationVar :: Parser Ast
 pDeclarationVar = do
@@ -218,12 +221,12 @@ pFunc = do
 pLoop :: Parser Ast
 pLoop = do
     string "while" >> sc
-    cond <- list pAst
+    cond <- list
     toDo <- AstBlock <$> block
     return $ AstLoop cond toDo
 
 pReturn :: Parser Ast
-pReturn = string "return" >> sc >> pAst
+pReturn = string "return" >> sc >> pExpr <* semi
 
 pElse :: Parser (Maybe Ast)
 pElse = optional $ string "else" >> sc >> AstBlock <$> block >>= \b -> return b
@@ -231,14 +234,14 @@ pElse = optional $ string "else" >> sc >> AstBlock <$> block >>= \b -> return b
 pElseIf :: Parser Ast
 pElseIf = try $ do
   string "else if" >> sc
-  cond <- list pAst
+  cond <- list
   toDo <- AstBlock <$> block
   return $ AstIf cond toDo [] Nothing
 
 pIf :: Parser Ast
 pIf = do
   string "if" >> sc
-  cond <- list pAst
+  cond <- list
   toDo <- AstBlock <$> block
   elseIf <- many pElseIf
   AstIf cond toDo elseIf <$> pElse
@@ -248,11 +251,11 @@ pTerm =
     choice
         [ try pIf,
           try pLoop,
-          try pFunc,
+          try pFunc <* semi,
           try pDeclarationFunc,
           try pDeclarationVar,
-          list pAst,
-          convertValue
+          list,
+          pExpr <* semi
         ]
 
 binary :: String -> (a -> a -> a) -> Operator Parser a
@@ -300,11 +303,11 @@ operatorTable =
         [ binary "=" (AstBinaryFunc "=") ]
     ]
 
-pAst' :: Parser Ast
-pAst' = makeExprParser pTerm operatorTable
+pExpr :: Parser Ast
+pExpr = makeExprParser convertValue operatorTable
 
-pAst :: Parser Ast
-pAst = pAst'
+pAst :: Parser [Ast]
+pAst = many $ try pTerm
 
-parseAst :: String -> Either ParserError Ast
+parseAst :: String -> Either ParserError [Ast]
 parseAst = parse (between sc eof pAst) ""
