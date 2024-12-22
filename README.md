@@ -1,5 +1,7 @@
 # glados
 
+[![Pipeline](https://github.com/MartinFillon/glados/actions/workflows/glados.yml/badge.svg)](https://github.com/MartinFillon/glados/actions/workflows/glados.yml)
+
 Generic Language and Data Operand Syntax
 
 ## LISP
