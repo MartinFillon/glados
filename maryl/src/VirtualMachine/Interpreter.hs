@@ -102,3 +102,30 @@ numericOp op (N x) (F y) = Right $ F (realToFrac $ op (toDouble x) (realToFrac y
 numericOp op (D x) (F y) = Right $ F (realToFrac $ op x (realToFrac y))
 numericOp _ _ _ = Left "Invalid numeric op"
 
+
+operatorAdd :: [Value] -> Either String Value
+operatorAdd (y : x : _) = numericOp (+) x y
+operatorAdd _ = Left "expects two number"
+
+operatorSub :: [Value] -> Either String Value
+operatorSub (y : x : _) = numericOp (-) x y
+operatorSub _ = Left "expects two number"
+
+operatorMul :: [Value] -> Either String Value
+operatorMul (y : x : _) = numericOp (*) x y
+operatorMul _ = Left "expects two number"
+
+operatorDiv :: [Value] -> Either String Value
+operatorDiv (y : x : _) =
+    case y of
+        N y' | y' == 0 -> Left "division by zero"
+        D y' | y' == 0.0 -> Left "division by zero"
+        F y' | y' == 0.0 -> Left "division by zero"
+        _ -> numericOp (/) x y
+operatorDiv _ = Left "expects two number"
+
+operatorMod :: [Value] -> Either String Value
+operatorMod (N y : N x:_)
+    | y == 0 = Left "modulo by zero"
+    | otherwise = Right $ N (x `mod` y)
+operatorMod _ = Left "xpects two int"
