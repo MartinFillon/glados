@@ -40,7 +40,7 @@ import Control.Monad.Combinators.Expr (
  )
 import Data.Void (Void)
 import Text.Megaparsec (
-    MonadParsec (eof, try),
+    MonadParsec (eof, try, token, takeWhileP),
     ParseErrorBundle,
     Parsec,
     between,
@@ -51,9 +51,9 @@ import Text.Megaparsec (
     parse,
     some,
     (<?>),
-    (<|>), optional, sepBy, noneOf,
+    (<|>), optional, sepBy, noneOf, sepBy1, anySingle, endBy, single,
  )
-import Text.Megaparsec.Char (char, letterChar, space1, string)
+import Text.Megaparsec.Char (char, letterChar, space1, string, alphaNumChar)
 import qualified Text.Megaparsec.Char.Lexer as L
 import Data.Maybe (fromMaybe)
 
@@ -63,8 +63,10 @@ type ParserError = ParseErrorBundle String Void
 data MarylType = String | Integer | Double | Char | Bool | Void deriving (Eq, Ord, Show)
 
 data Function = Function
-    { name :: String,
-      args :: [Ast]
+    { fName :: String,
+      fArgs :: [Ast],
+      fBody :: [Ast],
+      fType :: MarylType
     } deriving (Eq, Ord, Show)
 
 data Variable = Variable
@@ -90,7 +92,8 @@ data Ast
     | AstReturn Ast
     | AstBlock [Ast]
     | AstLoop Ast Ast -- cond AstBlock
-    | AstDefineTyped Variable
+    | AstDefineVar Variable
+    | AstDefineFunc Function
     deriving (Eq, Ord, Show)
 
 lineComment :: Parser ()
@@ -152,7 +155,7 @@ convertValue =
           AstString <$> stringLiteral,
           AstReturn <$> pReturn,
           AstBlock <$> block,
-          AstVar <$> variable
+          AstVar <$> lexeme variable
         ]
 
 list :: Parser Ast -> Parser Ast
@@ -189,19 +192,28 @@ optionalValue = optional $ do
     sc
     pAst
 
-pDeclaration :: Parser Ast
-pDeclaration = do
+pDeclarationVar :: Parser Ast
+pDeclarationVar = do
     t <- types
     sc
     n <- variable
     v <- optionalValue
-    return $ AstDefineTyped (Variable {vName=n, vType=getType t, vValue=fromMaybe AstVoid v})
+    return $ AstDefineVar (Variable {vName=n, vType=getType t, vValue=fromMaybe AstVoid v})
+
+pDeclarationFunc :: Parser Ast
+pDeclarationFunc = do
+    t <- types
+    sc
+    n <- variable
+    a <- listVariables
+    b <- block
+    return $ AstDefineFunc (Function {fName=n, fArgs=a, fBody=b, fType=getType t})
 
 pFunc :: Parser Ast
 pFunc = do
     n <- variable
     a <- listVariables
-    return $ AstFunc (Function {name=n, args=a})
+    return $ AstFunc (Function {fName=n, fArgs=a, fBody=[], fType=Void})
 
 pLoop :: Parser Ast
 pLoop = do
@@ -237,7 +249,8 @@ pTerm =
         [ try pIf,
           try pLoop,
           try pFunc,
-          try pDeclaration,
+          try pDeclarationFunc,
+          try pDeclarationVar,
           list pAst,
           convertValue
         ]
@@ -287,8 +300,11 @@ operatorTable =
         [ binary "=" (AstBinaryFunc "=") ]
     ]
 
+pAst' :: Parser Ast
+pAst' = makeExprParser pTerm operatorTable
+
 pAst :: Parser Ast
-pAst = makeExprParser pTerm operatorTable
+pAst = pAst'
 
 parseAst :: String -> Either ParserError Ast
 parseAst = parse (between sc eof pAst) ""
