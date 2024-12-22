@@ -168,3 +168,9 @@ spec = do
                 args = []
                 code = [Push (L [N 1, N 2, N 3]), Push (N 1), Push (N 8), Call "set", Ret]
             exec mem args code [] `shouldBe` Right (L [N 1, N 8, N 3])
+
+        it "should execute jump test" $ do
+            let mem = initialMemory
+                args = []
+                code = [Push (N 10), Jump 1, Push (N 2), Ret, Push (N 3), Call "add", Ret]
+            exec mem args code [] `shouldBe` Right (N 10)

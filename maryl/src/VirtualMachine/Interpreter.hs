@@ -73,6 +73,7 @@ data Inst
     | Call String
     | Ret
     | JumpIfFalse Int
+    | Jump Int
     deriving (Show, Eq)
 
 type Stack = [Value]
@@ -229,6 +230,8 @@ exec mem args (Call key : is) stack =
 exec mem args (JumpIfFalse n : is) (B b : stack)
     | not b = exec mem args (drop n is) stack
     | otherwise = exec mem args is stack
+
+exec mem args (Jump n : is) stack = exec mem args (drop n is) stack
 
 exec _ _ (JumpIfFalse _ : _) _ = Left "JumpIfFalse needs a bool on the stack"
 exec _ _ (Ret : _) [] = Left "Error Stack on Ret"
