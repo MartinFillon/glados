@@ -13,6 +13,8 @@ module VirtualMachine.Interpreter (
     Insts,
     Args,
     Memory,
+    initialMemory,
+    exec
 ) where
 
 import Data.Map (Map)
@@ -77,4 +79,26 @@ type Stack = [Value]
 type Insts = [Inst]
 type Args = [Value]
 type Memory = Map String Value
+
+    -------------------------
+    -- operator operations --
+    -------------------------
+
+instance Numeric Float where
+    toDouble = realToFrac
+    fromDouble = Right . realToFrac
+
+numericOp :: (Double -> Double -> Double) -> Value -> Value -> Either String Value
+numericOp op (N x) (N y) = case fromDouble (op (toDouble x) (toDouble y)) of
+    Right n -> Right $ N n
+    Left _ -> Right $ D (op (toDouble x) (toDouble y))
+numericOp op (N x) (D y) = Right $ D (op (toDouble x) y)
+numericOp op (D x) (N y) = Right $ D (op x (toDouble y))
+numericOp op (D x) (D y) = Right $ D (op x y)
+numericOp op (F x) (F y) = Right $ F (realToFrac $ op (realToFrac x) (realToFrac y))
+numericOp op (F x) (N y) = Right $ F (realToFrac $ op (realToFrac x) (toDouble y))
+numericOp op (F x) (D y) = Right $ F (realToFrac $ op (realToFrac x) y)
+numericOp op (N x) (F y) = Right $ F (realToFrac $ op (toDouble x) (realToFrac y))
+numericOp op (D x) (F y) = Right $ F (realToFrac $ op x (realToFrac y))
+numericOp _ _ _ = Left "Invalid numeric op"
 
