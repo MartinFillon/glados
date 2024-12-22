@@ -173,6 +173,7 @@ operatorOr (B y : B x : _) = Right $ B (x || y)
 operatorOr _ = Left "Or expects two booleans"
 
 operatorPrint :: [Value] -> Either String Value
+operatorPrint (S s : _) = Right $ N (fromIntegral (length s))
 operatorPrint (val : _) = Right $ N (fromIntegral (length (show val)))
 operatorPrint _ = Left "expects one val"
 
