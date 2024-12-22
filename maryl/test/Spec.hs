@@ -14,6 +14,7 @@ import PrinterSpec (spec)
 import SExprParserSpec (spec)
 import SExprToAstSpec (spec)
 import VirtualMachine.ParserSpec (spec)
+import VirtualMachine.InterpreterSpec (spec)
 
 main :: IO ()
 main = hspec $ do
@@ -22,3 +23,4 @@ main = hspec $ do
     describe "Eval Ast test" EvalAstSpec.spec
     describe "SExprToAst test" SExprToAstSpec.spec
     describe "VirtualMachine Parser spec" VirtualMachine.ParserSpec.spec
+    describe "VirtualMachine Interpreter spec" VirtualMachine.InterpreterSpec.spec
