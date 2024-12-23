@@ -15,21 +15,23 @@ module VirtualMachine.Parser (parseAssembly) where
 import Control.Applicative (Alternative (..), optional)
 import Control.Monad (void)
 import Data.Int (Int64)
+import Data.Set qualified as Set
 import Data.Void (Void)
 import Text.Megaparsec (
     MonadParsec (..),
     Parsec,
     between,
     choice,
+    failure,
     noneOf,
     parse,
-    registerParseError,
     sepBy,
     (<?>),
  )
 import Text.Megaparsec.Byte (string)
 import Text.Megaparsec.Char (alphaNumChar, char)
 import Text.Megaparsec.Char.Lexer qualified as L
+import Text.Megaparsec.Debug
 import Text.Megaparsec.Error (ParseErrorBundle)
 import VirtualMachine.Instructions (
     Op,
@@ -67,7 +69,7 @@ parseFalse :: Parser Val
 parseFalse = lexeme $ string "false" >> return (B False)
 
 parseChar :: Parser Val
-parseChar = lexeme $ C <$> noneOf (" \t\n\r\"" :: [Char])
+parseChar = lexeme $ C <$> noneOf (" \t\n\r\"[]" :: [Char])
 
 parseString :: Parser Val
 parseString =
@@ -81,24 +83,51 @@ parseString =
 parseBool :: Parser Val
 parseBool = lexeme (choice [parseTrue, parseFalse]) <?> "Boolean"
 
-getParser :: Val -> Parser Val
-getParser (N _) = parseDigit
-getParser (D _) = parseFloat
-getParser (S _) = parseString
-getParser (C _) = parseChar
-getParser (B _) = parseBool
-getParser (L _) = parseList
+isN :: Val -> Bool
+isN (N _) = True
+isN _ = False
 
-parseListContent :: Parser Val -> Parser [Val]
-parseListContent p = (:) <$> p <*> (p' `sepBy` lexeme ",")
-  where
-    p' = p >>= getParser
+isB :: Val -> Bool
+isB (B _) = True
+isB _ = False
 
-parseListContent' :: Parser Val -> Parser [Val]
-par
+isD :: Val -> Bool
+isD (D _) = True
+isD _ = False
+
+isS :: Val -> Bool
+isS (S _) = True
+isS _ = False
+
+isC :: Val -> Bool
+isC (C _) = True
+isC _ = False
+
+isL :: Val -> Bool
+isL (L _) = True
+isL _ = False
+
+verifyList :: Val -> (Val -> Bool) -> Bool
+verifyList (L x) f = all f x
+verifyList _ _ = False
+
+getVerifier :: Val -> (Val -> Bool)
+getVerifier (N _) = isN
+getVerifier (D _) = isD
+getVerifier (S _) = isS
+getVerifier (C _) = isC
+getVerifier (B _) = isB
+getVerifier (L []) = const True
+getVerifier (L (x : _)) = \x' -> isL x' && verifyList x' (getVerifier x)
+
+isSameType :: [Val] -> Parser [Val]
+isSameType [] = pure []
+isSameType l@(x : _)
+    | all (getVerifier x) l = pure l
+    | otherwise = failure Nothing (Set.fromList [])
 
 parseList :: Parser Val
-parseList = L <$> between (char '[') (char ']') (parseListContent parseVal)
+parseList = L <$> (between (char '[') (char ']') (parseVal `sepBy` lexeme ",") >>= isSameType)
 
 parseVal :: Parser Val
 parseVal =
