@@ -23,6 +23,8 @@ import Text.Megaparsec (
     choice,
     noneOf,
     parse,
+    registerParseError,
+    sepBy,
     (<?>),
  )
 import Text.Megaparsec.Byte (string)
@@ -43,11 +45,17 @@ import VirtualMachine.Instructions (
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
 
+lexeme :: Parser a -> Parser a
+lexeme = L.lexeme sc
+
 sce :: Parser ()
 sce = L.space empty empty empty
 
 parseInt :: Parser Int64
 parseInt = lexeme (L.signed sce L.decimal)
+
+parseFloat :: Parser Val
+parseFloat = lexeme $ D <$> L.signed sce L.float
 
 parseDigit :: Parser Val
 parseDigit = lexeme $ N <$> L.signed sce L.decimal
@@ -73,10 +81,29 @@ parseString =
 parseBool :: Parser Val
 parseBool = lexeme (choice [parseTrue, parseFalse]) <?> "Boolean"
 
+getParser :: Val -> Parser Val
+getParser (N _) = parseDigit
+getParser (D _) = parseFloat
+getParser (S _) = parseString
+getParser (C _) = parseChar
+getParser (B _) = parseBool
+getParser (L _) = parseList
+
+parseListContent :: Parser Val -> Parser [Val]
+parseListContent p = (:) <$> p <*> (p' `sepBy` lexeme ",")
+  where
+    p' = p >>= getParser
+
+parseListContent' :: Parser Val -> Parser [Val]
+par
+
+parseList :: Parser Val
+parseList = L <$> between (char '[') (char ']') (parseListContent parseVal)
+
 parseVal :: Parser Val
 parseVal =
     lexeme $
-        choice [try parseBool, try parseDigit, try parseString, try parseChar]
+        choice [try parseList, try parseFloat, try parseBool, try parseDigit, try parseString, try parseChar]
 
 parseLabel :: Parser String
 parseLabel = lexeme $ (:) <$> char '.' <*> many alphaNumChar
@@ -131,9 +158,6 @@ sc =
         (void $ some (char ' ' <|> char '\t' <|> char '\r' <|> char '\n'))
         lineComment
         empty
-
-lexeme :: Parser a -> Parser a
-lexeme = L.lexeme sc
 
 parseAssembly :: String -> Either ParserError [Op]
 parseAssembly = parse (between sc eof (some parseKeyWords)) ""

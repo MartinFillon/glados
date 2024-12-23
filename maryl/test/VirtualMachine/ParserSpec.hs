@@ -9,15 +9,7 @@ module VirtualMachine.ParserSpec (spec) where
 
 import Data.Either (isLeft)
 import Test.Hspec (Spec, describe, it, shouldBe)
-import VirtualMachine.Instructions (
-    Val (..),
-    call,
-    jump,
-    jumpf,
-    push,
-    pushArg,
-    ret,
- )
+import VirtualMachine.Instructions (Val (..), call, jump, jumpf, push, pushArg, ret)
 import VirtualMachine.Parser (parseAssembly)
 
 spec :: Spec
@@ -51,3 +43,7 @@ spec = do
             parseAssembly ".test push 1" `shouldBe` Right [push (Just ".test") $ N 1]
         it "should fail for bad int" $ do
             isLeft (parseAssembly "push - 1") `shouldBe` True
+        it "should parse a push float" $ do
+            parseAssembly "push 42.42" `shouldBe` Right [push Nothing $ D 42.42]
+        it "should parse a push list" $ do
+            parseAssembly "push [1, 2, 3]" `shouldBe` Right [push Nothing $ L [N 1, N 2, N 3]]
