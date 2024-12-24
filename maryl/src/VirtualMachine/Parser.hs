@@ -20,6 +20,7 @@ import Text.Megaparsec (
     Parsec,
     between,
     choice,
+    noneOf,
     parse,
     sepBy,
     (<?>),
@@ -72,7 +73,7 @@ parseString' =
         between
             (char '\"')
             (char '\"')
-            ((:) <$> alphaNumChar <*> many alphaNumChar)
+            ((:) <$> noneOf ("\"" :: [Char]) <*> many (noneOf ("\"" :: [Char])))
 
 parseString :: Parser Value
 parseString =

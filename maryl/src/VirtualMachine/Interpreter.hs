@@ -16,7 +16,6 @@ module VirtualMachine.Interpreter (
     exec,
 ) where
 
-import Control.Monad.IO.Class (liftIO)
 import Data.Functor ((<&>))
 import Data.Int (Int64)
 import Data.Map (Map)
@@ -135,12 +134,8 @@ operatorOr (B y : B x : _) = Right $ B (x || y)
 operatorOr _ = Left "Or expects two booleans"
 
 operatorPrint :: Stack -> IO (Either String Value)
-operatorPrint (S s : _) = do
-    liftIO $ putStrLn s
-    return $ Right $ N (fromIntegral (length s))
-operatorPrint (val : _) = do
-    liftIO $ print val
-    return $ Right $ N (fromIntegral (length (show val)))
+operatorPrint (S s : _) = putStrLn s >> return (Right $ N (fromIntegral (length s)))
+operatorPrint (val : _) = print val >> return (Right $ N (fromIntegral (length (show val))))
 operatorPrint _ = return $ Left "expects one val"
 
 operatorGet :: Stack -> Either String Value
