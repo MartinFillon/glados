@@ -31,7 +31,6 @@ import Text.Megaparsec (
 import Text.Megaparsec.Byte (string)
 import Text.Megaparsec.Char (alphaNumChar, char)
 import Text.Megaparsec.Char.Lexer qualified as L
-import Text.Megaparsec.Debug
 import Text.Megaparsec.Error (ParseErrorBundle)
 import VirtualMachine.Instructions (
     Op,
@@ -127,18 +126,32 @@ isSameType l@(x : _)
     | otherwise = failure Nothing (Set.fromList [])
 
 parseList :: Parser Val
-parseList = L <$> (between (char '[') (char ']') (parseVal `sepBy` lexeme ",") >>= isSameType)
+parseList =
+    L
+        <$> ( between (char '[') (char ']') (parseVal `sepBy` lexeme ",")
+                >>= isSameType
+            )
 
 parseVal :: Parser Val
 parseVal =
     lexeme $
-        choice [try parseList, try parseFloat, try parseBool, try parseDigit, try parseString, try parseChar]
+        choice
+            [ try parseList,
+              try parseFloat,
+              try parseBool,
+              try parseDigit,
+              try parseString,
+              try parseChar
+            ]
 
 parseLabel :: Parser String
 parseLabel = lexeme $ (:) <$> char '.' <*> many alphaNumChar
 
 parseOp :: (Maybe String -> a -> Op) -> String -> Parser a -> Parser Op
 parseOp f s p = (\l _ v -> f l v) <$> optional parseLabel <*> lexeme (string s) <*> p
+
+parseOp' :: (Maybe String -> Op) -> String -> Parser Op
+parseOp' f s = (\l _ -> f l) <$> optional parseLabel <*> lexeme (string s)
 
 parseJumpVal' :: Parser (Either Int64 String)
 parseJumpVal' = lexeme $ Left <$> parseInt
@@ -153,10 +166,10 @@ parsePush :: Parser Op
 parsePush = lexeme (parseOp push "push" parseVal)
 
 parseRet :: Parser Op
-parseRet = lexeme (parseOp (\l _ -> ret l) "ret" (pure ()))
+parseRet = lexeme (parseOp' ret "ret")
 
 parseCall :: Parser Op
-parseCall = lexeme (parseOp (\l _ -> call l) "call" (pure ()))
+parseCall = lexeme (parseOp' call "call")
 
 parseJumpF :: Parser Op
 parseJumpF = lexeme (parseOp jumpf "jumpf" parseJumpVal)
@@ -167,16 +180,11 @@ parseJump = lexeme (parseOp jump "jump" parseJumpVal)
 parsePushArg :: Parser Op
 parsePushArg = lexeme (parseOp pushArg "pushArg" parseInt)
 
+keyWords :: [Parser Op]
+keyWords = [parseRet, parsePushArg, parseJumpF, parseJump, parseCall, parsePush]
+
 parseKeyWords :: Parser Op
-parseKeyWords =
-    choice
-        [ try parseRet,
-          try parsePushArg,
-          try parseJumpF,
-          try parseJump,
-          try parseCall,
-          try parsePush
-        ]
+parseKeyWords = choice $ map try keyWords
 
 lineComment :: Parser ()
 lineComment = L.skipLineComment ";"
