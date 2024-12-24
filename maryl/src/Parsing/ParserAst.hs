@@ -31,7 +31,8 @@ module Parsing.ParserAst (
     parseAst,
     ternary,
     listVariables',
-    Ast (..)
+    Ast (..),
+    Function (..)
 ) where
 
 import Control.Monad (void)
