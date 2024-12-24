@@ -13,7 +13,7 @@ import VirtualMachine.Interpreter
 import VirtualMachine.Parser (parseAssembly)
 
 execParsed :: [Instruction] -> IO ()
-execParsed i = exec initialMemory [] (map inst i) [] >>= print
+execParsed i = exec (initialState (map inst i)) >>= print
 
 vm :: Maybe String -> IO ()
 vm Nothing = pError "A file is required for the vm to run"

@@ -5,15 +5,17 @@
 -- interpreter
 -}
 {-# LANGUAGE InstanceSigs #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use lambda-case" #-}
 
 module VirtualMachine.Interpreter (
     Numeric (..),
     Stack,
-    Insts,
-    Args,
     Memory,
     initialMemory,
     exec,
+    initialState,
 ) where
 
 import Data.Functor ((<&>))
@@ -42,8 +44,18 @@ instance Numeric Double where
     fromDouble = Right
 
 type Stack = [Value]
-type Insts = [Inst]
-type Args = [Value]
+
+data VmState = VmState
+    { stack :: [Value],
+      instructions :: [Inst],
+      result :: Maybe Value,
+      memory :: Memory,
+      args :: [Value]
+    }
+    deriving (Show)
+
+initialState :: [Inst] -> VmState
+initialState i = VmState [] i Nothing initialMemory []
 
 ------------
 -- Memory --
@@ -51,6 +63,10 @@ type Args = [Value]
 
 data Memory
     = M (Map String Value) (Map String (Stack -> IO (Either String Value)))
+
+instance Show Memory where
+    show :: Memory -> String
+    show (M o _) = show o ++ " <io operations>"
 
 initialMemory :: Memory
 initialMemory = M operators ioOperators
@@ -173,38 +189,70 @@ operators =
 ioOperators :: Map String (Stack -> IO (Either String Value))
 ioOperators = Map.fromList [("print", operatorPrint)]
 
--- execCall :: Memory
+execCall' :: VmState -> Either Value (Stack -> IO (Either String Value)) -> IO (Either String VmState)
+execCall' v (Left (Op f)) = case f (stack v) of
+    Right val -> return $ Right v {stack = val : drop 2 (stack v)}
+    Left e -> return $ Left e
+execCall' v (Right f) =
+    f (stack v)
+        >>= ( \r -> case r of
+                Right val -> return $ Right v {stack = val : drop 1 (stack v)}
+                Left e -> return $ Left e
+            )
+execCall' _ _ = return $ Left "Function not found"
 
-exec :: Memory -> Args -> Insts -> Stack -> IO (Either String Value)
-exec _ _ [] [] = return $ Left "No value on stack"
-exec _ _ [] (v : _) = return $ Right v
-exec mem args (Noop : is) stack = exec mem args is stack
-exec mem args (Push val : is) stack = exec mem args is (val : stack)
-exec mem args (PushArg i : is) stack
-    | i >= 0 && i < length args = exec mem args is (args !! i : stack)
+execCall :: VmState -> String -> IO (Either String VmState)
+execCall v@(VmState _ _ _ m _) s = case getFromMem m s of
+    Just f -> execCall' v f
+    Nothing -> return $ Left $ "Cannot find " ++ s
+
+exec' :: VmState -> IO (Either String VmState)
+exec' (VmState [] [] _ _ _) = return $ Left "No value on stack"
+exec' s@(VmState (v : o) [] _ _ _) = return $ Right s {stack = o, result = Just v}
+exec' s@(VmState _ (Noop : is) _ _ _) = exec' s {instructions = is}
+exec' s@(VmState vs (Push v : is) _ _ _) = exec' s {stack = v : vs, instructions = is}
+exec' s@(VmState _ (Call n : is) _ _ _) =
+    execCall s {instructions = is} n
+        >>= ( \r -> case r of
+                Right v -> exec' v
+                e -> return e
+            )
+exec' s@(VmState vs (PushArg i : is) _ _ a')
+    | i >= 0 && i < length a' = exec' s {stack = a' !! i : vs, instructions = is}
     | otherwise = return $ Left "PushArg index out of range"
-exec mem args (Call key : is) stack =
-    case getFromMem mem key of
-        Just (Left (Op f)) -> do
-            case f stack of
-                Right res -> exec mem args is (res : drop 2 stack)
-                Left err -> return $ Left err
-        Just (Left (Bi code)) -> do
-            res <- exec mem stack code []
-            case res of
-                Right val -> exec mem args is (val : stack)
-                Left err -> return $ Left err
-        Just (Right f) -> do
-            r <- f stack
-            case r of
-                Right val -> exec mem args is (val : stack)
-                Left err -> return $ Left err
-        _ -> return $ Left ("Call on invalid or missing key: " ++ key)
-exec mem args (JumpIfFalse (Left n) : is) (B b : stack)
-    | not b = exec mem args (drop n is) stack
-    | otherwise = exec mem args is stack
-exec mem args (Jump (Left n) : is) stack = exec mem args (drop n is) stack
-exec _ _ (JumpIfFalse _ : _) _ = return $ Left "JumpIfFalse needs a bool on the stack"
-exec _ _ (Ret : _) [] = return $ Left "Error Stack on Ret"
-exec _ _ (Ret : _) (top : _) = return $ Right top
-exec _ _ _ _ = return $ Left "Not handled"
+exec' (VmState [] (Ret : _) _ _ _) = return $ Left "Nothing to return"
+exec' s@(VmState (r : _) (Ret : is) _ _ _) = return $ Right s {instructions = is, result = Just r}
+exec' (VmState _ (x : _) _ _ _) = return $ Left $ show x ++ " not implemented"
+
+exec :: VmState -> IO (Either String Value)
+exec v =
+    exec' v
+        >>= ( \x -> return $ case x of
+                Right (Just v') -> Right v'
+                Right Nothing -> Left "No result found"
+                Left e -> Left e
+            )
+            . (result <$>)
+
+-- exec mem args (Call key : is) stack =
+-- case getFromMem mem key of
+-- Just (Left (Op f)) -> do
+-- case f stack of
+-- Right res -> exec mem args is (res : drop 2 stack)
+-- Left err -> return $ Left err
+-- Just (Left (Bi code)) -> do
+-- res <- exec mem stack code []
+-- case res of
+-- Right val -> exec mem args is (val : stack)
+-- Left err -> return $ Left err
+-- Just (Right f) -> do
+-- r <- f stack
+-- case r of
+-- Right val -> exec mem args is (val : stack)
+-- Left err -> return $ Left err
+-- _ -> return $ Left ("Call on invalid or missing key: " ++ key)
+-- exec mem args (JumpIfFalse (Left n) : is) (B b : stack)
+-- \| not b = exec mem args (drop n is) stack
+-- \| otherwise = exec mem args is stack
+-- exec mem args (Jump (Left n) : is) stack = exec mem args (drop n is) stack
+-- exec _ _ (JumpIfFalse _ : _) _ = return $ Left "JumpIfFalse needs a bool on the stack"
