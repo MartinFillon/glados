@@ -5,24 +5,30 @@
 -- interpreter
 -}
 {-# LANGUAGE InstanceSigs #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
 {-# HLINT ignore "Use lambda-case" #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module VirtualMachine.Interpreter (
     Numeric (..),
-    Stack,
-    Memory,
-    initialMemory,
     exec,
-    initialState,
 ) where
 
-import Data.Functor ((<&>))
 import Data.Int (Int64)
-import Data.Map (Map)
-import qualified Data.Map as Map
-import VirtualMachine.Instructions (Inst (..), Value (..))
+import VirtualMachine.Instructions (Inst (..), Instruction (Instruction), Value (..))
+import VirtualMachine.State (
+    V (..),
+    VmState,
+    eitherS,
+    getArgs,
+    getElemInMemory,
+    getInArr,
+    getNextInstruction,
+    getStack,
+    incPc,
+    io,
+    modifyStack,
+    registerL,
+ )
 
 class Numeric a where
     toDouble :: a -> Double
@@ -43,40 +49,6 @@ instance Numeric Double where
     fromDouble :: Double -> Either String Double
     fromDouble = Right
 
-type Stack = [Value]
-
-data VmState = VmState
-    { stack :: [Value],
-      instructions :: [Inst],
-      result :: Maybe Value,
-      memory :: Memory,
-      args :: [Value]
-    }
-    deriving (Show)
-
-initialState :: [Inst] -> VmState
-initialState i = VmState [] i Nothing initialMemory []
-
-------------
--- Memory --
-------------
-
-data Memory
-    = M (Map String Value) (Map String (Stack -> IO (Either String Value)))
-
-instance Show Memory where
-    show :: Memory -> String
-    show (M o _) = show o ++ " <io operations>"
-
-initialMemory :: Memory
-initialMemory = M operators ioOperators
-
-getFromMem ::
-    Memory -> String -> Maybe (Either Value (Stack -> IO (Either String Value)))
-getFromMem (M o io) s = case Map.lookup s o of
-    Just x -> Just $ Left x
-    Nothing -> Map.lookup s io <&> Right
-
 -------------------------
 -- operator operations --
 -------------------------
@@ -91,148 +63,170 @@ numericOp op (D x) (N y) = Right $ D (op x (toDouble y))
 numericOp op (D x) (D y) = Right $ D (op x y)
 numericOp _ _ _ = Left "Invalid numeric op"
 
-operatorAdd :: Stack -> Either String Value
-operatorAdd (y : x : _) = numericOp (+) x y
-operatorAdd _ = Left "expects two number"
+operatorAdd :: [Value] -> VmState [Value]
+operatorAdd (y : x : xs) = eitherS $ (: xs) <$> numericOp (+) x y
+operatorAdd _ = fail "expects two number"
 
-operatorSub :: Stack -> Either String Value
-operatorSub (y : x : _) = numericOp (-) x y
-operatorSub _ = Left "expects two number"
+operatorSub :: [Value] -> VmState [Value]
+operatorSub (y : x : xs) = eitherS $ (: xs) <$> numericOp (-) x y
+operatorSub _ = fail "expects two number"
 
-operatorMul :: Stack -> Either String Value
-operatorMul (y : x : _) = numericOp (*) x y
-operatorMul _ = Left "expects two number"
+operatorMul :: [Value] -> VmState [Value]
+operatorMul (y : x : xs) = eitherS $ (: xs) <$> numericOp (*) x y
+operatorMul _ = fail "expects two number"
 
-operatorDiv :: Stack -> Either String Value
-operatorDiv (y : x : _) =
+operatorDiv :: [Value] -> VmState [Value]
+operatorDiv (y : x : xs) =
     case y of
-        N y' | y' == 0 -> Left "division by zero"
-        D y' | y' == 0.0 -> Left "division by zero"
-        _ -> numericOp (/) x y
-operatorDiv _ = Left "expects two number"
+        N y' | y' == 0 -> fail "division by zero"
+        D y' | y' == 0.0 -> fail "division by zero"
+        _ -> eitherS $ (: xs) <$> numericOp (/) x y
+operatorDiv _ = fail "expects two number"
 
-operatorMod :: Stack -> Either String Value
-operatorMod (N y : N x : _)
-    | y == 0 = Left "modulo by zero"
-    | otherwise = Right $ N (x `mod` y)
-operatorMod _ = Left "xpects two int"
+operatorMod :: [Value] -> VmState [Value]
+operatorMod (N y : N x : xs)
+    | y == 0 = fail "modulo by zero"
+    | otherwise = return $ N (x `mod` y) : xs
+operatorMod _ = fail "xpects two int"
 
-operatorEq :: Stack -> Either String Value
-operatorEq (x : y : _) = Right $ B (x == y)
-operatorEq _ = Left "expects two value"
+operatorEq :: [Value] -> VmState [Value]
+operatorEq (x : y : xs) = return $ B (x == y) : xs
+operatorEq _ = fail "expects two value"
 
-operatorLt :: Stack -> Either String Value
-operatorLt (y : x : _) =
-    case (x, y) of
-        (N a, N b) -> Right $ B (toDouble a < toDouble b)
-        (N a, D b) -> Right $ B (toDouble a < b)
-        (D a, N b) -> Right $ B (a < toDouble b)
-        (D a, D b) -> Right $ B (a < b)
-        _ -> Left "expects two number"
-operatorLt _ = Left "expects two number"
+operatorLt :: [Value] -> VmState [Value]
+operatorLt (y : x : xs) =
+    eitherS $
+        (: xs)
+            <$> case (x, y) of
+                (N a, N b) -> Right $ B (toDouble a < toDouble b)
+                (N a, D b) -> Right $ B (toDouble a < b)
+                (D a, N b) -> Right $ B (a < toDouble b)
+                (D a, D b) -> Right $ B (a < b)
+                _ -> Left "expects two number"
+operatorLt _ = fail "expects two number"
 
-operatorGt :: Stack -> Either String Value
-operatorGt (y : x : _) =
-    case (x, y) of
-        (N a, N b) -> Right $ B (toDouble a > toDouble b)
-        (N a, D b) -> Right $ B (toDouble a > b)
-        (D a, N b) -> Right $ B (a > toDouble b)
-        (D a, D b) -> Right $ B (a > b)
-        _ -> Left "expects two number"
-operatorGt _ = Left "expects two number"
+operatorGt :: [Value] -> VmState [Value]
+operatorGt (y : x : xs) =
+    eitherS $
+        (: xs)
+            <$> case (x, y) of
+                (N a, N b) -> Right $ B (toDouble a > toDouble b)
+                (N a, D b) -> Right $ B (toDouble a > b)
+                (D a, N b) -> Right $ B (a > toDouble b)
+                (D a, D b) -> Right $ B (a > b)
+                _ -> Left "expects two number"
+operatorGt _ = fail "expects two number"
 
-operatorAnd :: Stack -> Either String Value
-operatorAnd (B y : B x : _) = Right $ B (x && y)
-operatorAnd _ = Left "And expects two bool"
+operatorAnd :: [Value] -> VmState [Value]
+operatorAnd (B y : B x : xs) = return $ B (x && y) : xs
+operatorAnd _ = fail "And expects two bool"
 
-operatorOr :: Stack -> Either String Value
-operatorOr (B y : B x : _) = Right $ B (x || y)
-operatorOr _ = Left "Or expects two booleans"
+operatorOr :: [Value] -> VmState [Value]
+operatorOr (B y : B x : xs) = return $ B (x || y) : xs
+operatorOr _ = fail "Or expects two booleans"
 
-operatorPrint :: Stack -> IO (Either String Value)
-operatorPrint (S s : _) = putStrLn s >> return (Right $ N (fromIntegral (length s)))
-operatorPrint (val : _) = print val >> return (Right $ N (fromIntegral (length (show val))))
-operatorPrint _ = return $ Left "expects one val"
+operatorPrint :: [Value] -> VmState [Value]
+operatorPrint (S s : xs) = io $ putStr s >> return (N (fromIntegral (length s)) : xs)
+operatorPrint (val : xs) = io $ (putStr . show) val >> return (N (fromIntegral (length (show val))) : xs)
+operatorPrint _ = fail "expects one val"
 
-operatorGet :: Stack -> Either String Value
-operatorGet (N idx : L lst : _)
-    | idx >= 0 && idx < fromIntegral (length lst) = Right $ lst !! fromIntegral idx
-    | otherwise = Left "Index out of bound"
-operatorGet _ = Left "expects a list and an integer index"
+operatorGet :: [Value] -> VmState [Value]
+operatorGet (N idx : L lst : xs)
+    | idx >= 0 && idx < fromIntegral (length lst) = return $ (lst !! fromIntegral idx) : xs
+    | otherwise = fail "Index out of bound"
+operatorGet _ = fail "expects a list and an integer index"
 
-operatorSet :: Stack -> Either String Value
-operatorSet (val : N idx : L lst : _)
+operatorSet :: [Value] -> VmState [Value]
+operatorSet (val : N idx : L lst : xs)
     | idx >= 0 && idx < fromIntegral (length lst) =
-        Right $
-            L
-                (take (fromIntegral idx) lst ++ [val] ++ drop (fromIntegral idx + 1) lst)
-    | otherwise = Left "Index out of bound"
-operatorSet _ = Left "expects a list, an integer index, and a value"
+        return $
+            L (take (fromIntegral idx) lst ++ [val] ++ drop (fromIntegral idx + 1) lst)
+                : xs
+    | otherwise = fail "Index out of bound"
+operatorSet _ = fail "expects a list, an integer index, and a value"
 
-operators :: Map String Value
+operators :: [(String, V)]
 operators =
-    Map.fromList
-        [ ("add", Op operatorAdd),
-          ("sub", Op operatorSub),
-          ("mul", Op operatorMul),
-          ("div", Op operatorDiv),
-          ("mod", Op operatorMod),
-          ("eq", Op operatorEq),
-          ("less", Op operatorLt),
-          ("greater", Op operatorGt),
-          ("and", Op operatorAnd),
-          ("or", Op operatorOr),
-          ("get", Op operatorGet),
-          ("set", Op operatorSet)
-        ]
+    [ ("add", Op operatorAdd),
+      ("sub", Op operatorSub),
+      ("mul", Op operatorMul),
+      ("div", Op operatorDiv),
+      ("mod", Op operatorMod),
+      ("eq", Op operatorEq),
+      ("less", Op operatorLt),
+      ("greater", Op operatorGt),
+      ("and", Op operatorAnd),
+      ("or", Op operatorOr),
+      ("get", Op operatorGet),
+      ("set", Op operatorSet),
+      ("print", Op operatorPrint)
+    ]
 
-ioOperators :: Map String (Stack -> IO (Either String Value))
-ioOperators = Map.fromList [("print", operatorPrint)]
+-- ioOperators :: Map String (Stack -> IO (Either String Value))
+-- ioOperators = Map.fromList [("print", operatorPrint)]
 
-execCall' :: VmState -> Either Value (Stack -> IO (Either String Value)) -> IO (Either String VmState)
-execCall' v (Left (Op f)) = case f (stack v) of
-    Right val -> return $ Right v {stack = val : drop 2 (stack v)}
-    Left e -> return $ Left e
-execCall' v (Right f) =
-    f (stack v)
-        >>= ( \r -> case r of
-                Right val -> return $ Right v {stack = val : drop 1 (stack v)}
-                Left e -> return $ Left e
+-- execCall' :: Vm -> Either Value (Stack -> IO (Either String Value)) -> IO (Either String Vm)
+-- execCall' v (Left (Op f)) = case f (stack v) of
+--     Right val -> return $ Right v {stack = val : drop 2 (stack v)}
+--     Left e -> return $ Left e
+-- execCall' v (Right f) =
+--     f (stack v)
+--         >>= ( \r -> case r of
+--                 Right val -> return $ Right v {stack = val : drop 1 (stack v)}
+--                 Left e -> return $ Left e
+--             )
+-- execCall' _ _ = return $ Left "Function not found"
+
+-- execCall :: Vm -> String -> IO (Either String Vm)
+-- execCall v@(Vm _ _ _ m _) s = case getFromMem m s of
+--     Just f -> execCall' v f
+
+execRet :: [Value] -> Either String (Maybe Value)
+execRet [] = Left "No values on stack"
+execRet (x : _) = Right $ Just x
+
+execPushArg' :: Int -> [Value] -> Maybe Value -> VmState ()
+execPushArg' n _ Nothing = fail $ "No values at the index " ++ show n ++ " arg"
+execPushArg' _ st (Just x) = modifyStack (x : st)
+
+execPushArg :: Int -> VmState ()
+execPushArg n = getArgs >>= (\r -> getStack >>= (\s -> execPushArg' n s r)) . getInArr n
+
+execCall :: String -> VmState ()
+execCall s =
+    getElemInMemory s
+        >>= ( \e -> case e of
+                Op f -> getStack >>= f >>= modifyStack
+                _ -> fail "unimplemented"
             )
-execCall' _ _ = return $ Left "Function not found"
 
-execCall :: VmState -> String -> IO (Either String VmState)
-execCall v@(VmState _ _ _ m _) s = case getFromMem m s of
-    Just f -> execCall' v f
-    Nothing -> return $ Left $ "Cannot find " ++ s
+execInstruction :: Instruction -> VmState (Maybe Value)
+execInstruction (Instruction _ _ Ret _) =
+    getStack >>= eitherS . execRet
+execInstruction (Instruction _ _ (Push x) _) =
+    getStack >>= modifyStack . (x :) >> return Nothing
+execInstruction (Instruction _ _ Noop _) = return Nothing
+execInstruction (Instruction _ _ (PushArg x) _) = execPushArg x >> return Nothing
+execInstruction (Instruction _ _ (Call n) _) = execCall n >> return Nothing
+execInstruction _ = eitherS (Left "Not handled" :: Either String (Maybe Value))
 
-exec' :: VmState -> IO (Either String VmState)
-exec' (VmState [] [] _ _ _) = return $ Left "No value on stack"
-exec' s@(VmState (v : o) [] _ _ _) = return $ Right s {stack = o, result = Just v}
-exec' s@(VmState _ (Noop : is) _ _ _) = exec' s {instructions = is}
-exec' s@(VmState vs (Push v : is) _ _ _) = exec' s {stack = v : vs, instructions = is}
-exec' s@(VmState _ (Call n : is) _ _ _) =
-    execCall s {instructions = is} n
-        >>= ( \r -> case r of
-                Right v -> exec' v
-                e -> return e
-            )
-exec' s@(VmState vs (PushArg i : is) _ _ a')
-    | i >= 0 && i < length a' = exec' s {stack = a' !! i : vs, instructions = is}
-    | otherwise = return $ Left "PushArg index out of range"
-exec' (VmState [] (Ret : _) _ _ _) = return $ Left "Nothing to return"
-exec' s@(VmState (r : _) (Ret : is) _ _ _) = return $ Right s {instructions = is, result = Just r}
-exec' (VmState _ (x : _) _ _ _) = return $ Left $ show x ++ " not implemented"
+exec' :: Maybe Instruction -> VmState Value
+exec' (Just i) =
+    execInstruction i
+        >>= maybe (incPc >> getNextInstruction >>= exec') return
+exec' Nothing = return $ N 0
 
-exec :: VmState -> IO (Either String Value)
-exec v =
-    exec' v
-        >>= ( \x -> return $ case x of
-                Right (Just v') -> Right v'
-                Right Nothing -> Left "No result found"
-                Left e -> Left e
-            )
-            . (result <$>)
+exec :: VmState Value
+exec = registerL operators >> getNextInstruction >>= exec'
+
+-- exec v =
+--     exec' v
+--         >>= ( \x -> return $ case x of
+--                 Right (Just v') -> Right v'
+--                 Right Nothing -> Left "No result found"
+--                 Left e -> Left e
+--             )
+--             . (result <$>)
 
 -- exec mem args (Call key : is) stack =
 -- case getFromMem mem key of

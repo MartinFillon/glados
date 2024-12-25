@@ -7,13 +7,15 @@
 
 module VirtualMachine (vm) where
 
+import Control.Monad.State
 import Utils (handleParseError, pError)
 import VirtualMachine.Instructions (Instruction (..))
-import VirtualMachine.Interpreter
+import VirtualMachine.Interpreter (exec)
 import VirtualMachine.Parser (parseAssembly)
+import VirtualMachine.State (initialState)
 
 execParsed :: [Instruction] -> IO ()
-execParsed i = exec (initialState (map inst i)) >>= print
+execParsed i = evalStateT exec (initialState i []) >>= print
 
 vm :: Maybe String -> IO ()
 vm Nothing = pError "A file is required for the vm to run"

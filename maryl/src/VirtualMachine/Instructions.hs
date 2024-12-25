@@ -48,7 +48,6 @@ data Value
     | S String
     | L [Value]
     | D Double
-    | Op ([Value] -> Either String Value)
     | Bi [Inst]
 
 instance Show Value where
@@ -58,7 +57,6 @@ instance Show Value where
     show (S s) = show s
     show (L vs) = show vs
     show (D d) = show d
-    show (Op _) = "<operator>"
     show (Bi _) = "<builtin>"
 
 instance Eq Value where
