@@ -31,7 +31,7 @@ module Parsing.ParserAst (
     parseAst,
     ternary,
     listVariables',
-    Ast (..)
+    Ast (..),
 ) where
 
 import Control.Monad (void)
@@ -64,7 +64,8 @@ import qualified Text.Megaparsec.Char.Lexer as L
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
 
-data MarylType = String | Integer | Double | Char | Bool | Void deriving (Eq, Ord, Show)
+data MarylType = String | Integer | Double | Char | Bool | Void
+    deriving (Eq, Ord, Show)
 
 data Function = Function
     { fName :: String,
@@ -109,7 +110,8 @@ scn :: Parser ()
 scn = L.space space1 lineComment empty
 
 sc :: Parser ()
-sc = L.space (void $ some (char ' ' <|> char '\t' <|> char '\n')) lineComment empty
+sc =
+    L.space (void $ some (char ' ' <|> char '\t' <|> char '\n')) lineComment empty
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
@@ -134,7 +136,9 @@ bonusChar = choice $ char <$> bonusChar'
 
 variable :: Parser String
 variable =
-    (:) <$> (try letterChar <|> bonusChar) <*> many (noneOf (" \t\n\r(),=;" :: [Char]))
+    (:)
+        <$> (try letterChar <|> bonusChar)
+        <*> many (noneOf (" \t\n\r(),=;" :: [Char]))
         <?> "variable"
 
 integer :: Parser Integer
@@ -173,7 +177,11 @@ listVariables :: Parser [Ast]
 listVariables = between (symbol "(") (symbol ")") (convertValue `sepBy` lexeme ",")
 
 listVariables' :: Parser [Ast]
-listVariables' = between (symbol "(") (symbol ")") ((types >> sc >> convertValue) `sepBy` lexeme ",")
+listVariables' =
+    between
+        (symbol "(")
+        (symbol ")")
+        ((types >> sc >> convertValue) `sepBy` lexeme ",")
 
 block :: Parser [Ast]
 block = between (symbol "{") (symbol "}") (many pTerm)
@@ -210,7 +218,9 @@ pDeclarationVar = do
     sc
     n <- variable
     v <- optionalValue
-    return $ AstDefineVar (Variable {vName = n, vType = getType t, vValue = fromMaybe AstVoid v})
+    return $
+        AstDefineVar
+            (Variable {vName = n, vType = getType t, vValue = fromMaybe AstVoid v})
 
 pDeclarationFunc :: Parser Ast
 pDeclarationFunc = do
@@ -219,7 +229,8 @@ pDeclarationFunc = do
     n <- variable
     a <- listVariables'
     b <- block
-    return $ AstDefineFunc (Function {fName = n, fArgs = a, fBody = b, fType = getType t})
+    return $
+        AstDefineFunc (Function {fName = n, fArgs = a, fBody = b, fType = getType t})
 
 pFunc :: Parser Ast
 pFunc = do

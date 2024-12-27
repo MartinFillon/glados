@@ -14,14 +14,12 @@ module VirtualMachine.Interpreter (
     exec,
 ) where
 
-import Control.Monad.RWS (modify)
 import Data.Int (Int64)
 import Debug.Trace (traceShowId)
 import VirtualMachine.Instructions (Inst (..), Instruction (..), Value (..))
 import VirtualMachine.State (
     V (..),
     VmState,
-    dbg,
     eitherS,
     getArgs,
     getElemInMemory,
@@ -133,12 +131,14 @@ operatorOr _ = fail "Or expects two booleans"
 
 operatorPrint :: [Value] -> VmState [Value]
 operatorPrint (S s : xs) = io $ putStr s >> return (N (fromIntegral (length s)) : xs)
-operatorPrint (val : xs) = io $ (putStr . show) val >> return (N (fromIntegral (length (show val))) : xs)
+operatorPrint (val : xs) =
+    io $ (putStr . show) val >> return (N (fromIntegral (length (show val))) : xs)
 operatorPrint _ = fail "expects one val"
 
 operatorGet :: [Value] -> VmState [Value]
 operatorGet (N idx : L lst : xs)
-    | idx >= 0 && idx < fromIntegral (length lst) = return $ (lst !! fromIntegral idx) : xs
+    | idx >= 0 && idx < fromIntegral (length lst) =
+        return $ (lst !! fromIntegral idx) : xs
     | otherwise = fail "Index out of bound"
 operatorGet _ = fail "expects a list and an integer index"
 
@@ -244,35 +244,3 @@ exec' Nothing = return $ N 0
 
 exec :: VmState Value
 exec = registerL operators >> getNextInstruction >>= exec'
-
--- exec v =
---     exec' v
---         >>= ( \x -> return $ case x of
---                 Right (Just v') -> Right v'
---                 Right Nothing -> Left "No result found"
---                 Left e -> Left e
---             )
---             . (result <$>)
-
--- exec mem args (Call key : is) stack =
--- case getFromMem mem key of
--- Just (Left (Op f)) -> do
--- case f stack of
--- Right res -> exec mem args is (res : drop 2 stack)
--- Left err -> return $ Left err
--- Just (Left (Bi code)) -> do
--- res <- exec mem stack code []
--- case res of
--- Right val -> exec mem args is (val : stack)
--- Left err -> return $ Left err
--- Just (Right f) -> do
--- r <- f stack
--- case r of
--- Right val -> exec mem args is (val : stack)
--- Left err -> return $ Left err
--- _ -> return $ Left ("Call on invalid or missing key: " ++ key)
--- exec mem args (JumpIfFalse (Left n) : is) (B b : stack)
--- \| not b = exec mem args (drop n is) stack
--- \| otherwise = exec mem args is stack
--- exec mem args (Jump (Left n) : is) stack = exec mem args (drop n is) stack
--- exec _ _ (JumpIfFalse _ : _) _ = return $ Left "JumpIfFalse needs a bool on the stack"

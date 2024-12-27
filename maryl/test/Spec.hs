@@ -13,8 +13,8 @@ import EvalAstSpec (spec)
 import PrinterSpec (spec)
 import SExprParserSpec (spec)
 import SExprToAstSpec (spec)
-import VirtualMachine.ParserSpec (spec)
 import VirtualMachine.InterpreterSpec (spec)
+import VirtualMachine.ParserSpec (spec)
 
 main :: IO ()
 main = hspec $ do

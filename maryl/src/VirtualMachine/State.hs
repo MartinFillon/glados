@@ -29,7 +29,13 @@ module VirtualMachine.State (
     getInstructionIdxAtLabel,
 ) where
 
-import Control.Monad.State (MonadIO (..), MonadState (get), StateT, gets, modify)
+import Control.Monad.State (
+    MonadIO (..),
+    MonadState (get),
+    StateT,
+    gets,
+    modify,
+ )
 import Data.Functor ((<&>))
 import Data.List (elemIndex)
 import Data.Map (Map)
@@ -127,4 +133,6 @@ findInstructionWithLabel :: String -> [Instruction] -> Instruction
 findInstructionWithLabel s l = head (f (findInstructionWithLabel' s) l)
 
 getInstructionIdxAtLabel :: String -> VmState (Maybe Int)
-getInstructionIdxAtLabel s = gets instructions >>= (\l -> return $ elemIndex (findInstructionWithLabel s l) l)
+getInstructionIdxAtLabel s =
+    gets instructions
+        >>= (\l -> return $ elemIndex (findInstructionWithLabel s l) l)
