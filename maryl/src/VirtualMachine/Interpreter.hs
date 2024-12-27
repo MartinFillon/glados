@@ -5,6 +5,7 @@
 -- interpreter
 -}
 {-# LANGUAGE InstanceSigs #-}
+{-# OPTIONS_GHC -Wno-overlapping-patterns #-}
 {-# HLINT ignore "Use lambda-case" #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
@@ -13,19 +14,24 @@ module VirtualMachine.Interpreter (
     exec,
 ) where
 
+import Control.Monad.RWS (modify)
 import Data.Int (Int64)
-import VirtualMachine.Instructions (Inst (..), Instruction (Instruction), Value (..))
+import Debug.Trace (traceShowId)
+import VirtualMachine.Instructions (Inst (..), Instruction (..), Value (..))
 import VirtualMachine.State (
     V (..),
     VmState,
+    dbg,
     eitherS,
     getArgs,
     getElemInMemory,
     getInArr,
+    getInstructionIdxAtLabel,
     getNextInstruction,
     getStack,
     incPc,
     io,
+    modifyPc,
     modifyStack,
     registerL,
  )
@@ -200,6 +206,24 @@ execCall s =
                 _ -> fail "unimplemented"
             )
 
+execJumpF' :: Either Int String -> Value -> VmState ()
+execJumpF' jd (B True) = execJump jd
+execJumpF' _ _ = pure ()
+
+execJumpF :: Either Int String -> VmState ()
+execJumpF jd = getStack >>= execJumpF' jd . head
+
+execJump :: Either Int String -> VmState ()
+execJump (Left n)
+    | n < 0 = modifyPc (+ (n - 1))
+    | otherwise = modifyPc (+ n)
+execJump (Right lbl) =
+    getInstructionIdxAtLabel lbl
+        >>= ( \r -> case traceShowId r of
+                Just idx -> modifyPc (const (idx - 1))
+                Nothing -> fail $ "could not find an element with label: " ++ lbl
+            )
+
 execInstruction :: Instruction -> VmState (Maybe Value)
 execInstruction (Instruction _ _ Ret _) =
     getStack >>= eitherS . execRet
@@ -208,11 +232,13 @@ execInstruction (Instruction _ _ (Push x) _) =
 execInstruction (Instruction _ _ Noop _) = return Nothing
 execInstruction (Instruction _ _ (PushArg x) _) = execPushArg x >> return Nothing
 execInstruction (Instruction _ _ (Call n) _) = execCall n >> return Nothing
-execInstruction _ = eitherS (Left "Not handled" :: Either String (Maybe Value))
+execInstruction (Instruction _ _ (Jump j) _) = execJump j >> return Nothing
+execInstruction (Instruction _ _ (JumpIfFalse j) _) = execJumpF j >> return Nothing
+execInstruction i = fail $ "Not handled" ++ name i
 
 exec' :: Maybe Instruction -> VmState Value
 exec' (Just i) =
-    execInstruction i
+    execInstruction (traceShowId i)
         >>= maybe (incPc >> getNextInstruction >>= exec') return
 exec' Nothing = return $ N 0
 

@@ -25,12 +25,16 @@ module VirtualMachine.State (
     getElemInMemory,
     getInArr,
     V (..),
+    modifyPc,
+    getInstructionIdxAtLabel,
 ) where
 
 import Control.Monad.State (MonadIO (..), MonadState (get), StateT, gets, modify)
+import Data.Functor ((<&>))
+import Data.List (elemIndex)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import VirtualMachine.Instructions (Instruction, Value)
+import VirtualMachine.Instructions (Instruction (Instruction), Value)
 
 data V = V Value | Op ([Value] -> VmState [Value])
 
@@ -87,7 +91,10 @@ getPc :: VmState Int
 getPc = gets pc
 
 incPc :: VmState ()
-incPc = modify (\v -> v {pc = pc v + 1})
+incPc = modifyPc (+ 1)
+
+modifyPc :: (Int -> Int) -> VmState ()
+modifyPc f = modify (\v -> v {pc = f $ pc v})
 
 getStack :: VmState [Value]
 getStack = gets stack
@@ -108,3 +115,16 @@ getElemInMemory s =
 
 modifyStack :: [Value] -> VmState ()
 modifyStack vs = modify (\v -> v {stack = vs})
+
+findInstructionWithLabel' :: String -> Instruction -> Bool
+findInstructionWithLabel' s (Instruction _ _ _ (Just l)) = l == s
+findInstructionWithLabel' _ _ = False
+
+f :: (Instruction -> Bool) -> [Instruction] -> [Instruction]
+f = filter
+
+findInstructionWithLabel :: String -> [Instruction] -> Instruction
+findInstructionWithLabel s l = head (f (findInstructionWithLabel' s) l)
+
+getInstructionIdxAtLabel :: String -> VmState (Maybe Int)
+getInstructionIdxAtLabel s = gets instructions >>= (\l -> return $ elemIndex (findInstructionWithLabel s l) l)
