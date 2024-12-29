@@ -27,6 +27,8 @@ module VirtualMachine.State (
     V (..),
     modifyPc,
     getInstructionIdxAtLabel,
+    copyVm,
+    dbgStack,
 ) where
 
 import Control.Monad.State (
@@ -36,7 +38,6 @@ import Control.Monad.State (
     gets,
     modify,
  )
-import Data.Functor ((<&>))
 import Data.List (elemIndex)
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -60,8 +61,11 @@ data Vm = Vm
 
 type VmState = StateT Vm IO
 
-initialState :: [Instruction] -> [Value] -> Vm
-initialState i = Vm [] i Map.empty 0
+initialState :: [Instruction] -> Map String V -> [Value] -> Vm
+initialState i m = Vm [] i m 0
+
+copyVm :: [Instruction] -> [Value] -> Vm -> Vm
+copyVm i a v = v {stack = [], args = a, instructions = i, pc = 0}
 
 io :: IO a -> VmState a
 io = liftIO
@@ -84,6 +88,9 @@ registerL = foldr ((>>) . register) (pure ())
 
 dbg :: VmState ()
 dbg = get >>= (io . print)
+
+dbgStack :: VmState ()
+dbgStack = getStack >>= (io . print)
 
 getInArr :: Int -> [a] -> Maybe a
 getInArr 0 (x : _) = Just x

@@ -48,7 +48,7 @@ data Value
     | S String
     | L [Value]
     | D Double
-    | Bi [Inst]
+    | Bi [Instruction]
 
 instance Show Value where
     show :: Value -> String
