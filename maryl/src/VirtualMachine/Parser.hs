@@ -14,7 +14,6 @@ module VirtualMachine.Parser (parseAssembly) where
 
 import Control.Applicative (Alternative (..), optional)
 import Control.Monad (void)
-import Data.Int (Int64)
 import Data.Void (Void)
 import Text.Megaparsec (
     MonadParsec (..),
@@ -23,6 +22,7 @@ import Text.Megaparsec (
     choice,
     noneOf,
     parse,
+    sepBy,
     (<?>),
  )
 import Text.Megaparsec.Byte (string)
@@ -30,8 +30,8 @@ import Text.Megaparsec.Char (alphaNumChar, char)
 import Text.Megaparsec.Char.Lexer qualified as L
 import Text.Megaparsec.Error (ParseErrorBundle)
 import VirtualMachine.Instructions (
-    Op,
-    Val (..),
+    Instruction,
+    Value (..),
     call,
     jump,
     jumpf,
@@ -43,84 +43,105 @@ import VirtualMachine.Instructions (
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
 
+lexeme :: Parser a -> Parser a
+lexeme = L.lexeme sc
+
 sce :: Parser ()
 sce = L.space empty empty empty
 
-parseInt :: Parser Int64
+parseInt :: Parser Int
 parseInt = lexeme (L.signed sce L.decimal)
 
-parseDigit :: Parser Val
+parseFloat :: Parser Value
+parseFloat = lexeme $ D <$> L.signed sce L.float
+
+parseDigit :: Parser Value
 parseDigit = lexeme $ N <$> L.signed sce L.decimal
 
-parseTrue :: Parser Val
+parseTrue :: Parser Value
 parseTrue = lexeme $ string "true" >> return (B True)
 
-parseFalse :: Parser Val
+parseFalse :: Parser Value
 parseFalse = lexeme $ string "false" >> return (B False)
 
-parseChar :: Parser Val
-parseChar = lexeme $ C <$> noneOf (" \t\n\r\"" :: [Char])
+-- parseChar :: Parser Value
+-- parseChar = lexeme $ C <$> noneOf (" \t\n\r\"[]" :: [Char])
 
-parseString :: Parser Val
-parseString =
+parseString' :: Parser String
+parseString' =
     lexeme $
-        S
-            <$> between
-                (char '\"')
-                (char '\"')
-                ((:) <$> alphaNumChar <*> many alphaNumChar)
+        between
+            (char '\"')
+            (char '\"')
+            ((:) <$> noneOf ("\"" :: [Char]) <*> many (noneOf ("\"" :: [Char])))
 
-parseBool :: Parser Val
+parseString :: Parser Value
+parseString =
+    lexeme $ S <$> parseString'
+
+parseBool :: Parser Value
 parseBool = lexeme (choice [parseTrue, parseFalse]) <?> "Boolean"
 
-parseVal :: Parser Val
+parseList :: Parser Value
+parseList =
+    L
+        <$> between (char '[') (char ']') (parseVal `sepBy` lexeme ",")
+
+parseVal :: Parser Value
 parseVal =
     lexeme $
-        choice [try parseBool, try parseDigit, try parseString, try parseChar]
+        choice
+            [ try parseList,
+              try parseFloat,
+              try parseBool,
+              try parseDigit,
+              try parseString
+              --   try parseChar
+            ]
 
 parseLabel :: Parser String
 parseLabel = lexeme $ (:) <$> char '.' <*> many alphaNumChar
 
-parseOp :: (Maybe String -> a -> Op) -> String -> Parser a -> Parser Op
-parseOp f s p = (\l _ v -> f l v) <$> optional parseLabel <*> lexeme (string s) <*> p
+parseInstruction ::
+    (Maybe String -> a -> Instruction) -> String -> Parser a -> Parser Instruction
+parseInstruction f s p = (\l _ v -> f l v) <$> optional parseLabel <*> lexeme (string s) <*> p
 
-parseJumpVal' :: Parser (Either Int64 String)
+parseInstruction' ::
+    (Maybe String -> Instruction) -> String -> Parser Instruction
+parseInstruction' f s = (\l _ -> f l) <$> optional parseLabel <*> lexeme (string s)
+
+parseJumpVal' :: Parser (Either Int String)
 parseJumpVal' = lexeme $ Left <$> parseInt
 
-parseJumpVal'' :: Parser (Either Int64 String)
+parseJumpVal'' :: Parser (Either Int String)
 parseJumpVal'' = lexeme $ Right <$> parseLabel
 
-parseJumpVal :: Parser (Either Int64 String)
+parseJumpVal :: Parser (Either Int String)
 parseJumpVal = choice [try parseJumpVal', parseJumpVal'']
 
-parsePush :: Parser Op
-parsePush = lexeme (parseOp push "push" parseVal)
+parsePush :: Parser Instruction
+parsePush = lexeme (parseInstruction push "push" parseVal)
 
-parseRet :: Parser Op
-parseRet = lexeme (parseOp (\l _ -> ret l) "ret" (pure ()))
+parseRet :: Parser Instruction
+parseRet = lexeme (parseInstruction' ret "ret")
 
-parseCall :: Parser Op
-parseCall = lexeme (parseOp (\l _ -> call l) "call" (pure ()))
+parseCall :: Parser Instruction
+parseCall = lexeme (parseInstruction call "call" parseString')
 
-parseJumpF :: Parser Op
-parseJumpF = lexeme (parseOp jumpf "jumpf" parseJumpVal)
+parseJumpF :: Parser Instruction
+parseJumpF = lexeme (parseInstruction jumpf "jumpf" parseJumpVal)
 
-parseJump :: Parser Op
-parseJump = lexeme (parseOp jump "jump" parseJumpVal)
+parseJump :: Parser Instruction
+parseJump = lexeme (parseInstruction jump "jump" parseJumpVal)
 
-parsePushArg :: Parser Op
-parsePushArg = lexeme (parseOp pushArg "pushArg" parseInt)
+parsePushArg :: Parser Instruction
+parsePushArg = lexeme (parseInstruction pushArg "pushArg" parseInt)
 
-parseKeyWords :: Parser Op
-parseKeyWords =
-    choice
-        [ try parseRet,
-          try parsePushArg,
-          try parseJumpF,
-          try parseJump,
-          try parseCall,
-          try parsePush
-        ]
+keyWords :: [Parser Instruction]
+keyWords = [parseRet, parsePushArg, parseJumpF, parseJump, parseCall, parsePush]
+
+parseKeyWords :: Parser Instruction
+parseKeyWords = choice $ map try keyWords
 
 lineComment :: Parser ()
 lineComment = L.skipLineComment ";"
@@ -132,8 +153,5 @@ sc =
         lineComment
         empty
 
-lexeme :: Parser a -> Parser a
-lexeme = L.lexeme sc
-
-parseAssembly :: String -> Either ParserError [Op]
+parseAssembly :: String -> Either ParserError [Instruction]
 parseAssembly = parse (between sc eof (some parseKeyWords)) ""

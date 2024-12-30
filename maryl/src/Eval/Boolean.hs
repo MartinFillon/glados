@@ -15,9 +15,9 @@ module Eval.Boolean (
 ) where
 
 import Data.Data (typeOf)
+import Eval.Maths (isNumeric)
 import Memory (Memory)
 import Parsing.SExprToAst (Ast (..))
-import Eval.Maths (isNumeric)
 
 evalAnd :: Memory -> [Ast] -> Either String (Ast, Memory)
 evalAnd mem [AstBool b1, AstBool b2] = Right (AstBool (b1 && b2), mem)
@@ -38,7 +38,6 @@ evalOr _ _ = Left "Invalid arguments for `or`"
 evalNot :: Memory -> [Ast] -> Either String (Ast, Memory)
 evalNot mem [AstBool b] = Right (AstBool (not b), mem)
 evalNot _ b = Left ("Invalid arguments " ++ show b ++ " for `not`")
-
 
 isAST :: Ast -> Bool
 isAST (AstBool _) = True
