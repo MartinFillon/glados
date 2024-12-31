@@ -41,6 +41,23 @@ factCode =
       ret Nothing
     ]
 
+factCode' :: [Instruction]
+factCode' =
+    [ pushArg (Just ".fact") 0,
+      push Nothing (N 0),
+      call Nothing "eq",
+      jumpf Nothing (Left 2),
+      push Nothing (N 1),
+      ret Nothing,
+      pushArg Nothing 0,
+      push Nothing (N 1),
+      call Nothing "sub",
+      call Nothing "fact",
+      pushArg Nothing 0,
+      call Nothing "mul",
+      ret Nothing
+    ]
+
 execTest :: [Instruction] -> IO Value
 execTest is = evalStateT exec (initialState is (Map.fromList operators) [])
 
@@ -54,6 +71,10 @@ spec = do
             let mem = Map.insert "fact" (V $ Bi factCode) (Map.fromList operators)
                 code = [push Nothing (N 5), call Nothing "fact", ret Nothing]
             execTest' code mem `shouldReturn` N 120
+
+        it "should execute factorial from label" $ do
+            let code = [push Nothing (N 5), call Nothing ".fact", ret Nothing] ++ factCode'
+            execTest code `shouldReturn` N 120
 
         it "should execute addition 10 + 30 + 20" $ do
             execTest

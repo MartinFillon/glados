@@ -29,6 +29,8 @@ module VirtualMachine.State (
     getInstructionIdxAtLabel,
     copyVm,
     dbgStack,
+    copyVm',
+    appendStack,
 ) where
 
 import Control.Monad.State (
@@ -38,6 +40,7 @@ import Control.Monad.State (
     gets,
     modify,
  )
+import Data.Functor ((<&>))
 import Data.List (elemIndex)
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -66,6 +69,9 @@ initialState i m = Vm [] i m 0
 
 copyVm :: [Instruction] -> [Value] -> Vm -> Vm
 copyVm i a v = v {stack = [], args = a, instructions = i, pc = 0}
+
+copyVm' :: Int -> [Value] -> Vm -> Vm
+copyVm' n a vm = vm {pc = n, stack = [], args = a}
 
 io :: IO a -> VmState a
 io = liftIO
@@ -118,13 +124,9 @@ getArgs = gets args
 getMemory :: VmState (Map String V)
 getMemory = gets memory
 
-getElemInMemory :: String -> VmState V
+getElemInMemory :: String -> VmState (Maybe V)
 getElemInMemory s =
-    getMemory
-        >>= ( \m -> case Map.lookup s m of
-                Just x -> return x
-                Nothing -> fail $ s ++ " not found."
-            )
+    getMemory <&> Map.lookup s
 
 modifyStack :: [Value] -> VmState ()
 modifyStack vs = modify (\v -> v {stack = vs})
@@ -133,13 +135,13 @@ findInstructionWithLabel' :: String -> Instruction -> Bool
 findInstructionWithLabel' s (Instruction _ _ _ (Just l)) = l == s
 findInstructionWithLabel' _ _ = False
 
-f :: (Instruction -> Bool) -> [Instruction] -> [Instruction]
-f = filter
-
 findInstructionWithLabel :: String -> [Instruction] -> Instruction
-findInstructionWithLabel s l = head (f (findInstructionWithLabel' s) l)
+findInstructionWithLabel s l = head (filter (findInstructionWithLabel' s) l)
 
 getInstructionIdxAtLabel :: String -> VmState (Maybe Int)
 getInstructionIdxAtLabel s =
     gets instructions
         >>= (\l -> return $ elemIndex (findInstructionWithLabel s l) l)
+
+appendStack :: Value -> VmState ()
+appendStack v = getStack >>= (\s -> modifyStack (v : s))

@@ -18,12 +18,22 @@ module VirtualMachine.Interpreter (
 import Control.Monad.State.Lazy (MonadState (get), evalStateT)
 import Data.Int (Int64)
 import Debug.Trace (traceShowId)
-import VirtualMachine.Instructions (Inst (..), Instruction (..), Value (..), call, jumpf, push, pushArg, ret)
+import VirtualMachine.Instructions (
+    Inst (..),
+    Instruction (..),
+    Value (..),
+    call,
+    jumpf,
+    push,
+    pushArg,
+    ret,
+ )
 import VirtualMachine.State (
     V (..),
     VmState,
+    appendStack,
     copyVm,
-    dbg,
+    copyVm',
     dbgStack,
     eitherS,
     getArgs,
@@ -60,6 +70,7 @@ instance Numeric Double where
 
 -------------------------
 -- operator operations --
+
 -------------------------
 
 numericOp ::
@@ -188,11 +199,19 @@ execCall :: String -> VmState ()
 execCall s =
     getElemInMemory s
         >>= ( \e -> case e of
-                Op f -> getStack >>= f >>= modifyStack
-                (V (Bi f)) ->
+                Just (Op f) -> getStack >>= f >>= modifyStack
+                Just ((V (Bi f))) ->
                     (copyVm f <$> getStack <*> get >>= (io . evalStateT exec))
-                        >>= (\r -> getStack >>= (\s' -> modifyStack (r : s')))
-                _ -> fail "unimplemented"
+                        >>= appendStack
+                Nothing ->
+                    getInstructionIdxAtLabel s
+                        >>= ( \r -> case traceShowId r of
+                                Just idx ->
+                                    (copyVm' idx <$> getStack <*> get >>= (io . evalStateT exec))
+                                        >>= appendStack
+                                Nothing -> fail $ "could not find an element with label: " ++ s
+                            )
+                (Just t) -> fail $ "call unimplemented for " ++ show t
             )
 
 execJumpF' :: Either Int String -> Value -> VmState ()
