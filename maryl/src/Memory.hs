@@ -9,7 +9,7 @@ module Memory (Memory, initMemory, updateMemory, readMemory) where
 
 import qualified Data.Map as Map
 
-import Parsing.SExprToAst (Ast (..))
+import Parsing.ParserAst (Ast (..))
 
 type Memory = Map.Map String Ast
 

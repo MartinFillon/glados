@@ -60,6 +60,7 @@ import Text.Megaparsec (
  )
 import Text.Megaparsec.Char (char, letterChar, space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
+import Debug.Trace (trace)
 
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
@@ -331,4 +332,5 @@ pAst :: Parser [Ast]
 pAst = many $ try pTerm
 
 parseAst :: String -> Either ParserError [Ast]
-parseAst = parse (between sc eof pAst) ""
+parseAst s = 
+  trace (show s) $ parse (between sc eof pAst) "" s
