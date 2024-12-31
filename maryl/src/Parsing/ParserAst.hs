@@ -28,7 +28,7 @@ module Parsing.ParserAst (
     lexeme,
     symbol,
     convertValue,
-    parseAst,
+    parseAST,
     ternary,
     listVariables',
     Ast (..),
@@ -331,6 +331,6 @@ pExpr = makeExprParser convertValue operatorTable
 pAst :: Parser [Ast]
 pAst = many $ try pTerm
 
-parseAst :: String -> Either ParserError [Ast]
-parseAst s = 
+parseAST :: String -> Either ParserError [Ast]
+parseAST s = 
   trace (show s) $ parse (between sc eof pAst) "" s

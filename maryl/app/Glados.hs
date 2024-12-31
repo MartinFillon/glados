@@ -12,7 +12,7 @@ import qualified Control.Monad as Monad
 import Eval.Evaluator (evalAST)
 import GHC.GHCi.Helpers (flushAll)
 import Memory (Memory, initMemory)
-import Parsing.ParserAst (parseAst, Ast(..))
+import Parsing.ParserAst (parseAST, Ast(..))
 import System.Exit (ExitCode (..), exitWith)
 import System.IO (hIsTerminalDevice, isEOF, stdin)
 import Utils (handleParseError, pError)
@@ -27,17 +27,12 @@ handleEvalResult (Left err) =
     pError ("*** ERROR : " ++ err)
 
 parseSourceCode :: Memory -> String -> IO Memory
-parseSourceCode mem s =
-    case parseAst s of
-        Left err -> trace (show s) $ do
-            pError $ "*** ERROR : Invalid AST: " ++ show err
-            exitWith (ExitFailure 84)
-        Right asts -> trace (show asts) $ do
-            -- evaluate the parsed AST
-            let evalResult = evalAST mem asts
-            handleEvalResult evalResult
-            -- return updated memory or keep the original on error
-            return $ either (const mem) snd evalResult
+parseSourceCode mem s = do
+    asts <- handleParseError True (parseAST s)
+    let evalResult = evalAST mem asts
+    handleEvalResult evalResult
+    -- ret updated memory/ keep original on error
+    return $ either (const mem) snd evalResult
 
 normalizeTabs :: String -> String
 normalizeTabs [] = []
@@ -54,27 +49,35 @@ detectSpaces count (x:xs) =
     replicate count ' ' ++ x : normalizeTabs xs
 
 handleInput :: Memory -> String -> IO Memory
-handleInput m s = trace (show s) $
-    parseSourceCode m (normalizeTabs s)
+handleInput m s = parseSourceCode m (normalizeTabs s)
 
 getContentFromFile :: Memory -> String -> IO Memory
-getContentFromFile mem filepath = do
-    content <- readFile filepath
-    handleInput mem content
+getContentFromFile mem filepath =
+    readFile filepath >>= handleInput mem
+
+countChar :: Char -> String -> Int
+countChar c s = length (filter (== c) s)
+
+countBrackets :: String -> Bool
+countBrackets s = countChar '{' s == countChar '}' s
 
 checkBuf' :: Memory -> String -> IO (String, Memory)
-checkBuf' mem s = handleInput mem s >>= \newMem -> return ("", newMem)
+checkBuf' mem s
+    | countBrackets s = handleInput mem s >>= \newMem -> return ("", newMem)
+    | otherwise = return (s, mem)
 
 checkBuf :: Memory -> String -> String -> IO (String, Memory)
-checkBuf mem s i = checkBuf' mem (if null s then i else s ++ ' ' : i ++ "\n")
+checkBuf mem s i | s /= "" = checkBuf' mem (s ++ '\n' : i)
+    | otherwise = checkBuf' mem i
 
+-- Prints prompt if it's a TTY
 getLineFromStdin' :: Memory -> String -> Bool -> Bool -> IO ()
 getLineFromStdin' _ _ _ True = return ()
-getLineFromStdin' mem s b False = trace s $ do
-    line <- getLine
-    let lineWithNewline = line ++ "\n"
-    (newBuf, newMem) <- checkBuf mem s lineWithNewline
-    getLineFromStdin newMem newBuf b
+getLineFromStdin' mem s b False =
+    getLine
+        >>= ( checkBuf mem s
+                Monad.>=> (\(newBuf, newMem) -> getLineFromStdin newMem newBuf b)
+            )
 
 getLineFromStdin :: Memory -> String -> Bool -> IO ()
 getLineFromStdin mem s True =
