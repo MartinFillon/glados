@@ -7,15 +7,16 @@
 
 module VirtualMachine (vm) where
 
-import Control.Monad.State
+import Control.Monad.State (evalStateT)
+import qualified Data.Map as Map
 import Utils (handleParseError, pError)
 import VirtualMachine.Instructions (Instruction (..))
-import VirtualMachine.Interpreter (exec)
+import VirtualMachine.Interpreter (exec, operators)
 import VirtualMachine.Parser (parseAssembly)
 import VirtualMachine.State (initialState)
 
 execParsed :: [Instruction] -> IO ()
-execParsed i = evalStateT exec (initialState i []) >>= print
+execParsed i = evalStateT exec (initialState i (Map.fromList operators) []) >>= print
 
 vm :: Maybe String -> IO ()
 vm Nothing = pError "A file is required for the vm to run"

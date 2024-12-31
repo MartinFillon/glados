@@ -12,14 +12,29 @@
 module VirtualMachine.Interpreter (
     Numeric (..),
     exec,
+    operators,
 ) where
 
+import Control.Monad.State.Lazy (MonadState (get), evalStateT)
 import Data.Int (Int64)
 import Debug.Trace (traceShowId)
-import VirtualMachine.Instructions (Inst (..), Instruction (..), Value (..))
+import VirtualMachine.Instructions (
+    Inst (..),
+    Instruction (..),
+    Value (..),
+    call,
+    jumpf,
+    push,
+    pushArg,
+    ret,
+ )
 import VirtualMachine.State (
     V (..),
     VmState,
+    appendStack,
+    copyVm,
+    copyVm',
+    dbgStack,
     eitherS,
     getArgs,
     getElemInMemory,
@@ -31,7 +46,7 @@ import VirtualMachine.State (
     io,
     modifyPc,
     modifyStack,
-    registerL,
+    register,
  )
 
 class Numeric a where
@@ -55,6 +70,7 @@ instance Numeric Double where
 
 -------------------------
 -- operator operations --
+
 -------------------------
 
 numericOp ::
@@ -168,25 +184,6 @@ operators =
       ("print", Op operatorPrint)
     ]
 
--- ioOperators :: Map String (Stack -> IO (Either String Value))
--- ioOperators = Map.fromList [("print", operatorPrint)]
-
--- execCall' :: Vm -> Either Value (Stack -> IO (Either String Value)) -> IO (Either String Vm)
--- execCall' v (Left (Op f)) = case f (stack v) of
---     Right val -> return $ Right v {stack = val : drop 2 (stack v)}
---     Left e -> return $ Left e
--- execCall' v (Right f) =
---     f (stack v)
---         >>= ( \r -> case r of
---                 Right val -> return $ Right v {stack = val : drop 1 (stack v)}
---                 Left e -> return $ Left e
---             )
--- execCall' _ _ = return $ Left "Function not found"
-
--- execCall :: Vm -> String -> IO (Either String Vm)
--- execCall v@(Vm _ _ _ m _) s = case getFromMem m s of
---     Just f -> execCall' v f
-
 execRet :: [Value] -> Either String (Maybe Value)
 execRet [] = Left "No values on stack"
 execRet (x : _) = Right $ Just x
@@ -202,12 +199,23 @@ execCall :: String -> VmState ()
 execCall s =
     getElemInMemory s
         >>= ( \e -> case e of
-                Op f -> getStack >>= f >>= modifyStack
-                _ -> fail "unimplemented"
+                Just (Op f) -> getStack >>= f >>= modifyStack
+                Just ((V (Bi f))) ->
+                    (copyVm f <$> getStack <*> get >>= (io . evalStateT exec))
+                        >>= appendStack
+                Nothing ->
+                    getInstructionIdxAtLabel s
+                        >>= ( \r -> case traceShowId r of
+                                Just idx ->
+                                    (copyVm' idx <$> getStack <*> get >>= (io . evalStateT exec))
+                                        >>= appendStack
+                                Nothing -> fail $ "could not find an element with label: " ++ s
+                            )
+                (Just t) -> fail $ "call unimplemented for " ++ show t
             )
 
 execJumpF' :: Either Int String -> Value -> VmState ()
-execJumpF' jd (B True) = execJump jd
+execJumpF' jd (B False) = execJump jd
 execJumpF' _ _ = pure ()
 
 execJumpF :: Either Int String -> VmState ()
@@ -238,9 +246,27 @@ execInstruction i = fail $ "Not handled" ++ name i
 
 exec' :: Maybe Instruction -> VmState Value
 exec' (Just i) =
-    execInstruction (traceShowId i)
+    dbgStack
+        >> execInstruction (traceShowId i)
         >>= maybe (incPc >> getNextInstruction >>= exec') return
 exec' Nothing = return $ N 0
 
+factCode :: [Instruction]
+factCode =
+    [ pushArg Nothing 0,
+      push Nothing (N 0),
+      call Nothing "eq",
+      jumpf Nothing (Left 2),
+      push Nothing (N 1),
+      ret Nothing,
+      pushArg Nothing 0,
+      push Nothing (N 1),
+      call Nothing "sub",
+      call Nothing "fact",
+      pushArg Nothing 0,
+      call Nothing "mul",
+      ret Nothing
+    ]
+
 exec :: VmState Value
-exec = registerL operators >> getNextInstruction >>= exec'
+exec = register ("fact", V $ Bi factCode) >> getNextInstruction >>= exec'
