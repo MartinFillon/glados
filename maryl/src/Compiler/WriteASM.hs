@@ -7,28 +7,40 @@
 
 module Compiler.WriteASM () where
 
--- import VirtualMachine.Instructions (Inst(..), Value(..), Instruction(..))
+import VirtualMachine.Instructions (Inst(..), Value(..), Instruction(..))
 
--- serializeInstruction :: Instruction -> String
--- serializeInstruction (Instruction _ name inst label) =
---     maybe "" (++ ": ") label ++ name ++ serializeInstArgs inst
+serializeInstruction :: Instruction -> String
+serializeInstruction (Instruction _ name inst label) =
+    maybe "" (++ ": ") label ++ name ++ serializeInstArgs inst ++ "\n"
 
--- serializeInstArgs :: Inst -> String
--- serializeInstArgs (Push (N n)) = " " ++ show n
--- serializeInstArgs (Push (B b)) = " " ++ show b
--- serializeInstArgs (Push (S s)) = " \"" ++ s ++ "\""
--- serializeInstArgs (PushArg n) = " " ++ show n
--- serializeInstArgs (Call func) = " " ++ func
--- serializeInstArgs (Jump (Left n)) = " " ++ show n
--- serializeInstArgs (Jump (Right label)) = " " ++ label
--- serializeInstArgs (JumpIfFalse (Left n)) = " " ++ show n
--- serializeInstArgs (JumpIfFalse (Right label)) = " " ++ label
--- serializeInstArgs _ = ""
+serializeInstArgs :: Inst -> String
+serializeInstArgs (Push (N n)) = "push " ++ show n
+serializeInstArgs (Push (B b)) = "push " ++ show b
+serializeInstArgs (Push (S s)) = "push \"" ++ s ++ "\""
+serializeInstArgs (Push (L s)) = "push " ++ show s -- ?
+serializeInstArgs (Push (D s)) = "push " ++ show s
+serializeInstArgs (Push (Bi s)) = "push " ++ show s -- ?
+serializeInstArgs (PushArg n) = "pushArg " ++ show n
+serializeInstArgs (Call func) = "call \" " ++ func ++ "\""
+serializeInstArgs (Jump (Left n)) = "jump " ++ show n
+serializeInstArgs (Jump (Right label)) = "jump ." ++ label
+serializeInstArgs (JumpIfFalse (Left n)) = "jumpf " ++ show n
+serializeInstArgs (JumpIfFalse (Right label)) = "jumpf ." ++ label
+serializeInstArgs Noop = "noop"
+serializeInstArgs Ret = "ret"
+serializeInstArgs _ = ""
 
--- serializeInstructions :: [Instruction] -> String
--- serializeInstructions = unlines . map serializeInstruction
+serializeInstructions :: [Instruction] -> String
+serializeInstructions = unlines . map serializeInstruction
 
--- writeInstructionsToFile :: FilePath -> [Instruction] -> IO ()
--- writeInstructionsToFile filePath instructions = do
---     let serialized = serializeInstructions instructions
---     writeFile filePath serialized
+-- declare memory at start of asm with .<name> 
+
+-- .start 
+-- then rest of instructions of program
+
+writeInstructionsToFile :: FilePath -> [Instruction] -> IO ()
+writeInstructionsToFile filePath instructions = do
+    let serialized = serializeInstructions instructions
+    writeFile filePath serialized
+
+    

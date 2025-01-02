@@ -32,6 +32,8 @@ module Parsing.ParserAst (
     ternary,
     listVariables',
     Ast (..),
+    Function (..),
+    Variable (..)
 ) where
 
 import Control.Monad (void)
@@ -333,4 +335,4 @@ pAst = many $ try pTerm
 
 parseAST :: String -> Either ParserError [Ast]
 parseAST s = 
-  trace (show s) $ parse (between sc eof pAst) "" s
+  trace ("parseAST: " ++ show s) $ parse (between sc eof pAst) "" s

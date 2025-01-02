@@ -12,7 +12,7 @@ module Eval.Evaluator (evalAST) where
 
 import Memory (Memory, readMemory)
 import Parsing.ParserAst (Ast (..))
--- import Debug.Trace (trace)
+import Debug.Trace (trace)
 
 evalNode :: Memory -> Ast -> Either String (Ast, Memory)
 evalNode mem (AstInt n) = Right (AstInt n, mem)
@@ -24,10 +24,11 @@ evalNode mem (AstVar name) =
         Nothing -> Left $ "Undefined variable: " ++ name
 evalNode _ rest = Left ("TODO: " ++ show rest)
 
-evalAST :: Memory -> [Ast] -> Either String (Ast, Memory)
-evalAST mem [] = Right (AstVoid, mem)
-evalAST mem (ast:asts) = 
+evalAST :: Memory -> [Ast] -> Either String ([Ast], Memory)
+evalAST mem [] = Right ([], mem)
+evalAST mem (ast:asts) =
     case evalNode mem ast of
         Left err -> Left err
-        Right (_, newMem) ->
-            evalAST newMem asts
+        Right (transformedAst, updatedMem) -> do
+            (restAst, finalMem) <- evalAST updatedMem asts
+            return (transformedAst : restAst, finalMem)

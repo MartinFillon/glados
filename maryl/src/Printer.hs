@@ -30,8 +30,6 @@ import Data.Text (Text, pack, splitOn, unpack)
 import Data.Void (Void)
 import Data.Word (Word8)
 
--- import Parsing.ParserAst (lexeme, stringLiteral, variable)
-
 import Control.Monad (void)
 import System.Directory (doesFileExist)
 import Text.Megaparsec (

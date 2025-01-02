@@ -17,12 +17,11 @@ import System.Exit (ExitCode (..), exitWith)
 import System.IO (hIsTerminalDevice, isEOF, stdin)
 import Utils (handleParseError, pError)
 import VirtualMachine (vm)
+import VirtualMachine.Instructions (Inst(..), Value(..), Instruction(..))
 import Debug.Trace (trace)
 
-handleEvalResult :: Either String (Ast, Memory) -> IO ()
-handleEvalResult (Right (result, _))
-    | show result == "Void" = return ()
-    | otherwise = print result
+handleEvalResult :: Either String ([Ast], Memory) -> IO ()
+handleEvalResult (Right (result, _)) = print result
 handleEvalResult (Left err) =
     pError ("*** ERROR : " ++ err)
 
@@ -31,7 +30,6 @@ parseSourceCode mem s = do
     asts <- handleParseError True (parseAST s)
     let evalResult = evalAST mem asts
     handleEvalResult evalResult
-    -- ret updated memory/ keep original on error
     return $ either (const mem) snd evalResult
 
 normalizeTabs :: String -> String
