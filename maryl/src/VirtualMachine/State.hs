@@ -6,14 +6,24 @@
 -}
 {-# LANGUAGE InstanceSigs #-}
 
+{- |
+Description : This is the type used in the virtual machine in order for it to keep it state.
+-}
 module VirtualMachine.State (
+    -- * Types
+    VmState,
+    V (..),
+    Vm (..),
+
+    -- * Functions
+
+    -- The functions are easy ways to interface with the 'Vm'.
     initialState,
     io,
     eitherS,
     eitherS',
     register,
     dbg,
-    VmState,
     registerL,
     getNextInstruction,
     getPc,
@@ -24,7 +34,6 @@ module VirtualMachine.State (
     getMemory,
     getElemInMemory,
     getInArr,
-    V (..),
     modifyPc,
     getInstructionIdxAtLabel,
     copyVm,
@@ -46,6 +55,9 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import VirtualMachine.Instructions (Instruction (Instruction), Value)
 
+{- | The 'V' data is just a wrapper between 'Value' and Operators 'Op'.
+ Operators are a special type of value that takes a function as parameter.
+-}
 data V = V Value | Op ([Value] -> VmState [Value])
 
 instance Show V where
@@ -53,17 +65,38 @@ instance Show V where
     show (V v) = show v
     show (Op _) = "<operator>"
 
+{- | The 'Vm' Data is what holds every useful information about the state of the vitual machine.
+It can be used by itself but it is highly recommended to use it with 'VmState'.
+-}
 data Vm = Vm
-    { stack :: [Value],
+    { -- | The 'stack' field, as its name implies, is a stack of values used to pass arguments to the different functions.
+      stack :: [Value],
+      -- | The 'instructions' field, is the whole list of instructions to be executed by the program, it is composed of 'Instruction'.
       instructions :: [Instruction],
+      -- | The 'memory' field, as it name implies is where the operators,
+      --       and constants values are stored. It is, for the moment,
+      --       only used for operators or testing purposes.
       memory :: Map String V,
+      -- | The 'pc' field, also known as program counter, is the current index executed in the list of instructions specified in the field 'instructions.
       pc :: Int,
+      -- | The 'args' field, is the arguments passed to the program at startup.
       args :: [Value]
     }
     deriving (Show)
 
+{- | The 'VmState' type alias is constituated of the 'StateT' monad, the 'Vm' and the 'IO' monad.
+It is used in order to be able to easily use the 'MonadState' class.
+This type permit us to have a state which is of type 'Vm'. While being able to run 'IO' functions such as 'print' or 'putStr'.
+This type is the backbone of our Virtual Machine.
+-}
 type VmState = StateT Vm IO
 
+{- | The 'initialState' function describes the recommended way to create a new 'Vm' in order to be plugged into 'VmState'.
+It takes a list of 'Instruction', followed by a map representing the initial 'memory' and lastly a list of 'Value' for arguments.
+This function will always initialise an empty 'stack' and a 'pc' at 0
+
+>>> initialState [push 10, ret 5] (Map.fromList []) []
+-}
 initialState :: [Instruction] -> Map String V -> [Value] -> Vm
 initialState i m = Vm [] i m 0
 
@@ -73,6 +106,12 @@ copyVm i a v = v {stack = [], args = a, instructions = i, pc = 0}
 copyVm' :: Int -> [Value] -> Vm -> Vm
 copyVm' n a vm = vm {pc = n, stack = [], args = a}
 
+{- | The 'io' function is a wrapper for 'liftIO'. It is mainly used to run io function such as 'print' or 'putStr'.
+
+Here is an example of a print string from the stack.
+>>> operatorPrint (S s : xs) = io $ putStr s
+Not in scope: data constructor `S'
+-}
 io :: IO a -> VmState a
 io = liftIO
 
