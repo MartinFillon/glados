@@ -5,33 +5,55 @@
 -- ASTtoASM
 -}
 
-module Compiler.ASTtoASM () where
+module Compiler.ASTtoASM (translateToASM, translateAST) where
 
-import Parsing.ParserAst (Ast (..), Function(..), Variable(..))
-import VirtualMachine.Instructions (Inst(..), Value(..), Instruction(..), Label(..), call, push, ret)
-import Memory (Memory)
+import Debug.Trace (trace)
+import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
+import VirtualMachine.Instructions (Instruction (..), Value (..), call, push, pushArg, ret)
 
--- translateToASM :: [Ast] -> Memory -> [Instruction]
--- translateToASM asts mem = concatMap (translateAST mem) asts
+translateToASM :: [Ast] -> [Instruction]
+translateToASM = concatMap translateAST
 
--- translateAST :: Memory -> Ast -> [Instruction]
--- translateAST mem (AstDefineVar (Variable name _ value)) =
---     case value of
---         AstInt n -> [push Nothing (N n), call Nothing ("push " ++ name)]
---         AstBool b -> [push Nothing (B b), call Nothing ("push " ++ name)]
---         AstString s -> [push Nothing (S s), call Nothing ("push " ++ name)]
---         _ -> error "Unsupported variable type"
--- -- translateAST mem (AstDefineFunc (Function name args body _ )) =
--- --     let bodyInstructions = concatMap (translateAST mem) body
--- --     in [Label name] ++ bodyInstructions ++ [ret]
--- translateAST mem (AstBinaryFunc op left right) =
---     let leftInstructions = translateAST mem left
---         rightInstructions = translateAST mem right
---         opInstruction = case op of
---             "+" -> call Nothing "add"
---             "-" -> call Nothing "sub"
---             "*" -> call Nothing "mul"
---             "/" -> call Nothing "div"
---             _   -> error ("Unsupported binary operator: " ++ op)
---     in leftInstructions ++ rightInstructions ++ [opInstruction]
--- translateAST _ _ = error "Unsupported AST node"
+translateArgs :: [Ast] -> Int -> [Instruction]
+translateArgs [] _ = []
+translateArgs (_ : xs) n = pushArg Nothing n : translateArgs xs (n + 1)
+
+translateAST :: Ast -> [Instruction]
+translateAST (AstDefineVar (Variable _ _ value)) =
+    case value of
+        AstInt n -> [push Nothing (N (fromIntegral n))]
+        AstBool b -> [push Nothing (B b)]
+        AstString s -> [push Nothing (S s)]
+        AstDouble d -> [push Nothing (D d)]
+        AstChar c -> [push Nothing (S (c : ""))]
+        -- list
+        -- void ??
+        _ -> error "Unsupported variable type"
+translateAST (AstDefineFunc (Function _ args body _)) =
+    translateArgs args 0 ++ translateToASM body
+translateAST (AstBinaryFunc op left right) =
+    let leftInstructions = translateAST left
+        rightInstructions = translateAST right
+        opInstruction = case op of
+            -- "++" ->
+            "*" -> call Nothing "mul"
+            "/" -> call Nothing "div"
+            "%" -> call Nothing "mod"
+            "+" -> call Nothing "add"
+            "-" -> call Nothing "sub"
+            "|" -> call Nothing "or"
+            "&" -> call Nothing "and"
+            "==" -> call Nothing "eq"
+            -- "!=" ->
+            ">" -> call Nothing "greater"
+            -- ">=" ->
+            "<" -> call Nothing "less"
+            -- "<=" ->
+            -- "||" ->
+            -- "&&" ->
+            "=" -> call Nothing "set"
+            _ -> error ("Unsupported binary operator: " ++ op)
+     in leftInstructions ++ rightInstructions ++ [opInstruction]
+translateAST (AstReturn ast) = translateAST ast ++ [ret Nothing]
+translateAST (AstVar _) = []
+translateAST rest = trace ("TODO: " ++ show rest) []

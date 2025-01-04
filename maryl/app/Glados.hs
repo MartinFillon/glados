@@ -8,20 +8,23 @@
 module Glados (glados) where
 
 import ArgsHandling (Mode (..))
+import Compiler.ASTtoASM (translateToASM)
+import Compiler.WriteASM (writeInstructionsToFile)
 import qualified Control.Monad as Monad
+import Debug.Trace (trace)
 import Eval.Evaluator (evalAST)
 import GHC.GHCi.Helpers (flushAll)
 import Memory (Memory, initMemory)
-import Parsing.ParserAst (parseAST, Ast(..))
-import System.Exit (ExitCode (..), exitWith)
+import Parsing.ParserAst (Ast (..), parseAST)
 import System.IO (hIsTerminalDevice, isEOF, stdin)
 import Utils (handleParseError, pError)
 import VirtualMachine (vm)
-import VirtualMachine.Instructions (Inst(..), Value(..), Instruction(..))
-import Debug.Trace (trace)
 
 handleEvalResult :: Either String ([Ast], Memory) -> IO ()
-handleEvalResult (Right (result, _)) = print result
+handleEvalResult (Right (result, mem)) = do
+    let instructions = translateToASM result
+    writeInstructionsToFile "out.s" mem instructions
+    print result
 handleEvalResult (Left err) =
     pError ("*** ERROR : " ++ err)
 
@@ -34,16 +37,16 @@ parseSourceCode mem s = do
 
 normalizeTabs :: String -> String
 normalizeTabs [] = []
-normalizeTabs (' ':xs) = detectSpaces 1 xs
-normalizeTabs ('\t':xs) = '\t' : normalizeTabs xs
-normalizeTabs (x:xs) = x : normalizeTabs xs
+normalizeTabs (' ' : xs) = detectSpaces 1 xs
+normalizeTabs ('\t' : xs) = '\t' : normalizeTabs xs
+normalizeTabs (x : xs) = x : normalizeTabs xs
 
 detectSpaces :: Int -> String -> String
 detectSpaces count [] = replicate count ' '
-detectSpaces count (' ':xs)
+detectSpaces count (' ' : xs)
     | count == 3 = '\t' : normalizeTabs xs
     | otherwise = detectSpaces (count + 1) xs
-detectSpaces count (x:xs) =
+detectSpaces count (x : xs) =
     replicate count ' ' ++ x : normalizeTabs xs
 
 handleInput :: Memory -> String -> IO Memory
@@ -65,7 +68,8 @@ checkBuf' mem s
     | otherwise = return (s, mem)
 
 checkBuf :: Memory -> String -> String -> IO (String, Memory)
-checkBuf mem s i | s /= "" = checkBuf' mem (s ++ '\n' : i)
+checkBuf mem s i
+    | s /= "" = checkBuf' mem (s ++ '\n' : i)
     | otherwise = checkBuf' mem i
 
 -- Prints prompt if it's a TTY

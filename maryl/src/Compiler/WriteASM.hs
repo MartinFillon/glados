@@ -5,42 +5,52 @@
 -- WriteASM
 -}
 
-module Compiler.WriteASM () where
+module Compiler.WriteASM (writeInstructionsToFile) where
 
-import VirtualMachine.Instructions (Inst(..), Value(..), Instruction(..))
-
-serializeInstruction :: Instruction -> String
-serializeInstruction (Instruction _ name inst label) =
-    maybe "" (++ ": ") label ++ name ++ serializeInstArgs inst ++ "\n"
+import Compiler.ASTtoASM (translateAST)
+import qualified Data.Map as Map
+import Memory (Memory)
+import Parsing.ParserAst (Ast (..))
+import VirtualMachine.Instructions (Inst (..), Instruction (..), Value (..))
 
 serializeInstArgs :: Inst -> String
-serializeInstArgs (Push (N n)) = "push " ++ show n
-serializeInstArgs (Push (B b)) = "push " ++ show b
-serializeInstArgs (Push (S s)) = "push \"" ++ s ++ "\""
-serializeInstArgs (Push (L s)) = "push " ++ show s -- ?
-serializeInstArgs (Push (D s)) = "push " ++ show s
-serializeInstArgs (Push (Bi s)) = "push " ++ show s -- ?
-serializeInstArgs (PushArg n) = "pushArg " ++ show n
-serializeInstArgs (Call func) = "call \" " ++ func ++ "\""
-serializeInstArgs (Jump (Left n)) = "jump " ++ show n
-serializeInstArgs (Jump (Right label)) = "jump ." ++ label
-serializeInstArgs (JumpIfFalse (Left n)) = "jumpf " ++ show n
-serializeInstArgs (JumpIfFalse (Right label)) = "jumpf ." ++ label
-serializeInstArgs Noop = "noop"
-serializeInstArgs Ret = "ret"
+serializeInstArgs (Push (N n)) = " " ++ show n
+serializeInstArgs (Push (B b)) = " " ++ show b
+serializeInstArgs (Push (S s)) = " \"" ++ s ++ "\""
+serializeInstArgs (Push (L s)) = " " ++ show s -- ?
+serializeInstArgs (Push (D s)) = " " ++ show s
+serializeInstArgs (Push (Bi s)) = " " ++ show s -- ?
+serializeInstArgs (PushArg n) = " " ++ show n
+serializeInstArgs (Call func) = " \"" ++ func ++ "\""
+serializeInstArgs (Jump (Left n)) = " " ++ show n
+serializeInstArgs (Jump (Right labelVal)) = " ." ++ labelVal
+serializeInstArgs (JumpIfFalse (Left n)) = " " ++ show n
+serializeInstArgs (JumpIfFalse (Right labelVal)) = " ." ++ labelVal
 serializeInstArgs _ = ""
+
+serializeInstruction :: Instruction -> String
+serializeInstruction (Instruction _ nameVal instVal labelVal) =
+    maybe "" (++ " ") labelVal ++ nameVal ++ serializeInstArgs instVal
 
 serializeInstructions :: [Instruction] -> String
 serializeInstructions = unlines . map serializeInstruction
 
--- declare memory at start of asm with .<name> 
+serializeFunction :: String -> [Instruction] -> String
+serializeFunction nameVal func =
+    "." ++ nameVal ++ " " ++ serializeInstructions func
 
--- .start 
--- then rest of instructions of program
+serializeMemoryFunctions :: Memory -> String
+serializeMemoryFunctions mem =
+    unlines $ Map.foldrWithKey extractFunction [] mem
+  where
+    extractFunction key (AstDefineFunc val) acc =
+        serializeFunction key (translateAST (AstDefineFunc val)) : acc
+    extractFunction _ _ acc = acc -- != AstDefineFunc
 
-writeInstructionsToFile :: FilePath -> [Instruction] -> IO ()
-writeInstructionsToFile filePath instructions = do
-    let serialized = serializeInstructions instructions
-    writeFile filePath serialized
-
-    
+writeInstructionsToFile :: FilePath -> Memory -> [Instruction] -> IO ()
+writeInstructionsToFile filePath mem instructions = do
+    let functionDefinitions = serializeMemoryFunctions mem
+    let serializedInstructions = serializeInstructions instructions
+    if functionDefinitions /= ""
+        then writeFile filePath (functionDefinitions ++ ".start " ++ serializedInstructions)
+        else writeFile filePath serializedInstructions

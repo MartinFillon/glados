@@ -33,7 +33,8 @@ module Parsing.ParserAst (
     listVariables',
     Ast (..),
     Function (..),
-    Variable (..)
+    Variable (..),
+    MarylType (..),
 ) where
 
 import Control.Monad (void)
@@ -43,6 +44,7 @@ import Control.Monad.Combinators.Expr (
  )
 import Data.Maybe (fromMaybe)
 import Data.Void (Void)
+import Debug.Trace (trace)
 import Text.Megaparsec (
     MonadParsec (eof, try),
     ParseErrorBundle,
@@ -62,7 +64,6 @@ import Text.Megaparsec (
  )
 import Text.Megaparsec.Char (char, letterChar, space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
-import Debug.Trace (trace)
 
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
@@ -334,5 +335,5 @@ pAst :: Parser [Ast]
 pAst = many $ try pTerm
 
 parseAST :: String -> Either ParserError [Ast]
-parseAST s = 
-  trace ("parseAST: " ++ show s) $ parse (between sc eof pAst) "" s
+parseAST s =
+    trace ("parseAST: " ++ show s) $ parse (between sc eof pAst) "" s

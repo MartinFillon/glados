@@ -40,6 +40,7 @@ import Control.Monad.State (
     gets,
     modify,
  )
+import Data.Functor ((<&>))
 import Data.List (elemIndex)
 import Data.Map (Map)
 import qualified Data.Map as Map
