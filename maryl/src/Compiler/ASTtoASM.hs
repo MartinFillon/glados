@@ -55,5 +55,10 @@ translateAST (AstBinaryFunc op left right) =
             _ -> error ("Unsupported binary operator: " ++ op)
      in leftInstructions ++ rightInstructions ++ [opInstruction]
 translateAST (AstReturn ast) = translateAST ast ++ [ret Nothing]
+translateAST (AstInt n) = [push Nothing (N (fromIntegral n))]
+translateAST (AstBool b) = [push Nothing (B b)]
+translateAST (AstString s) = [push Nothing (S s)]
+translateAST (AstDouble d) = [push Nothing (D d)]
+translateAST (AstChar c) = [push Nothing (S (c : ""))]
 translateAST (AstVar _) = []
 translateAST rest = trace ("TODO: " ++ show rest) []
