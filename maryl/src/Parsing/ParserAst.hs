@@ -335,5 +335,4 @@ pAst :: Parser [Ast]
 pAst = many $ try pTerm
 
 parseAST :: String -> Either ParserError [Ast]
-parseAST s =
-    trace ("parseAST: " ++ show s) $ parse (between sc eof pAst) "" s
+parseAST s = parse (between sc eof pAst) "" s

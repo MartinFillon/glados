@@ -56,4 +56,4 @@ translateAST (AstBinaryFunc op left right) =
      in leftInstructions ++ rightInstructions ++ [opInstruction]
 translateAST (AstReturn ast) = translateAST ast ++ [ret Nothing]
 translateAST (AstVar _) = []
-translateAST rest = trace ("TODO: " ++ show rest) []
+translateAST rest = []
