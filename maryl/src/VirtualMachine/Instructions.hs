@@ -26,7 +26,7 @@ import Data.Word (Word8)
 -- | 'Label' is used for jump purposes it can be empty as not every instructions need one.
 type Label = Maybe String
 
-{- | 'Instruction' reprensets the instructions in the virtual machine.
+{- | 'Instruction' represents the instructions in the virtual machine.
  It can be used outside of it in order to write your own assembly more easily.
 -}
 data Instruction = Instruction

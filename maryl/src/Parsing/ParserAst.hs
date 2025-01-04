@@ -28,10 +28,13 @@ module Parsing.ParserAst (
     lexeme,
     symbol,
     convertValue,
-    parseAst,
+    parseAST,
     ternary,
     listVariables',
     Ast (..),
+    Function (..),
+    Variable (..),
+    MarylType (..),
 ) where
 
 import Control.Monad (void)
@@ -41,6 +44,7 @@ import Control.Monad.Combinators.Expr (
  )
 import Data.Maybe (fromMaybe)
 import Data.Void (Void)
+import Debug.Trace (trace)
 import Text.Megaparsec (
     MonadParsec (eof, try),
     ParseErrorBundle,
@@ -348,5 +352,5 @@ pExpr = makeExprParser convertValue operatorTable
 pAst :: Parser [Ast]
 pAst = many $ try pTerm
 
-parseAst :: String -> Either ParserError [Ast]
-parseAst = parse (between sc eof pAst) ""
+parseAST :: String -> Either ParserError [Ast]
+parseAST s = parse (between sc eof pAst) "" s

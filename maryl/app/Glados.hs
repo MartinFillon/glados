@@ -8,57 +8,69 @@
 module Glados (glados) where
 
 import ArgsHandling (Mode (..))
+import Compiler.ASTtoASM (translateToASM)
+import Compiler.WriteASM (writeInstructionsToFile)
 import qualified Control.Monad as Monad
+import Debug.Trace (trace)
 import Eval.Evaluator (evalAST)
 import GHC.GHCi.Helpers (flushAll)
 import Memory (Memory, initMemory)
-import Parsing.ParserSExpr (parseSexpr)
-import Parsing.SExprToAst (Ast (..), sexprToAST)
-import System.Exit (ExitCode (..), exitWith)
+import Parsing.ParserAst (Ast (..), parseAST)
 import System.IO (hIsTerminalDevice, isEOF, stdin)
 import Utils (handleParseError, pError)
 import VirtualMachine (vm)
 
-countChar :: Char -> String -> Int
-countChar c s = length (filter (== c) s)
-
-countParenthesis :: String -> Bool
-countParenthesis s = countChar '(' s == countChar ')' s
-
--- printAndReturn :: Show a => a -> IO a
--- printAndReturn x = print x >> return x
-
-handleEvalResult :: Either String (Ast, Memory) -> IO ()
-handleEvalResult (Right (result, _))
-    | show result == "Void" = return ()
-    | otherwise = print result
+handleEvalResult :: Either String ([Ast], Memory) -> IO ()
+handleEvalResult (Right (result, mem)) = do
+    let instructions = translateToASM result
+    writeInstructionsToFile "out.s" mem instructions
+    print result
 handleEvalResult (Left err) =
     pError ("*** ERROR : " ++ err)
 
-parseToSexpr :: Memory -> String -> IO Memory
-parseToSexpr mem s =
-    handleParseError True (parseSexpr s)
-        >>= maybe
-            (pError "*** ERROR : Invalid SExpr" >> exitWith (ExitFailure 84))
-            ( \ast ->
-                handleEvalResult (evalAST mem ast)
-                    >> return (either (const mem) snd (evalAST mem ast))
-            )
-            . sexprToAST
+parseSourceCode :: Memory -> String -> IO Memory
+parseSourceCode mem s = do
+    asts <- handleParseError True (parseAST s)
+    let evalResult = evalAST mem asts
+    handleEvalResult evalResult
+    return $ either (const mem) snd evalResult
+
+normalizeTabs :: String -> String
+normalizeTabs [] = []
+normalizeTabs (' ' : xs) = detectSpaces 1 xs
+normalizeTabs ('\t' : xs) = '\t' : normalizeTabs xs
+normalizeTabs (x : xs) = x : normalizeTabs xs
+
+detectSpaces :: Int -> String -> String
+detectSpaces count [] = replicate count ' '
+detectSpaces count (' ' : xs)
+    | count == 3 = '\t' : normalizeTabs xs
+    | otherwise = detectSpaces (count + 1) xs
+detectSpaces count (x : xs) =
+    replicate count ' ' ++ x : normalizeTabs xs
 
 handleInput :: Memory -> String -> IO Memory
-handleInput = parseToSexpr
+handleInput m s = parseSourceCode m (normalizeTabs s)
 
 getContentFromFile :: Memory -> String -> IO Memory
-getContentFromFile mem filepath = readFile filepath >>= parseToSexpr mem
+getContentFromFile mem filepath =
+    readFile filepath >>= handleInput mem
+
+countChar :: Char -> String -> Int
+countChar c s = length (filter (== c) s)
+
+countBrackets :: String -> Bool
+countBrackets s = countChar '{' s == countChar '}' s
 
 checkBuf' :: Memory -> String -> IO (String, Memory)
 checkBuf' mem s
-    | countParenthesis s = handleInput mem s >>= \newMem -> return ("", newMem)
+    | countBrackets s = handleInput mem s >>= \newMem -> return ("", newMem)
     | otherwise = return (s, mem)
 
 checkBuf :: Memory -> String -> String -> IO (String, Memory)
-checkBuf mem s i = checkBuf' mem (s ++ ' ' : i)
+checkBuf mem s i
+    | s /= "" = checkBuf' mem (s ++ '\n' : i)
+    | otherwise = checkBuf' mem i
 
 -- Prints prompt if it's a TTY
 getLineFromStdin' :: Memory -> String -> Bool -> Bool -> IO ()
