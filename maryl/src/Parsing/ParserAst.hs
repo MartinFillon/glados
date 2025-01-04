@@ -64,7 +64,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
 
-data MarylType = String | Integer | Double | Char | Bool | Void
+data MarylType = String | Integer | Double | Char | Bool | Void | List MarylType | Undefined
     deriving (Eq, Ord, Show)
 
 data Function = Function
@@ -101,6 +101,8 @@ data Ast
     | AstLoop Ast Ast -- cond AstBlock
     | AstDefineVar Variable
     | AstDefineFunc Function
+    | AstList [Ast]
+    | AstListElem String Integer -- variable index
     deriving (Eq, Ord, Show)
 
 lineComment :: Parser ()
@@ -138,7 +140,7 @@ variable :: Parser String
 variable =
     (:)
         <$> (try letterChar <|> bonusChar)
-        <*> many (noneOf (" \t\n\r(),=;" :: [Char]))
+        <*> many (noneOf (" \t\n\r(),=;[]" :: [Char]))
         <?> "variable"
 
 integer :: Parser Integer
@@ -158,17 +160,30 @@ bool =
 pKeyword :: String -> Parser String
 pKeyword keyword = lexeme (string keyword)
 
+pListElem :: Parser Ast
+pListElem = do
+  v <- variable
+  _ <- symbol "["
+  i <- integer
+  _ <- symbol "]"
+  return $ AstListElem v i
+
 convertValue :: Parser Ast
 convertValue =
     choice
         [ AstDouble <$> try double,
           AstInt <$> integer,
+          try pListElem,
+          AstList <$> try pList,
           AstBool <$> bool,
           AstChar <$> charLiteral,
           AstString <$> stringLiteral,
           AstBlock <$> block,
           AstVar <$> lexeme variable
         ]
+
+pList :: Parser [Ast]
+pList = between (symbol "[") (symbol "]") (convertValue `sepBy` lexeme ",")
 
 list :: Parser Ast
 list = between (symbol "(") (symbol ")") pExpr
@@ -186,10 +201,8 @@ listVariables' =
 block :: Parser [Ast]
 block = between (symbol "{") (symbol "}") (many pTerm)
 
-types :: Parser String
-types =
-    choice
-        [ "int",
+types' :: [String]
+types' = ["int",
           "float",
           "string",
           "char",
@@ -197,13 +210,18 @@ types =
           "void"
         ]
 
+types :: Parser String
+types = choice (map string (("[]" ++) <$> types')) <|> choice (map string types')
+
 getType :: String -> MarylType
 getType "int" = Integer
 getType "float" = Double
 getType "string" = String
 getType "char" = Char
 getType "bool" = Bool
-getType _ = Void
+getType "void" = Void
+getType ('[':']':t) = List $ getType t
+getType _ = Undefined
 
 optionalValue :: Parser (Maybe Ast)
 optionalValue = optional $ do
