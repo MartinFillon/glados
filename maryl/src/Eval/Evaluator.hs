@@ -27,7 +27,6 @@ evalNode mem (AstVar name) =
         Just value -> Right (value, mem)
         Nothing -> Left $ "Undefined variable: " ++ name
 evalNode mem (AstDefineVar (Variable name _ val)) =
-    trace (show val) $
         evalNode mem val >>= \(evaluatedExpr, updatedMem) ->
             Right (evaluatedExpr, updateMemory updatedMem name evaluatedExpr)
 -- evalNode mem (AstDefineFunc (Function name args body typ))
@@ -35,9 +34,10 @@ evalNode _ rest = Left ("TODO: " ++ show rest)
 
 evalAST :: Memory -> [Ast] -> Either String ([Ast], Memory)
 evalAST mem [] = Right ([], mem)
-evalAST mem (ast : asts) = trace ("evaluating " ++ show ast) $
-    case evalNode mem ast of
-        Left err -> Left err
-        Right (transformedAst, updatedMem) -> trace ("mem: " ++ show updatedMem) $ do
-            (restAst, finalMem) <- evalAST updatedMem asts
-            return (transformedAst : restAst, finalMem)
+evalAST mem (ast : asts) =
+    -- trace ("evaluating " ++ show ast) $
+        case evalNode mem ast of
+            Left err -> Left err
+            Right (transformedAst, updatedMem) -> do
+                (restAst, finalMem) <- evalAST updatedMem asts
+                return (transformedAst : restAst, finalMem)
