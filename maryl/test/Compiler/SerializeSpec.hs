@@ -41,10 +41,10 @@ spec = do
             serializeInstArgs (Jump (Right "label")) `shouldBe` " .label"
 
         it "serializes Jumpf (Left 10)" $ do
-            serializeInstArgs (Jumpf (Left 10)) `shouldBe` " 10"
+            serializeInstArgs (JumpIfFalse (Left 10)) `shouldBe` " 10"
 
         it "serializes Jumpf (Right \"label\")" $ do
-            serializeInstArgs (Jumpf (Right "label")) `shouldBe` " .label"
+            serializeInstArgs (JumpIfFalse (Right "label")) `shouldBe` " .label"
 
     describe "serializeInstruction" $ do
         -- it "serializes instruction with label" $ do
