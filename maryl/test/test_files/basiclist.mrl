@@ -1,0 +1,7 @@
+int start(){
+    int a = 3;
+    []int b = [1, 2, a];
+    b[1] = 4;
+
+    return b[1];
+}

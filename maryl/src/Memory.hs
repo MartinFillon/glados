@@ -16,7 +16,7 @@ import Parsing.ParserAst (Ast (..))
 type Memory = Map.Map String Ast
 
 updateMemory :: Memory -> String -> Ast -> Memory
-updateMemory mem var value =
+updateMemory mem var value = trace ("updating: " ++ show var ++ " = " ++ show value ++ "!") $
     Map.insert var value mem
 
 readMemory :: Memory -> String -> Maybe Ast

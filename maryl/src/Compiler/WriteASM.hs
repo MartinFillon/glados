@@ -18,9 +18,9 @@ serializeInstArgs :: Inst -> String
 serializeInstArgs (Push (N n)) = " " ++ show n
 serializeInstArgs (Push (B b)) = " " ++ show b
 serializeInstArgs (Push (S s)) = " \"" ++ s ++ "\""
-serializeInstArgs (Push (L s)) = " " ++ show s -- ? to check
-serializeInstArgs (Push (D s)) = " " ++ show s
-serializeInstArgs (Push (Bi s)) = " " ++ show s -- ? to check
+serializeInstArgs (Push (L l)) = " " ++ show l
+serializeInstArgs (Push (D d)) = " " ++ show d
+serializeInstArgs (Push (Bi bi)) = " " ++ show bi
 serializeInstArgs (PushArg n) = " " ++ show n
 serializeInstArgs (Call func) = " \"" ++ func ++ "\""
 serializeInstArgs (Jump (Left n)) = " " ++ show n
