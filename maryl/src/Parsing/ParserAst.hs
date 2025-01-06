@@ -268,7 +268,11 @@ pLoop = do
     return $ AstLoop cond toDo
 
 pReturn :: Parser Ast
-pReturn = string "return" >> sc >> pExpr
+pReturn = string "return" >> sc >> 
+  choice
+    [ try pFunc,
+      pExpr
+    ]
 
 pElse :: Parser (Maybe Ast)
 pElse = optional $ string "else" >> sc >> AstBlock <$> block >>= \b -> return b

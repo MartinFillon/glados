@@ -9,6 +9,7 @@
 module Compiler.TranslationSpec (spec) where
 
 import Compiler.ASTtoASM (translateAST, translateToASM)
+import Memory (initMemory)
 import Parsing.ParserAst (Ast (..), MarylType (..), Variable (..))
 import Test.Hspec (Spec, describe, it, shouldBe)
 import VirtualMachine.Instructions (Value (..), call, push, ret)
@@ -17,35 +18,35 @@ spec :: Spec
 spec = do
     describe "translateAST" $ do
         it "translates AstInt to push instruction" $
-            translateAST (AstInt 42) `shouldBe` [push Nothing (N 42)]
+            fst (translateAST (AstInt 42) initMemory) `shouldBe` [push Nothing (N 42)]
 
         it "translates AstBool to push instruction" $
-            translateAST (AstBool True) `shouldBe` [push Nothing (B True)]
+            fst (translateAST (AstBool True) initMemory) `shouldBe` [push Nothing (B True)]
 
         it "translates AstString to push instruction" $
-            translateAST (AstString "hello") `shouldBe` [push Nothing (S "hello")]
+            fst (translateAST (AstString "hello") initMemory) `shouldBe` [push Nothing (S "hello")]
 
         it "translates AstDouble to push instruction" $
-            translateAST (AstDouble 3.14) `shouldBe` [push Nothing (D 3.14)]
+            fst (translateAST (AstDouble 3.14) initMemory) `shouldBe` [push Nothing (D 3.14)]
 
         it "translates AstChar to push instruction" $
-            translateAST (AstChar 'a') `shouldBe` [push Nothing (S "a")]
+            fst (translateAST (AstChar 'a') initMemory) `shouldBe` [push Nothing (S "a")]
 
         it "translates AstDefineVar for integer" $
-            translateAST (AstDefineVar (Variable "x" Integer (AstInt 42))) `shouldBe` [push Nothing (N 42)]
+            fst (translateAST (AstDefineVar (Variable "x" Integer (AstInt 42))) initMemory) `shouldBe` []
 
         it "translates AstBinaryFunc for addition" $ do
             let ast = AstBinaryFunc "+" (AstInt 10) (AstInt 20)
-            translateAST ast `shouldBe` [push Nothing (N 10), push Nothing (N 20), call Nothing "add"]
+            fst (translateAST ast initMemory) `shouldBe` [push Nothing (N 10), push Nothing (N 20), call Nothing "add"]
 
         it "translates AstReturn" $ do
             let ast = AstReturn (AstInt 42)
-            translateAST ast `shouldBe` [push Nothing (N 42), ret Nothing]
+            fst (translateAST ast initMemory) `shouldBe` [push Nothing (N 42)]
 
     describe "translateToASM" $ do
         it "translates a list of Ast nodes" $ do
             let asts = [AstInt 10, AstBool False, AstString "test"]
-            translateToASM asts
+            translateToASM asts initMemory
                 `shouldBe` [ push Nothing (N 10),
                              push Nothing (B False),
                              push Nothing (S "test")

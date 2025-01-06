@@ -23,7 +23,7 @@ import VirtualMachine (vm)
 handleEvalResult :: Either String ([Ast], Memory) -> IO ()
 handleEvalResult (Right (result, mem)) = do
     let instructions = translateToASM result
-    writeInstructionsToFile "out.s" mem instructions
+    writeInstructionsToFile "out.s" mem
     print result
 handleEvalResult (Left err) =
     pError ("*** ERROR : " ++ err)

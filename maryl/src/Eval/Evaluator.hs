@@ -11,8 +11,8 @@
 module Eval.Evaluator (evalAST) where
 
 import Debug.Trace (trace)
-import Memory (Memory, readMemory, updateMemory)
-import Parsing.ParserAst (Ast (..), Variable (..))
+import Memory (Memory, readMemory, updateMemory, freeMemory)
+import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
 
 evalNode :: Memory -> Ast -> Either String (Ast, Memory)
 evalNode mem AstVoid = Right (AstVoid, mem)
@@ -26,18 +26,22 @@ evalNode mem (AstVar name) =
     case readMemory mem name of
         Just value -> Right (value, mem)
         Nothing -> Left $ "Undefined variable: " ++ name
-evalNode mem (AstDefineVar (Variable name _ val)) =
-        evalNode mem val >>= \(evaluatedExpr, updatedMem) ->
-            Right (evaluatedExpr, updateMemory updatedMem name evaluatedExpr)
--- evalNode mem (AstDefineFunc (Function name args body typ))
-evalNode _ rest = Left ("TODO: " ++ show rest)
+evalNode mem (AstDefineVar (Variable vName vType vVal)) =
+    evalNode mem vVal >>= \(evaluatedExpr, updatedMem) ->
+        Right (AstDefineVar (Variable vName vType vVal), updateMemory updatedMem vName evaluatedExpr)
+evalNode mem (AstDefineFunc (Function funcName args body typ)) = do
+    let newMem = freeMemory mem
+    (evaluatedBody, updatedMem) <- evalAST newMem body
+    let evaluatedFunction = Function funcName args evaluatedBody typ
+    Right (AstVoid, updateMemory updatedMem funcName (AstDefineFunc evaluatedFunction))
+evalNode mem rest = Right (rest, mem)
 
 evalAST :: Memory -> [Ast] -> Either String ([Ast], Memory)
 evalAST mem [] = Right ([], mem)
 evalAST mem (ast : asts) =
     -- trace ("evaluating " ++ show ast) $
-        case evalNode mem ast of
-            Left err -> Left err
-            Right (transformedAst, updatedMem) -> do
-                (restAst, finalMem) <- evalAST updatedMem asts
-                return (transformedAst : restAst, finalMem)
+    case evalNode mem ast of
+        Left err -> Left err
+        Right (transformedAst, updatedMem) -> 
+            evalAST updatedMem asts >>= \(restAst, finalMem) ->
+            Right (transformedAst : restAst, finalMem)

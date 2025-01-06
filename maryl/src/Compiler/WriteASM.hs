@@ -9,6 +9,7 @@ module Compiler.WriteASM (serializeInstructions, serializeFunction, serializeIns
 
 import Compiler.ASTtoASM (translateAST)
 import qualified Data.Map as Map
+import Debug.Trace (trace)
 import Memory (Memory)
 import Parsing.ParserAst (Ast (..))
 import VirtualMachine.Instructions (Inst (..), Instruction (..), Value (..))
@@ -17,9 +18,9 @@ serializeInstArgs :: Inst -> String
 serializeInstArgs (Push (N n)) = " " ++ show n
 serializeInstArgs (Push (B b)) = " " ++ show b
 serializeInstArgs (Push (S s)) = " \"" ++ s ++ "\""
-serializeInstArgs (Push (L s)) = " " ++ show s -- ?
+serializeInstArgs (Push (L s)) = " " ++ show s -- ? to check
 serializeInstArgs (Push (D s)) = " " ++ show s
-serializeInstArgs (Push (Bi s)) = " " ++ show s -- ?
+serializeInstArgs (Push (Bi s)) = " " ++ show s -- ? to check
 serializeInstArgs (PushArg n) = " " ++ show n
 serializeInstArgs (Call func) = " \"" ++ func ++ "\""
 serializeInstArgs (Jump (Left n)) = " " ++ show n
@@ -36,21 +37,27 @@ serializeInstructions :: [Instruction] -> String
 serializeInstructions = unlines . map serializeInstruction
 
 serializeFunction :: String -> [Instruction] -> String
-serializeFunction nameVal func =
+serializeFunction nameVal func = 
+    -- trace (show nameVal) $
     "." ++ nameVal ++ " " ++ serializeInstructions func
 
 serializeMemoryFunctions :: Memory -> String
 serializeMemoryFunctions mem =
     unlines $ Map.foldrWithKey extractFunction [] mem
   where
-    extractFunction key (AstDefineFunc val) acc =
-        serializeFunction key (translateAST (AstDefineFunc val)) : acc
+    extractFunction key (AstDefineFunc val) acc 
+        | key /= "start" =
+            serializeFunction key (fst (translateAST (AstDefineFunc val) mem)) : acc 
+        | otherwise = acc
     extractFunction _ _ acc = acc -- != AstDefineFunc
 
-writeInstructionsToFile :: FilePath -> Memory -> [Instruction] -> IO ()
-writeInstructionsToFile filePath mem instructions = do
-    let functionDefinitions = serializeMemoryFunctions mem
-    let serializedInstructions = serializeInstructions instructions
-    if functionDefinitions /= ""
-        then writeFile filePath (functionDefinitions ++ ".start " ++ serializedInstructions)
-        else writeFile filePath serializedInstructions
+serializeMain :: Memory -> String
+serializeMain mem = 
+    unlines $ Map.foldrWithKey extractFunction [] mem
+  where
+    extractFunction "start" ast acc = serializeFunction "start" (fst (translateAST ast mem)) : acc
+    extractFunction _ _ acc = acc -- != entrypoint
+
+writeInstructionsToFile :: FilePath -> Memory -> IO ()
+writeInstructionsToFile filePath mem =
+    writeFile filePath (serializeMain mem ++ serializeMemoryFunctions mem)
