@@ -21,7 +21,6 @@ module VirtualMachine.State (
     initialState,
     io,
     eitherS,
-    eitherS',
     register,
     dbg,
     registerL,
@@ -100,9 +99,15 @@ This function will always initialise an empty 'stack' and a 'pc' at 0
 initialState :: [Instruction] -> Map String V -> [Value] -> Vm
 initialState i m = Vm [] i m 0
 
+{- | The 'copyVm' function is used to copy a vm state and its memory and change its instructions.
+It also clears the stack and takes the old one as argument in order for it to become the new args.
+-}
 copyVm :: [Instruction] -> [Value] -> Vm -> Vm
 copyVm i a v = v {stack = [], args = a, instructions = i, pc = 0}
 
+{- | The 'copyVm'' function is used to copy a vm state and its memory and change its pc.
+It also clears the stack and takes the old one as argument in order for it to become the new args.
+-}
 copyVm' :: Int -> [Value] -> Vm -> Vm
 copyVm' n a vm = vm {pc = n, stack = [], args = a}
 
@@ -119,6 +124,9 @@ eitherS' :: Show e => Either e a -> IO a
 eitherS' (Left e') = fail . show $ e'
 eitherS' (Right a) = return a
 
+{- | The 'eitherS' function, serves as a lift for the 'Either' monad.
+It can be used like 'io' but for functions returning a 'Either'.
+-}
 eitherS :: Show e => Either e a -> VmState a
 eitherS = io . eitherS'
 
@@ -131,6 +139,10 @@ register i = modify (register' i)
 registerL :: [(String, V)] -> VmState ()
 registerL = foldr ((>>) . register) (pure ())
 
+{- | The 'dbg' function is used for, as it name tells, debug purposes.
+It will do a basic print of the state and won't modify it.
+It is a safe function.
+-}
 dbg :: VmState ()
 dbg = get >>= (io . print)
 
