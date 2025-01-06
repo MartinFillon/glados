@@ -33,8 +33,10 @@ import VirtualMachine.Instructions (
     Instruction,
     Value (..),
     call,
+    get,
     jump,
     jumpf,
+    load,
     push,
     pushArg,
     ret,
@@ -110,6 +112,19 @@ parseInstruction' ::
     (Maybe String -> Instruction) -> String -> Parser Instruction
 parseInstruction' f s = (\l _ -> f l) <$> optional parseLabel <*> lexeme (string s)
 
+parseInstruction2A ::
+    (Maybe String -> a -> b -> Instruction) ->
+    String ->
+    Parser a ->
+    Parser b ->
+    Parser Instruction
+parseInstruction2A f s pa pb =
+    (\l _ a b -> f l a b)
+        <$> optional parseLabel
+        <*> lexeme (string s)
+        <*> pa
+        <*> pb
+
 parseJumpVal' :: Parser (Either Int String)
 parseJumpVal' = lexeme $ Left <$> parseInt
 
@@ -137,8 +152,23 @@ parseJump = lexeme (parseInstruction jump "jump" parseJumpVal)
 parsePushArg :: Parser Instruction
 parsePushArg = lexeme (parseInstruction pushArg "pushArg" parseInt)
 
+parseGet :: Parser Instruction
+parseGet = lexeme (parseInstruction get "get" parseString')
+
+parseLoad :: Parser Instruction
+parseLoad = lexeme (parseInstruction2A load "load" parseString' parseVal)
+
 keyWords :: [Parser Instruction]
-keyWords = [parseRet, parsePushArg, parseJumpF, parseJump, parseCall, parsePush]
+keyWords =
+    [ parseRet,
+      parsePushArg,
+      parseJumpF,
+      parseJump,
+      parseCall,
+      parsePush,
+      parseGet,
+      parseLoad
+    ]
 
 parseKeyWords :: Parser Instruction
 parseKeyWords = choice $ map try keyWords
