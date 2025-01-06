@@ -146,14 +146,20 @@ It is a safe function.
 dbg :: VmState ()
 dbg = get >>= (io . print)
 
+{- | The 'dgbStack' function is used for, as it name tells, debug purposes.
+It will do a basic print of the stack and won't modify it.
+It is a safe function.
+-}
 dbgStack :: VmState ()
 dbgStack = getStack >>= (io . print)
 
+-- | The 'getInArr' function is used to retrive an element of an Array.
 getInArr :: Int -> [a] -> Maybe a
 getInArr 0 (x : _) = Just x
 getInArr _ [] = Nothing
 getInArr n (_ : xs) = getInArr (n - 1) xs
 
+-- | The 'getNextInstruction' function is used to retrive the next Instruction.
 getNextInstruction :: VmState (Maybe Instruction)
 getNextInstruction = getInArr <$> getPc <*> gets instructions
 
