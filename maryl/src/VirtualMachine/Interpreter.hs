@@ -22,11 +22,6 @@ import VirtualMachine.Instructions (
     Inst (..),
     Instruction (..),
     Value (..),
-    call,
-    jumpf,
-    push,
-    pushArg,
-    ret,
  )
 import VirtualMachine.State (
     V (..),
@@ -34,7 +29,6 @@ import VirtualMachine.State (
     appendStack,
     copyVm,
     copyVm',
-    dbgStack,
     eitherS,
     getArgs,
     getElemInMemory,
@@ -46,7 +40,6 @@ import VirtualMachine.State (
     io,
     modifyPc,
     modifyStack,
-    register,
  )
 
 class Numeric a where
@@ -227,7 +220,7 @@ execJump (Left n)
     | otherwise = modifyPc (+ n)
 execJump (Right lbl) =
     getInstructionIdxAtLabel lbl
-        >>= ( \r -> case traceShowId r of
+        >>= ( \r -> case r of
                 Just idx -> modifyPc (const (idx - 1))
                 Nothing -> fail $ "could not find an element with label: " ++ lbl
             )
@@ -246,27 +239,26 @@ execInstruction i = fail $ "Not handled" ++ name i
 
 exec' :: Maybe Instruction -> VmState Value
 exec' (Just i) =
-    dbgStack
-        >> execInstruction (traceShowId i)
+    execInstruction i
         >>= maybe (incPc >> getNextInstruction >>= exec') return
 exec' Nothing = return $ N 0
 
-factCode :: [Instruction]
-factCode =
-    [ pushArg Nothing 0,
-      push Nothing (N 0),
-      call Nothing "eq",
-      jumpf Nothing (Left 2),
-      push Nothing (N 1),
-      ret Nothing,
-      pushArg Nothing 0,
-      push Nothing (N 1),
-      call Nothing "sub",
-      call Nothing "fact",
-      pushArg Nothing 0,
-      call Nothing "mul",
-      ret Nothing
-    ]
+-- factCode :: [Instruction]
+-- factCode =
+--     [ pushArg Nothing 0,
+--       push Nothing (N 0),
+--       call Nothing "eq",
+--       jumpf Nothing (Left 2),
+--       push Nothing (N 1),
+--       ret Nothing,
+--       pushArg Nothing 0,
+--       push Nothing (N 1),
+--       call Nothing "sub",
+--       call Nothing "fact",
+--       pushArg Nothing 0,
+--       call Nothing "mul",
+--       ret Nothing
+--     ]
 
 exec :: VmState Value
-exec = register ("fact", V $ Bi factCode) >> getNextInstruction >>= exec'
+exec = getNextInstruction >>= exec'

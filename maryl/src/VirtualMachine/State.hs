@@ -135,13 +135,15 @@ findInstructionWithLabel' :: String -> Instruction -> Bool
 findInstructionWithLabel' s (Instruction _ _ _ (Just l)) = l == s
 findInstructionWithLabel' _ _ = False
 
-findInstructionWithLabel :: String -> [Instruction] -> Instruction
-findInstructionWithLabel s l = head (filter (findInstructionWithLabel' s) l)
+findInstructionWithLabel :: String -> [Instruction] -> Maybe Instruction
+findInstructionWithLabel s l = case filter (findInstructionWithLabel' s) l of
+    [] -> Nothing
+    xs -> Just $ head xs
 
 getInstructionIdxAtLabel :: String -> VmState (Maybe Int)
 getInstructionIdxAtLabel s =
     gets instructions
-        >>= (\l -> return $ elemIndex (findInstructionWithLabel s l) l)
+        >>= (\l -> return (findInstructionWithLabel s l >>= (`elemIndex` l)))
 
 appendStack :: Value -> VmState ()
 appendStack v = getStack >>= (\s -> modifyStack (v : s))
