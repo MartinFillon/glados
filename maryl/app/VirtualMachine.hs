@@ -34,6 +34,6 @@ execParsed i =
         )
         >>= exit
 
-vm :: Maybe String -> IO ()
-vm Nothing = pError "A file is required for the vm to run"
-vm (Just s) = readFile s >>= (handleParseError True . parseAssembly) >>= execParsed
+vm :: [String] -> IO ()
+vm [] = pError "A file is required for the vm to run"
+vm (s : _) = readFile s >>= (handleParseError True . parseAssembly) >>= execParsed
