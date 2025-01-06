@@ -41,7 +41,7 @@ spec = do
 
         it "translates AstReturn" $ do
             let ast = AstReturn (AstInt 42)
-            fst (translateAST ast initMemory) `shouldBe` [push Nothing (N 42)]
+            fst (translateAST ast initMemory) `shouldBe` [push Nothing (N 42), ret Nothing]
 
     describe "translateToASM" $ do
         it "translates a list of Ast nodes" $ do

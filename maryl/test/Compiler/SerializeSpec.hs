@@ -61,8 +61,8 @@ spec = do
 
     describe "serializeMemoryFunctions" $ do
         it "serializes memory with a single function" $ do
-            let memory = Map.singleton "foo" (AstDefineFunc (Function "foo" [] [] Void))
-                expected = ".foo ret\n\n"
+            let memory = Map.singleton "foo" (AstDefineFunc (Function "foo" [] [AstReturn (AstInt 0)] Void))
+                expected = ".foo push 0\nret\n\n"
             serializeMemoryFunctions memory `shouldBe` expected
 
         it "serializes memory with multiple functions" $ do
