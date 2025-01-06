@@ -14,6 +14,7 @@ module Parsing.ParserAst (
     pElse,
     pReturn,
     pList,
+    pExpr,
     operatorTable,
     binary,
     prefix,
@@ -183,17 +184,18 @@ convertValue =
           AstChar <$> charLiteral,
           AstString <$> stringLiteral,
           AstBlock <$> block,
+          try pFunc,
           AstVar <$> lexeme variable
         ]
 
 pList :: Parser [Ast]
-pList = between (symbol "[") (symbol "]") ((try pFunc <|> convertValue) `sepBy` lexeme ",")
+pList = between (symbol "[") (symbol "]") (convertValue `sepBy` lexeme ",")
 
 list :: Parser Ast
-list = between (symbol "(") (symbol ")") (try pFunc <|> pExpr)
+list = between (symbol "(") (symbol ")") pExpr
 
 listVariables :: Parser [Ast]
-listVariables = between (symbol "(") (symbol ")") ((try pFunc <|> convertValue) `sepBy` lexeme ",")
+listVariables = between (symbol "(") (symbol ")") (convertValue `sepBy` lexeme ",")
 
 listVariables' :: Parser [Ast]
 listVariables' =
@@ -295,7 +297,6 @@ pTerm =
         [ AstReturn <$> (pReturn <* semi),
           try pIf,
           try pLoop,
-          try pFunc <* semi,
           try pDeclarationFunc,
           try pDeclarationVar <* semi,
           try list,
@@ -318,7 +319,8 @@ operatorTable =
           prefix "-" (AstPrefixFunc "-"),
           prefix "++" (AstPrefixFunc "++"),
           prefix "+" id,
-          prefix "!" (AstPrefixFunc "!")
+          prefix "!" (AstPrefixFunc "!"),
+          prefix "~" (AstPrefixFunc "~")
         ],
         [ postfix "++" (AstPostfixFunc "++"),
           postfix "--" (AstPostfixFunc "--")
@@ -331,7 +333,10 @@ operatorTable =
         [ binary "+" (AstBinaryFunc "+"),
           binary "-" (AstBinaryFunc "-"),
           binary "|" (AstBinaryFunc "|"),
-          binary "&" (AstBinaryFunc "&")
+          binary "&" (AstBinaryFunc "&"),
+          binary ">>" (AstBinaryFunc ">>"),
+          binary "<<" (AstBinaryFunc "<<"),
+          binary "^" (AstBinaryFunc "^")
         ],
         [ binary "==" (AstBinaryFunc "=="),
           binary "!=" (AstBinaryFunc "!="),
@@ -340,11 +345,11 @@ operatorTable =
           binary "<" (AstBinaryFunc "<"),
           binary "<=" (AstBinaryFunc "<=")
         ],
-        [ binary "||" (AstBinaryFunc "||"),
-          binary "&&" (AstBinaryFunc "&&")
+        [ binary "or" (AstBinaryFunc "or"),
+          binary "and" (AstBinaryFunc "and")
         ],
-      [ternary AstTernary],
-      [binary "=" (AstBinaryFunc "=")]
+        [ternary AstTernary],
+        [binary "=" (AstBinaryFunc "=")]
     ]
 
 pExpr :: Parser Ast
