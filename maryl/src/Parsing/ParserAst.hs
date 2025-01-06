@@ -34,6 +34,7 @@ module Parsing.ParserAst (
     ternary,
     listVariables,
     listVariables',
+    getType,
     Ast (..),
     Function (..),
     Variable (..),
@@ -45,7 +46,7 @@ import Control.Monad.Combinators.Expr (
     Operator (..),
     makeExprParser,
  )
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 import Data.Void (Void)
 import Text.Megaparsec (
     MonadParsec (eof, try),
@@ -65,11 +66,12 @@ import Text.Megaparsec (
  )
 import Text.Megaparsec.Char (char, letterChar, space1, string, alphaNumChar)
 import qualified Text.Megaparsec.Char.Lexer as L
+import Data.List (stripPrefix, isPrefixOf)
 
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
 
-data MarylType = String | Integer | Double | Char | Bool | Void | List MarylType | Undefined
+data MarylType = String | Integer | Double | Char | Bool | Void | List MarylType | Const MarylType | Undefined
     deriving (Eq, Ord, Show)
 
 data Function = Function
@@ -227,8 +229,10 @@ getType "string" = String
 getType "char" = Char
 getType "bool" = Bool
 getType "void" = Void
-getType ('[' : ']' : t) = List $ getType t
-getType _ = Undefined
+getType str
+    | "[]" `isPrefixOf` str = List $ getType (fromJust $ stripPrefix "[]" str)
+    | "const" `isPrefixOf` str = Const $ getType (dropWhile (\x -> x == ' ' || x == '\t') (fromJust $ stripPrefix "const" str))
+    | otherwise = Undefined
 
 optionalValue :: Parser (Maybe Ast)
 optionalValue = optional $ do
