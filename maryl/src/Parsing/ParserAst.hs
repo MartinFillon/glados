@@ -225,7 +225,7 @@ pList :: Parser [Ast]
 pList = between (symbol "[") (symbol "]") (convertValue `sepBy` lexeme ",")
 
 list :: Parser Ast
-list = between (symbol "(") (symbol ")") pExpr
+list = list' pExpr
 
 list' :: Parser Ast -> Parser Ast
 list' = between (symbol "(") (symbol ")")
@@ -332,7 +332,10 @@ pLoop = do
     return $ AstLoop cond toDo
 
 pVoid :: Parser Ast
-pVoid = AstVoid <$ ""
+pVoid = list' pVoid' <|> pVoid'
+
+pVoid' :: Parser Ast
+pVoid' = AstVoid <$ ""
 
 {- | Parsing return statement formatted like: return val; or return;
 
@@ -343,7 +346,7 @@ pVoid = AstVoid <$ ""
 >>> return;
 -}
 pReturn :: Parser Ast
-pReturn = string "return" >> sc >> (try pFunc <|> list <|> pExpr <|> pVoid)
+pReturn = string "return" >> sc >> (try pFunc <|> try pExpr <|> pVoid)
 
 -- | Parsing else statement formatted with the "else" keyword followed by a block: else {}
 pElse :: Parser (Maybe Ast)
@@ -403,7 +406,6 @@ pTerm =
           try pLoop,
           try pDeclarationFunc,
           try pDeclarationVar <* semi,
-          try list,
           try pBreak <* semi,
           pExpr <* semi
         ]
@@ -411,6 +413,10 @@ pTerm =
 -- | Megaparsec's InfixL wrapper
 binary :: String -> (a -> a -> a) -> Operator Parser a
 binary n f = InfixL (f <$ symbol n)
+
+-- | Megaparsec's InfixR wrapper
+binary' :: String -> (a -> a -> a) -> Operator Parser a
+binary' n f = InfixR (f <$ symbol n)
 
 -- | Megaparsec's Prefix and Postfix wrapper
 prefix, postfix :: String -> (a -> a) -> Operator Parser a
@@ -434,8 +440,8 @@ operatorTable =
         [ postfix "++" (AstPostfixFunc "++"),
           postfix "--" (AstPostfixFunc "--")
         ],
-        [ binary "**" (AstBinaryFunc "**"),
-          binary "*" (AstBinaryFunc "*"),
+        [ binary' "**" (AstBinaryFunc "**") ],
+        [ binary "*" (AstBinaryFunc "*"),
           binary "/" (AstBinaryFunc "/"),
           binary "%" (AstBinaryFunc "%")
         ],
@@ -457,7 +463,7 @@ operatorTable =
         [ binary "or" (AstBinaryFunc "or"),
           binary "and" (AstBinaryFunc "and")
         ],
-        [ternary AstTernary],
+        [ ternary AstTernary ],
         [ binary "=" (AstBinaryFunc "="),
           binary "+=" (AstBinaryFunc "+="),
           binary "-=" (AstBinaryFunc "-="),
@@ -473,7 +479,10 @@ operatorTable =
 
 -- | Megaparsec Expr parser call with 'convertValue' defining the types to parse and 'operatorTable' containing all operators handled.
 pExpr :: Parser Ast
-pExpr = makeExprParser convertValue operatorTable
+pExpr = makeExprParser pExpr' operatorTable
+
+pExpr' :: Parser Ast
+pExpr' = list' pExpr <|> convertValue
 
 -- | 'parseAST' entry function parsing multiple AST as defined by 'pTerm'
 pAst :: Parser [Ast]
