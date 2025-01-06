@@ -48,6 +48,7 @@ data Value
     = N Int64
     | B Bool
     | S String
+    | C Char
     | L [Value]
     | D Double
     | Bi [Instruction]
@@ -57,6 +58,7 @@ instance Show Value where
     show (N n) = show n
     show (B b) = show b
     show (S s) = show s
+    show (C c) = show c
     show (L vs) = show vs
     show (D d) = show d
     show (Bi _) = "<builtin>"
