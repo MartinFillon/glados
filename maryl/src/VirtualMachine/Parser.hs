@@ -75,7 +75,10 @@ parseString' =
         between
             (char '\"')
             (char '\"')
-            ((:) <$> noneOf ("\"" :: [Char]) <*> many (noneOf ("\"" :: [Char])))
+            ( (:)
+                <$> (try parseEscapedChar <|> noneOf ("\"" :: [Char]))
+                <*> many (try parseEscapedChar <|> noneOf ("\"" :: [Char]))
+            )
 
 parseChar' :: Parser Char
 parseChar' =
@@ -83,10 +86,20 @@ parseChar' =
         between
             (char '\'')
             (char '\'')
-            (noneOf ("\'" :: [Char]))
+            (try parseEscapedChar <|> noneOf ("\'" :: [Char]))
 
 parseChar :: Parser Value
 parseChar = lexeme $ C <$> parseChar'
+
+parseEscapedChar :: Parser Char
+parseEscapedChar =
+    choice
+        [ try (string "\\\"" >> return '\"'),
+          try (string "\\n" >> return '\n'),
+          try (string "\\r" >> return '\r'),
+          try (string "\\t" >> return '\t'),
+          try (string "\\\\" >> return '\\')
+        ]
 
 parseString :: Parser Value
 parseString =
