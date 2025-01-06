@@ -40,6 +40,7 @@ import VirtualMachine.State (
     io,
     modifyPc,
     modifyStack,
+    register,
  )
 
 class Numeric a where
@@ -225,6 +226,15 @@ execJump (Right lbl) =
                 Nothing -> fail $ "could not find an element with label: " ++ lbl
             )
 
+execGet :: String -> VmState ()
+execGet n =
+    getElemInMemory n
+        >>= ( \v -> case v of
+                Nothing -> fail $ "could not find constant " ++ n
+                Just (V v') -> getStack >>= modifyStack . (v' :) >> return ()
+                Just _ -> fail "cannot access an operator using get"
+            )
+
 execInstruction :: Instruction -> VmState (Maybe Value)
 execInstruction (Instruction _ _ Ret _) =
     getStack >>= eitherS . execRet
@@ -235,6 +245,8 @@ execInstruction (Instruction _ _ (PushArg x) _) = execPushArg x >> return Nothin
 execInstruction (Instruction _ _ (Call n) _) = execCall n >> return Nothing
 execInstruction (Instruction _ _ (Jump j) _) = execJump j >> return Nothing
 execInstruction (Instruction _ _ (JumpIfFalse j) _) = execJumpF j >> return Nothing
+execInstruction (Instruction _ _ (Load n v) _) = register (n, V v) >> return Nothing
+execInstruction (Instruction _ _ (Get n) _) = execGet n >> return Nothing
 execInstruction i = fail $ "Not handled" ++ name i
 
 exec' :: Maybe Instruction -> VmState Value
