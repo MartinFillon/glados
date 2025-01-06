@@ -4,8 +4,9 @@
 -- File description:
 -- Memory
 -}
+{-# LANGUAGE LambdaCase #-}
 
-module Memory (Memory, initMemory, updateMemory, readMemory) where
+module Memory (Memory, initMemory, updateMemory, readMemory, freeMemory) where
 
 import qualified Data.Map as Map
 
@@ -16,11 +17,19 @@ type Memory = Map.Map String Ast
 
 updateMemory :: Memory -> String -> Ast -> Memory
 updateMemory mem var value =
-        Map.insert var value mem
+    Map.insert var value mem
 
 readMemory :: Memory -> String -> Maybe Ast
 readMemory mem symbol =
     Map.lookup symbol mem
+
+freeMemory :: Memory -> Memory
+freeMemory =
+    Map.filter
+        ( \case
+            AstDefineFunc _ -> True
+            _ -> False
+        )
 
 initMemory :: Memory
 initMemory = Map.empty
