@@ -166,11 +166,11 @@ pKeyword keyword = lexeme (string keyword)
 
 pListElem :: Parser Ast
 pListElem = do
-  v <- variable
-  _ <- symbol "["
-  i <- integer
-  _ <- symbol "]"
-  return $ AstListElem v i
+    v <- variable
+    _ <- symbol "["
+    i <- integer
+    _ <- symbol "]"
+    return $ AstListElem v i
 
 convertValue :: Parser Ast
 convertValue =
@@ -206,13 +206,14 @@ block :: Parser [Ast]
 block = between (symbol "{") (symbol "}") (many pTerm)
 
 types' :: [String]
-types' = ["int",
-          "float",
-          "string",
-          "char",
-          "bool",
-          "void"
-        ]
+types' =
+    [ "int",
+      "float",
+      "string",
+      "char",
+      "bool",
+      "void"
+    ]
 
 types :: Parser String
 types = choice (map string (("[]" ++) <$> types')) <|> choice (map string types')
@@ -224,7 +225,7 @@ getType "string" = String
 getType "char" = Char
 getType "bool" = Bool
 getType "void" = Void
-getType ('[':']':t) = List $ getType t
+getType ('[' : ']' : t) = List $ getType t
 getType _ = Undefined
 
 optionalValue :: Parser (Maybe Ast)
@@ -268,11 +269,13 @@ pLoop = do
     return $ AstLoop cond toDo
 
 pReturn :: Parser Ast
-pReturn = string "return" >> sc >> 
-  choice
-    [ try pFunc,
-      pExpr
-    ]
+pReturn =
+    string "return"
+        >> sc
+        >> choice
+            [ try pFunc,
+              pExpr
+            ]
 
 pElse :: Parser (Maybe Ast)
 pElse = optional $ string "else" >> sc >> AstBlock <$> block >>= \b -> return b
@@ -357,4 +360,4 @@ pAst :: Parser [Ast]
 pAst = many $ try pTerm
 
 parseAST :: String -> Either ParserError [Ast]
-parseAST s = parse (between sc eof pAst) "" s
+parseAST = parse (between sc eof pAst) ""

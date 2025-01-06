@@ -11,7 +11,6 @@ import ArgsHandling (Mode (..))
 import Compiler.ASTtoASM (translateToASM)
 import Compiler.WriteASM (writeInstructionsToFile)
 import qualified Control.Monad as Monad
-import Debug.Trace (trace)
 import Eval.Evaluator (evalAST)
 import GHC.GHCi.Helpers (flushAll)
 import Memory (Memory, initMemory)
@@ -21,19 +20,19 @@ import Utils (handleParseError, pError)
 import VirtualMachine (vm)
 
 handleEvalResult :: Either String ([Ast], Memory) -> IO ()
-handleEvalResult (Right (result, mem)) = do
-    let instructions = translateToASM result
-    writeInstructionsToFile "out.s" mem
-    print result
+handleEvalResult (Right (result, mem)) =
+    let _ = translateToASM result
+     in writeInstructionsToFile "out.s" mem
+            >> putStrLn "ASM produced in out.s"
 handleEvalResult (Left err) =
     pError ("*** ERROR : " ++ err)
 
 parseSourceCode :: Memory -> String -> IO Memory
-parseSourceCode mem s = do
-    asts <- handleParseError True (parseAST s)
-    let evalResult = evalAST mem asts
-    handleEvalResult evalResult
-    return $ either (const mem) snd evalResult
+parseSourceCode mem s =
+    handleParseError True (parseAST s) >>= \asts ->
+        let evalResult = evalAST mem asts
+         in handleEvalResult evalResult
+                >> return (either (const mem) snd evalResult)
 
 normalizeTabs :: String -> String
 normalizeTabs [] = []

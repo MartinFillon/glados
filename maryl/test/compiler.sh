@@ -33,3 +33,28 @@ if [ "$output" == "$correction" ]; then
 else
     print_red "❌ add.mrl failed: Got '$output'"
 fi
+
+# mixupadd.mrl
+print_bold "Running mixupadd.mrl..."
+./glados test/test_files/mixupadd.mrl
+output=$(cat out.s)
+print_yellow "got '$output'"
+correction=$(cat test/test_files/mixupadd.txt)
+if [ "$output" == "$correction" ]; then
+    print_green "✅ mixupadd.mrl passed!"
+else
+    print_red "❌ mixupadd.mrl failed: Got '$output'"
+fi
+
+# ifbasic.mrl
+print_bold "Running ifbasic.mrl..."
+./glados test/test_files/ifbasic.mrl
+output=$(cat out.s)
+print_yellow "got '$output'"
+correction=$(cat test/test_files/ifbasic.txt)
+if [ "$output" == "$correction" ]; then
+    print_green "✅ ifbasic.mrl passed!"
+else
+    print_red "❌ ifbasic.mrl failed: Got '$output'"
+fi
+
