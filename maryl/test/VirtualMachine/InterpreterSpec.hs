@@ -11,16 +11,7 @@ import Control.Monad.State (evalStateT)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Test.Hspec (Spec, describe, it, shouldReturn)
-import VirtualMachine.Instructions (
-    Instruction,
-    Value (..),
-    call,
-    jump,
-    jumpf,
-    push,
-    pushArg,
-    ret,
- )
+import VirtualMachine.Instructions (Instruction, Value (..), call, get, jump, jumpf, load, push, pushArg, ret)
 import VirtualMachine.Interpreter (exec, operators)
 import VirtualMachine.State (V (..), initialState)
 
@@ -244,3 +235,12 @@ spec = do
                       ret Nothing
                     ]
                 `shouldReturn` N 10
+
+        it "should set element in memory and retrieve it" $
+            do
+                execTest
+                    [ load Nothing "v" $ N 42,
+                      get Nothing "v",
+                      ret Nothing
+                    ]
+                `shouldReturn` N 42

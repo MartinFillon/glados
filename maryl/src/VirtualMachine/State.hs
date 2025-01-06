@@ -5,6 +5,9 @@
 -- State
 -}
 {-# LANGUAGE InstanceSigs #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use lambda-case" #-}
 
 {- |
 Description : This is the type used in the virtual machine in order for it to keep it state.
@@ -134,7 +137,12 @@ register' :: (String, V) -> Vm -> Vm
 register' (k, nw) v = v {memory = Map.insert k nw $ memory v}
 
 register :: (String, V) -> VmState ()
-register i = modify (register' i)
+register (n, v) =
+    getElemInMemory n
+        >>= ( \i -> case i of
+                Nothing -> modify (register' (n, v))
+                Just _ -> fail $ "Cannot redifine constant " ++ n
+            )
 
 registerL :: [(String, V)] -> VmState ()
 registerL = foldr ((>>) . register) (pure ())

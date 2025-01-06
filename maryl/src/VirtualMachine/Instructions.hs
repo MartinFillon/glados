@@ -18,6 +18,8 @@ module VirtualMachine.Instructions (
     jumpf,
     jump,
     Label,
+    load,
+    get,
 ) where
 
 import Data.Int (Int64)
@@ -76,6 +78,8 @@ data Inst
     | PushArg Int
     | Call String
     | Ret
+    | Load String Value
+    | Get String
     | JumpIfFalse (Either Int String)
     | Jump (Either Int String)
     deriving (Show, Eq)
@@ -119,3 +123,15 @@ jump l x = Instruction 6 "jump" (Jump x) l
 -}
 pushArg :: Label -> Int -> Instruction
 pushArg l x = Instruction 5 "pushArg" (PushArg x) l
+
+{- | The 'Load' instruction constructor.
+ 'Load' is used to load constant values into the memory.
+-}
+load :: Label -> String -> Value -> Instruction
+load l n v = Instruction 6 "load" (Load n v) l
+
+{- | The 'Get' instruction constructor.
+ 'Get' is used to get constant values from the memory.
+-}
+get :: Label -> String -> Instruction
+get l n = Instruction 7 "get" (Get n) l
