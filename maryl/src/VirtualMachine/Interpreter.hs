@@ -106,6 +106,10 @@ operatorEq :: [Value] -> VmState [Value]
 operatorEq (x : y : xs) = return $ B (x == y) : xs
 operatorEq _ = fail "expects two value"
 
+operatorNEq :: [Value] -> VmState [Value]
+operatorNEq (x : y : xs) = return $ B (x /= y) : xs
+operatorNEq _ = fail "expects two value"
+
 operatorLt :: [Value] -> VmState [Value]
 operatorLt (y : x : xs) =
     eitherS $
@@ -168,6 +172,7 @@ operators =
       ("div", Op operatorDiv),
       ("mod", Op operatorMod),
       ("eq", Op operatorEq),
+      ("neq", Op operatorNEq),
       ("less", Op operatorLt),
       ("greater", Op operatorGt),
       ("and", Op operatorAnd),
