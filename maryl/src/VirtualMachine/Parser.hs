@@ -77,6 +77,17 @@ parseString' =
             (char '\"')
             ((:) <$> noneOf ("\"" :: [Char]) <*> many (noneOf ("\"" :: [Char])))
 
+parseChar' :: Parser Char
+parseChar' =
+    lexeme $
+        between
+            (char '\'')
+            (char '\'')
+            (noneOf ("\'" :: [Char]))
+
+parseChar :: Parser Value
+parseChar = lexeme $ C <$> parseChar'
+
 parseString :: Parser Value
 parseString =
     lexeme $ S <$> parseString'
@@ -97,8 +108,8 @@ parseVal =
               try parseFloat,
               try parseBool,
               try parseDigit,
+              try parseChar,
               try parseString
-              --   try parseChar
             ]
 
 parseLabel :: Parser String
