@@ -70,6 +70,7 @@ instance Eq Value where
     (S a) == (S b) = a == b
     (L a) == (L b) = a == b
     (D a) == (D b) = a == b
+    (C a) == (C b) = a == b
     (Bi a) == (Bi b) = a == b
     _ == _ = False
 
