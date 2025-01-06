@@ -1,0 +1,214 @@
+{-
+-- EPITECH PROJECT, 2024
+-- maryl
+-- File description:
+-- State
+-}
+{-# LANGUAGE InstanceSigs #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use lambda-case" #-}
+
+{- |
+Description : This is the type used in the virtual machine in order for it to keep it state.
+-}
+module VirtualMachine.State (
+    -- * Types
+    VmState,
+    V (..),
+    Vm (..),
+
+    -- * Functions
+
+    -- The functions are easy ways to interface with the 'Vm'.
+    initialState,
+    io,
+    eitherS,
+    register,
+    dbg,
+    registerL,
+    getNextInstruction,
+    getPc,
+    getStack,
+    modifyStack,
+    incPc,
+    getArgs,
+    getMemory,
+    getElemInMemory,
+    getInArr,
+    modifyPc,
+    getInstructionIdxAtLabel,
+    copyVm,
+    dbgStack,
+    copyVm',
+    appendStack,
+) where
+
+import Control.Monad.State (
+    MonadIO (..),
+    MonadState (get),
+    StateT,
+    gets,
+    modify,
+ )
+import Data.Functor ((<&>))
+import Data.List (elemIndex)
+import Data.Map (Map)
+import qualified Data.Map as Map
+import VirtualMachine.Instructions (Instruction (Instruction), Value)
+
+{- | The 'V' data is just a wrapper between 'Value' and Operators 'Op'.
+ Operators are a special type of value that takes a function as parameter.
+-}
+data V = V Value | Op ([Value] -> VmState [Value])
+
+instance Show V where
+    show :: V -> String
+    show (V v) = show v
+    show (Op _) = "<operator>"
+
+{- | The 'Vm' Data is what holds every useful information about the state of the vitual machine.
+It can be used by itself but it is highly recommended to use it with 'VmState'.
+-}
+data Vm = Vm
+    { -- | The 'stack' field, as its name implies, is a stack of values used to pass arguments to the different functions.
+      stack :: [Value],
+      -- | The 'instructions' field, is the whole list of instructions to be executed by the program, it is composed of 'Instruction'.
+      instructions :: [Instruction],
+      -- | The 'memory' field, as it name implies is where the operators,
+      --       and constants values are stored. It is, for the moment,
+      --       only used for operators or testing purposes.
+      memory :: Map String V,
+      -- | The 'pc' field, also known as program counter, is the current index executed in the list of instructions specified in the field 'instructions.
+      pc :: Int,
+      -- | The 'args' field, is the arguments passed to the program at startup.
+      args :: [Value]
+    }
+    deriving (Show)
+
+{- | The 'VmState' type alias is constituated of the 'StateT' monad, the 'Vm' and the 'IO' monad.
+It is used in order to be able to easily use the 'MonadState' class.
+This type permit us to have a state which is of type 'Vm'. While being able to run 'IO' functions such as 'print' or 'putStr'.
+This type is the backbone of our Virtual Machine.
+-}
+type VmState = StateT Vm IO
+
+{- | The 'initialState' function describes the recommended way to create a new 'Vm' in order to be plugged into 'VmState'.
+It takes a list of 'Instruction', followed by a map representing the initial 'memory' and lastly a list of 'Value' for arguments.
+This function will always initialise an empty 'stack' and a 'pc' at 0
+
+>>> initialState [push 10, ret 5] (Map.fromList []) []
+-}
+initialState :: [Instruction] -> Map String V -> [Value] -> Vm
+initialState i m = Vm [] i m 0
+
+{- | The 'copyVm' function is used to copy a vm state and its memory and change its instructions.
+It also clears the stack and takes the old one as argument in order for it to become the new args.
+-}
+copyVm :: [Instruction] -> [Value] -> Vm -> Vm
+copyVm i a v = v {stack = [], args = a, instructions = i, pc = 0}
+
+{- | The 'copyVm'' function is used to copy a vm state and its memory and change its pc.
+It also clears the stack and takes the old one as argument in order for it to become the new args.
+-}
+copyVm' :: Int -> [Value] -> Vm -> Vm
+copyVm' n a vm = vm {pc = n, stack = [], args = a}
+
+{- | The 'io' function is a wrapper for 'liftIO'. It is mainly used to run io function such as 'print' or 'putStr'.
+
+Here is an example of a print string from the stack.
+>>> operatorPrint (S s : xs) = io $ putStr s
+Not in scope: data constructor `S'
+-}
+io :: IO a -> VmState a
+io = liftIO
+
+eitherS' :: Show e => Either e a -> IO a
+eitherS' (Left e') = fail . show $ e'
+eitherS' (Right a) = return a
+
+{- | The 'eitherS' function, serves as a lift for the 'Either' monad.
+It can be used like 'io' but for functions returning a 'Either'.
+-}
+eitherS :: Show e => Either e a -> VmState a
+eitherS = io . eitherS'
+
+register' :: (String, V) -> Vm -> Vm
+register' (k, nw) v = v {memory = Map.insert k nw $ memory v}
+
+register :: (String, V) -> VmState ()
+register (n, v) =
+    getElemInMemory n
+        >>= ( \i -> case i of
+                Nothing -> modify (register' (n, v))
+                Just _ -> fail $ "Cannot redifine constant " ++ n
+            )
+
+registerL :: [(String, V)] -> VmState ()
+registerL = foldr ((>>) . register) (pure ())
+
+{- | The 'dbg' function is used for, as it name tells, debug purposes.
+It will do a basic print of the state and won't modify it.
+It is a safe function.
+-}
+dbg :: VmState ()
+dbg = get >>= (io . print)
+
+{- | The 'dgbStack' function is used for, as it name tells, debug purposes.
+It will do a basic print of the stack and won't modify it.
+It is a safe function.
+-}
+dbgStack :: VmState ()
+dbgStack = getStack >>= (io . print)
+
+-- | The 'getInArr' function is used to retrive an element of an Array.
+getInArr :: Int -> [a] -> Maybe a
+getInArr 0 (x : _) = Just x
+getInArr _ [] = Nothing
+getInArr n (_ : xs) = getInArr (n - 1) xs
+
+-- | The 'getNextInstruction' function is used to retrive the next Instruction.
+getNextInstruction :: VmState (Maybe Instruction)
+getNextInstruction = getInArr <$> getPc <*> gets instructions
+
+getPc :: VmState Int
+getPc = gets pc
+
+incPc :: VmState ()
+incPc = modifyPc (+ 1)
+
+modifyPc :: (Int -> Int) -> VmState ()
+modifyPc f = modify (\v -> v {pc = f $ pc v})
+
+getStack :: VmState [Value]
+getStack = gets stack
+
+getArgs :: VmState [Value]
+getArgs = gets args
+
+getMemory :: VmState (Map String V)
+getMemory = gets memory
+
+getElemInMemory :: String -> VmState (Maybe V)
+getElemInMemory s =
+    getMemory <&> Map.lookup s
+
+modifyStack :: [Value] -> VmState ()
+modifyStack vs = modify (\v -> v {stack = vs})
+
+findInstructionWithLabel' :: String -> Instruction -> Bool
+findInstructionWithLabel' s (Instruction _ _ _ (Just l)) = l == s
+findInstructionWithLabel' _ _ = False
+
+findInstructionWithLabel :: String -> [Instruction] -> Maybe Instruction
+findInstructionWithLabel s l = case filter (findInstructionWithLabel' s) l of
+    [] -> Nothing
+    xs -> Just $ head xs
+
+getInstructionIdxAtLabel :: String -> VmState (Maybe Int)
+getInstructionIdxAtLabel s =
+    gets instructions
+        >>= (\l -> return (findInstructionWithLabel s l >>= (`elemIndex` l)))
+
+appendStack :: Value -> VmState ()
+appendStack v = getStack >>= (\s -> modifyStack (v : s))

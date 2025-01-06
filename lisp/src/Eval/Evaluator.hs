@@ -75,27 +75,14 @@ substitute (Call (Function n subArgs)) subs mem =
     substituteFunction Call n subArgs subs mem
 substitute (Condition (Function n subArgs)) subs mem =
     substituteFunction Condition n subArgs subs mem
--- substitute (Call (Function n subArgs)) subs mem =
---     case lookup n subs of
---         Just _ ->
---             Call (Function n subArgs)
---         Nothing ->
---             Call (Function n (map (\arg -> substitute arg subs mem) subArgs))
--- substitute (Condition (Function n subArgs)) subs mem =
---     case lookup n subs of
---         Just _ ->
---             Condition (Function n subArgs)
---         Nothing ->
---             Condition (Function n (map (\arg -> substitute arg subs mem) subArgs))
 substitute (Lambda params body) subs mem =
     Lambda params (substitute body subs mem)
 substitute other _ _ = other
 
-
 substituteFunction :: (Function -> Ast) -> String -> [Ast] -> [(String, Ast)] -> Memory -> Ast
 substituteFunction constructor n subArgs subs mem =
     case lookup n subs of
-        Just _  -> constructor (Function n subArgs)
+        Just _ -> constructor (Function n subArgs)
         Nothing -> constructor (Function n (map (\arg -> substitute arg subs mem) subArgs))
 
 evalLambda :: Memory -> [String] -> Ast -> [Ast] -> Either String (Ast, Memory)

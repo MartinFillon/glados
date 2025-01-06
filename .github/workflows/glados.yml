@@ -28,8 +28,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check stack install
+      - name: Check stack install (LISP)
         run: |
+          cd lisp
+          sudo make
+          sudo stack test --allow-different-user
+
+      - name: Check stack install (Maryl)
+        run: |
+          cd maryl
           sudo make
           sudo stack test --allow-different-user
 

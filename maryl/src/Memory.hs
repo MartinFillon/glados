@@ -4,24 +4,32 @@
 -- File description:
 -- Memory
 -}
+{-# LANGUAGE LambdaCase #-}
 
-module Memory (Memory, initMemory, updateMemory, readMemory) where
+module Memory (Memory, initMemory, updateMemory, readMemory, freeMemory) where
 
 import qualified Data.Map as Map
 
-import Parsing.SExprToAst (Ast (..))
+import Debug.Trace (trace)
+import Parsing.ParserAst (Ast (..))
 
 type Memory = Map.Map String Ast
 
 updateMemory :: Memory -> String -> Ast -> Memory
 updateMemory mem var value =
-    -- trace ("add " ++ var ++ " to memory with: " ++ show value) $
     Map.insert var value mem
 
 readMemory :: Memory -> String -> Maybe Ast
 readMemory mem symbol =
-    -- trace ("reading " ++ symbol ++ " from memory") $
     Map.lookup symbol mem
+
+freeMemory :: Memory -> Memory
+freeMemory =
+    Map.filter
+        ( \case
+            AstDefineFunc _ -> True
+            _ -> False
+        )
 
 initMemory :: Memory
 initMemory = Map.empty

@@ -1,0 +1,11 @@
+int start(){
+    int a = 3;
+    int b = 4;
+    a = b + 1;
+    if (a == 5) {
+        return 2;
+    } else {
+        return 3;
+    }
+    return 0;
+}

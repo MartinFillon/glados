@@ -1,0 +1,13 @@
+
+int add1(int a, int b){
+    int c = 4;
+    c = 1;
+    return c + a;
+}
+
+int start(){
+    int a = 2;
+    int b = 3;
+    int y = 5;
+    return add1(y, b);
+}
