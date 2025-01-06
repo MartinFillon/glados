@@ -29,7 +29,7 @@ evalNode mem rest = Right (rest, mem)
 
 evalAST :: Memory -> [Ast] -> Either String ([Ast], Memory)
 evalAST mem [] = Right ([], mem)
-evalAST mem (ast : asts) =
+evalAST mem (ast : asts) = trace (show (ast : asts)) $
     case evalNode mem ast of
         Left err -> Left err
         Right (transformedAst, updatedMem) ->
