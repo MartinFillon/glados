@@ -177,7 +177,7 @@ listElem = do
 pListElem :: Parser Ast
 pListElem = do
     v <- variable
-    i <- many listElem
+    i <- some listElem
     return $ AstListElem v i
 
 convertValue :: Parser Ast
