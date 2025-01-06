@@ -13,6 +13,7 @@ module Parsing.ParserAst (
     pIf,
     pElse,
     pReturn,
+    pList,
     operatorTable,
     binary,
     prefix,
@@ -30,6 +31,7 @@ module Parsing.ParserAst (
     convertValue,
     parseAST,
     ternary,
+    listVariables,
     listVariables',
     Ast (..),
     Function (..),
@@ -44,7 +46,6 @@ import Control.Monad.Combinators.Expr (
  )
 import Data.Maybe (fromMaybe)
 import Data.Void (Void)
-import Debug.Trace (trace)
 import Text.Megaparsec (
     MonadParsec (eof, try),
     ParseErrorBundle,
@@ -54,7 +55,6 @@ import Text.Megaparsec (
     empty,
     many,
     manyTill,
-    noneOf,
     optional,
     parse,
     sepBy,
@@ -62,7 +62,7 @@ import Text.Megaparsec (
     (<?>),
     (<|>),
  )
-import Text.Megaparsec.Char (char, letterChar, space1, string)
+import Text.Megaparsec.Char (char, letterChar, space1, string, alphaNumChar)
 import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = Parsec Void String
@@ -144,7 +144,7 @@ variable :: Parser String
 variable =
     (:)
         <$> (try letterChar <|> bonusChar)
-        <*> many (noneOf (" \t\n\r(),=;[]" :: [Char]))
+        <*> many (alphaNumChar <|> bonusChar)
         <?> "variable"
 
 integer :: Parser Integer
@@ -187,13 +187,13 @@ convertValue =
         ]
 
 pList :: Parser [Ast]
-pList = between (symbol "[") (symbol "]") (convertValue `sepBy` lexeme ",")
+pList = between (symbol "[") (symbol "]") ((try pFunc <|> convertValue) `sepBy` lexeme ",")
 
 list :: Parser Ast
-list = between (symbol "(") (symbol ")") pExpr
+list = between (symbol "(") (symbol ")") (try pFunc <|> pExpr)
 
 listVariables :: Parser [Ast]
-listVariables = between (symbol "(") (symbol ")") (convertValue `sepBy` lexeme ",")
+listVariables = between (symbol "(") (symbol ")") ((try pFunc <|> convertValue) `sepBy` lexeme ",")
 
 listVariables' :: Parser [Ast]
 listVariables' =
@@ -269,13 +269,7 @@ pLoop = do
     return $ AstLoop cond toDo
 
 pReturn :: Parser Ast
-pReturn =
-    string "return"
-        >> sc
-        >> choice
-            [ try pFunc,
-              pExpr
-            ]
+pReturn = string "return" >> sc >> (try pFunc <|> pExpr)
 
 pElse :: Parser (Maybe Ast)
 pElse = optional $ string "else" >> sc >> AstBlock <$> block >>= \b -> return b
