@@ -52,7 +52,7 @@ factCode' =
       pushArg Nothing 0,
       push Nothing (N 1),
       call Nothing "sub",
-      call Nothing "fact",
+      call Nothing ".fact",
       pushArg Nothing 0,
       call Nothing "mul",
       ret Nothing
