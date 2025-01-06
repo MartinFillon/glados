@@ -117,8 +117,8 @@ copyVm' n a vm = vm {pc = n, stack = [], args = a}
 {- | The 'io' function is a wrapper for 'liftIO'. It is mainly used to run io function such as 'print' or 'putStr'.
 
 Here is an example of a print string from the stack.
+
 >>> operatorPrint (S s : xs) = io $ putStr s
-Not in scope: data constructor `S'
 -}
 io :: IO a -> VmState a
 io = liftIO
