@@ -22,11 +22,6 @@ import VirtualMachine.Instructions (
     Inst (..),
     Instruction (..),
     Value (..),
-    call,
-    jumpf,
-    push,
-    pushArg,
-    ret,
  )
 import VirtualMachine.State (
     V (..),
@@ -34,7 +29,6 @@ import VirtualMachine.State (
     appendStack,
     copyVm,
     copyVm',
-    dbgStack,
     eitherS,
     getArgs,
     getElemInMemory,
@@ -113,6 +107,10 @@ operatorEq :: [Value] -> VmState [Value]
 operatorEq (x : y : xs) = return $ B (x == y) : xs
 operatorEq _ = fail "expects two value"
 
+operatorNEq :: [Value] -> VmState [Value]
+operatorNEq (x : y : xs) = return $ B (x /= y) : xs
+operatorNEq _ = fail "expects two value"
+
 operatorLt :: [Value] -> VmState [Value]
 operatorLt (y : x : xs) =
     eitherS $
@@ -175,6 +173,7 @@ operators =
       ("div", Op operatorDiv),
       ("mod", Op operatorMod),
       ("eq", Op operatorEq),
+      ("neq", Op operatorNEq),
       ("less", Op operatorLt),
       ("greater", Op operatorGt),
       ("and", Op operatorAnd),
@@ -227,9 +226,18 @@ execJump (Left n)
     | otherwise = modifyPc (+ n)
 execJump (Right lbl) =
     getInstructionIdxAtLabel lbl
-        >>= ( \r -> case traceShowId r of
+        >>= ( \r -> case r of
                 Just idx -> modifyPc (const (idx - 1))
                 Nothing -> fail $ "could not find an element with label: " ++ lbl
+            )
+
+execGet :: String -> VmState ()
+execGet n =
+    getElemInMemory n
+        >>= ( \v -> case v of
+                Nothing -> fail $ "could not find constant " ++ n
+                Just (V v') -> getStack >>= modifyStack . (v' :) >> return ()
+                Just _ -> fail "cannot access an operator using get"
             )
 
 execInstruction :: Instruction -> VmState (Maybe Value)
@@ -242,31 +250,32 @@ execInstruction (Instruction _ _ (PushArg x) _) = execPushArg x >> return Nothin
 execInstruction (Instruction _ _ (Call n) _) = execCall n >> return Nothing
 execInstruction (Instruction _ _ (Jump j) _) = execJump j >> return Nothing
 execInstruction (Instruction _ _ (JumpIfFalse j) _) = execJumpF j >> return Nothing
+execInstruction (Instruction _ _ (Load n v) _) = register (n, V v) >> return Nothing
+execInstruction (Instruction _ _ (Get n) _) = execGet n >> return Nothing
 execInstruction i = fail $ "Not handled" ++ name i
 
 exec' :: Maybe Instruction -> VmState Value
 exec' (Just i) =
-    dbgStack
-        >> execInstruction (traceShowId i)
+    execInstruction i
         >>= maybe (incPc >> getNextInstruction >>= exec') return
 exec' Nothing = return $ N 0
 
-factCode :: [Instruction]
-factCode =
-    [ pushArg Nothing 0,
-      push Nothing (N 0),
-      call Nothing "eq",
-      jumpf Nothing (Left 2),
-      push Nothing (N 1),
-      ret Nothing,
-      pushArg Nothing 0,
-      push Nothing (N 1),
-      call Nothing "sub",
-      call Nothing "fact",
-      pushArg Nothing 0,
-      call Nothing "mul",
-      ret Nothing
-    ]
+-- factCode :: [Instruction]
+-- factCode =
+--     [ pushArg Nothing 0,
+--       push Nothing (N 0),
+--       call Nothing "eq",
+--       jumpf Nothing (Left 2),
+--       push Nothing (N 1),
+--       ret Nothing,
+--       pushArg Nothing 0,
+--       push Nothing (N 1),
+--       call Nothing "sub",
+--       call Nothing "fact",
+--       pushArg Nothing 0,
+--       call Nothing "mul",
+--       ret Nothing
+--     ]
 
 exec :: VmState Value
-exec = register ("fact", V $ Bi factCode) >> getNextInstruction >>= exec'
+exec = getNextInstruction >>= exec'

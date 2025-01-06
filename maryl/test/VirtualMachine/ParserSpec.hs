@@ -12,8 +12,10 @@ import Test.Hspec (Spec, describe, it, shouldBe)
 import VirtualMachine.Instructions (
     Value (..),
     call,
+    get,
     jump,
     jumpf,
+    load,
     push,
     pushArg,
     ret,
@@ -72,6 +74,24 @@ spec = do
         it "should parse a push list bool" $ do
             parseAssembly "push [true, false]"
                 `shouldBe` Right [push Nothing $ L [B True, B False]]
+        it "shoudl parse a get" $ do
+            parseAssembly "get \"hello\"" `shouldBe` Right [get Nothing "hello"]
+        it "shoudl parse a load" $ do
+            parseAssembly "load \"hello\" 1" `shouldBe` Right [load Nothing "hello" $ N 1]
+        it "shoudl parse a load with a label" $ do
+            parseAssembly ".test load \"hello\" 1" `shouldBe` Right [load (Just ".test") "hello" $ N 1]
+        it "shoudl parse a get with a label" $ do
+            parseAssembly ".test get \"hello\"" `shouldBe` Right [get (Just ".test") "hello"]
+        it "should fail on a load with int int" $ do
+            isLeft (parseAssembly "load 1 1") `shouldBe` True
+        it "should fail on a get with int" $ do
+            isLeft (parseAssembly "get 1") `shouldBe` True
+        it "should parse a call to a string" $ do
+            parseAssembly ".test call \"42\"" `shouldBe` Right [call (Just ".test") "42"]
+        it "should parse a call to a string without label" $ do
+            parseAssembly "call \"42\"" `shouldBe` Right [call Nothing "42"]
+        it "should fail on a call with int" $ do
+            isLeft (parseAssembly "call 1") `shouldBe` True
 
 -- it "should fail on list of bool and string" $ do
 --     isLeft (parseAssembly "push [true, \"false\"]") `shouldBe` True

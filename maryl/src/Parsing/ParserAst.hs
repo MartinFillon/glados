@@ -13,6 +13,8 @@ module Parsing.ParserAst (
     pIf,
     pElse,
     pReturn,
+    pList,
+    pExpr,
     operatorTable,
     binary,
     prefix,
@@ -30,7 +32,9 @@ module Parsing.ParserAst (
     convertValue,
     parseAST,
     ternary,
+    listVariables,
     listVariables',
+    getType,
     Ast (..),
     Function (..),
     Variable (..),
@@ -42,9 +46,8 @@ import Control.Monad.Combinators.Expr (
     Operator (..),
     makeExprParser,
  )
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 import Data.Void (Void)
-import Debug.Trace (trace)
 import Text.Megaparsec (
     MonadParsec (eof, try),
     ParseErrorBundle,
@@ -54,7 +57,6 @@ import Text.Megaparsec (
     empty,
     many,
     manyTill,
-    noneOf,
     optional,
     parse,
     sepBy,
@@ -62,13 +64,14 @@ import Text.Megaparsec (
     (<?>),
     (<|>),
  )
-import Text.Megaparsec.Char (char, letterChar, space1, string)
+import Text.Megaparsec.Char (char, letterChar, space1, string, alphaNumChar)
 import qualified Text.Megaparsec.Char.Lexer as L
+import Data.List (stripPrefix, isPrefixOf)
 
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
 
-data MarylType = String | Integer | Double | Char | Bool | Void | List MarylType | Undefined
+data MarylType = String | Integer | Double | Char | Bool | Void | List MarylType | Const MarylType | Undefined
     deriving (Eq, Ord, Show)
 
 data Function = Function
@@ -106,7 +109,7 @@ data Ast
     | AstDefineVar Variable
     | AstDefineFunc Function
     | AstList [Ast]
-    | AstListElem String Integer -- variable index
+    | AstListElem String [Integer] -- variable indexes
     deriving (Eq, Ord, Show)
 
 lineComment :: Parser ()
@@ -144,7 +147,7 @@ variable :: Parser String
 variable =
     (:)
         <$> (try letterChar <|> bonusChar)
-        <*> many (noneOf (" \t\n\r(),=;[]" :: [Char]))
+        <*> many (alphaNumChar <|> bonusChar)
         <?> "variable"
 
 integer :: Parser Integer
@@ -164,12 +167,17 @@ bool =
 pKeyword :: String -> Parser String
 pKeyword keyword = lexeme (string keyword)
 
-pListElem :: Parser Ast
-pListElem = do
-    v <- variable
+listElem :: Parser Integer
+listElem = do
     _ <- symbol "["
     i <- integer
     _ <- symbol "]"
+    return i
+
+pListElem :: Parser Ast
+pListElem = do
+    v <- variable
+    i <- some listElem
     return $ AstListElem v i
 
 convertValue :: Parser Ast
@@ -183,6 +191,7 @@ convertValue =
           AstChar <$> charLiteral,
           AstString <$> stringLiteral,
           AstBlock <$> block,
+          try pFunc,
           AstVar <$> lexeme variable
         ]
 
@@ -225,8 +234,10 @@ getType "string" = String
 getType "char" = Char
 getType "bool" = Bool
 getType "void" = Void
-getType ('[' : ']' : t) = List $ getType t
-getType _ = Undefined
+getType str
+    | "[]" `isPrefixOf` str = List $ getType (fromJust $ stripPrefix "[]" str)
+    | "const" `isPrefixOf` str = Const $ getType (dropWhile (\x -> x == ' ' || x == '\t') (fromJust $ stripPrefix "const" str))
+    | otherwise = Undefined
 
 optionalValue :: Parser (Maybe Ast)
 optionalValue = optional $ do
@@ -269,13 +280,7 @@ pLoop = do
     return $ AstLoop cond toDo
 
 pReturn :: Parser Ast
-pReturn =
-    string "return"
-        >> sc
-        >> choice
-            [ try pFunc,
-              pExpr
-            ]
+pReturn = string "return" >> sc >> (try pFunc <|> pExpr)
 
 pElse :: Parser (Maybe Ast)
 pElse = optional $ string "else" >> sc >> AstBlock <$> block >>= \b -> return b
@@ -301,7 +306,6 @@ pTerm =
         [ AstReturn <$> (pReturn <* semi),
           try pIf,
           try pLoop,
-          try pFunc <* semi,
           try pDeclarationFunc,
           try pDeclarationVar <* semi,
           try list,
@@ -324,7 +328,8 @@ operatorTable =
           prefix "-" (AstPrefixFunc "-"),
           prefix "++" (AstPrefixFunc "++"),
           prefix "+" id,
-          prefix "!" (AstPrefixFunc "!")
+          prefix "!" (AstPrefixFunc "!"),
+          prefix "~" (AstPrefixFunc "~")
         ],
         [ postfix "++" (AstPostfixFunc "++"),
           postfix "--" (AstPostfixFunc "--")
@@ -337,7 +342,10 @@ operatorTable =
         [ binary "+" (AstBinaryFunc "+"),
           binary "-" (AstBinaryFunc "-"),
           binary "|" (AstBinaryFunc "|"),
-          binary "&" (AstBinaryFunc "&")
+          binary "&" (AstBinaryFunc "&"),
+          binary ">>" (AstBinaryFunc ">>"),
+          binary "<<" (AstBinaryFunc "<<"),
+          binary "^" (AstBinaryFunc "^")
         ],
         [ binary "==" (AstBinaryFunc "=="),
           binary "!=" (AstBinaryFunc "!="),
@@ -346,11 +354,21 @@ operatorTable =
           binary "<" (AstBinaryFunc "<"),
           binary "<=" (AstBinaryFunc "<=")
         ],
-        [ binary "||" (AstBinaryFunc "||"),
-          binary "&&" (AstBinaryFunc "&&")
+        [ binary "or" (AstBinaryFunc "or"),
+          binary "and" (AstBinaryFunc "and")
         ],
-      [ternary AstTernary],
-      [binary "=" (AstBinaryFunc "=")]
+        [ternary AstTernary],
+        [ binary "=" (AstBinaryFunc "="),
+          binary "+=" (AstBinaryFunc "+="),
+          binary "-=" (AstBinaryFunc "-="),
+          binary "*=" (AstBinaryFunc "*="),
+          binary "/=" (AstBinaryFunc "/="),
+          binary "|=" (AstBinaryFunc "|="),
+          binary "&=" (AstBinaryFunc "&="),
+          binary "^=" (AstBinaryFunc "^="),
+          binary ">>=" (AstBinaryFunc ">>="),
+          binary "<<=" (AstBinaryFunc "<<=")
+        ]
     ]
 
 pExpr :: Parser Ast
