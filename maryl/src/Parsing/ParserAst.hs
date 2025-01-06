@@ -358,7 +358,17 @@ operatorTable =
           binary "and" (AstBinaryFunc "and")
         ],
         [ternary AstTernary],
-        [binary "=" (AstBinaryFunc "=")]
+        [ binary "=" (AstBinaryFunc "="),
+          binary "+=" (AstBinaryFunc "+="),
+          binary "-=" (AstBinaryFunc "-="),
+          binary "*=" (AstBinaryFunc "*="),
+          binary "/=" (AstBinaryFunc "/="),
+          binary "|=" (AstBinaryFunc "|="),
+          binary "&=" (AstBinaryFunc "&="),
+          binary "^=" (AstBinaryFunc "^="),
+          binary ">>=" (AstBinaryFunc ">>="),
+          binary "<<=" (AstBinaryFunc "<<=")
+        ]
     ]
 
 pExpr :: Parser Ast
