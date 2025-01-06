@@ -109,7 +109,7 @@ data Ast
     | AstDefineVar Variable
     | AstDefineFunc Function
     | AstList [Ast]
-    | AstListElem String Integer -- variable index
+    | AstListElem String [Integer] -- variable indexes
     deriving (Eq, Ord, Show)
 
 lineComment :: Parser ()
@@ -167,12 +167,17 @@ bool =
 pKeyword :: String -> Parser String
 pKeyword keyword = lexeme (string keyword)
 
-pListElem :: Parser Ast
-pListElem = do
-    v <- variable
+listElem :: Parser Integer
+listElem = do
     _ <- symbol "["
     i <- integer
     _ <- symbol "]"
+    return i
+
+pListElem :: Parser Ast
+pListElem = do
+    v <- variable
+    i <- many listElem
     return $ AstListElem v i
 
 convertValue :: Parser Ast
