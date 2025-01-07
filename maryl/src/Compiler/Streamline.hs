@@ -12,16 +12,23 @@ import Debug.Trace (trace)
 import Memory (Memory, readMemory)
 import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
 
-changeAtIdx :: Ast -> Int -> Ast -> Ast
-changeAtIdx (AstList elements) idx newVal | idx >= 0 && idx < length elements =
-        AstList (take idx elements ++ [newVal] ++ drop (idx + 1) elements)
-    | otherwise = error "Index out of bounds"
-changeAtIdx _ _ _ = error "Index out of bounds"
+changeAtIdx :: Ast -> [Integer] -> Ast -> Ast
+changeAtIdx (AstList elements) [idx] newVal
+    | fromIntegral idx >= 0 && fromIntegral idx < length elements =
+        AstList (take (fromIntegral idx) elements ++ [newVal] ++ drop (fromIntegral idx + 1) elements)
+    | otherwise = AstList elements
+changeAtIdx (AstList elements) (x : xs) newVal
+    | fromIntegral x >= 0 && fromIntegral x < length elements =
+        let current = elements !! fromIntegral x
+            updated = changeAtIdx current xs newVal
+         in AstList (take (fromIntegral x) elements ++ [updated] ++ drop (fromIntegral x + 1) elements)
+    | otherwise = AstList elements
+changeAtIdx ast _ _ = ast
 
 updateList :: String -> Ast -> Memory -> Ast -> (Ast, Memory)
-updateList listName (AstListElem _ (idx: _)) mem newVal =
+updateList listName (AstListElem _ idxs) mem newVal =
     case readMemory mem listName of
-        Just val -> (changeAtIdx val (fromIntegral idx) newVal, mem)
+        Just (AstList elements) -> (changeAtIdx (AstList elements) idxs newVal, mem)
         _ -> (AstVoid, mem)
 updateList _ ast mem _ = (ast, mem)
 
@@ -36,6 +43,7 @@ clarifyAST :: Ast -> Memory -> Ast
 -- clarifyAst (AstBinaryFunc op left right) mem = simplifyOp op left right
 clarifyAST (AstVar var) mem = fromMaybe AstVoid (readMemory mem var)
 clarifyAST ast mem = ast
+
 -- terner
 -- operators
 -- var

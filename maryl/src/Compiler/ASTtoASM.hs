@@ -26,10 +26,10 @@ handleAssignment :: Ast -> Ast -> Memory -> ([Instruction], Memory)
 handleAssignment (AstVar var) right mem =
     let newMem = updateMemory mem var (clarifyAST right mem)
      in ([], newMem)
-handleAssignment (AstListElem var (idx : xs)) right mem =
-    let (clarified, _) = updateList var (AstListElem var (idx : xs)) mem (clarifyAST right mem)
+handleAssignment (AstListElem var (x : xs)) right mem =
+    let (clarified, _) = updateList var (AstListElem var (x : xs)) mem (clarifyAST right mem)
         newMem = updateMemory mem var clarified
-     in (fst (translateAST (AstVar var) mem) ++ fst (translateAST (AstInt idx) mem) ++ fst (translateAST right mem) ++ [call Nothing "set"], newMem)
+     in (fst (translateAST (AstVar var) mem) ++ fst (translateAST (AstInt x) mem) ++ fst (translateAST right mem) ++ [call Nothing "set"], newMem)
 handleAssignment _ _ mem = ([], mem)
 
 -- (call defined Vars)
@@ -116,6 +116,11 @@ translateList (x : xs) mem = case associateTypes x mem of
     Just val -> val : translateList xs mem
     _ -> []
 
+translateMultIndexes :: [Integer] -> Memory -> [Instruction]
+translateMultIndexes (x : xs) mem =
+    fst (translateAST (AstInt x) mem) ++ [call Nothing "get"] ++ translateMultIndexes xs mem
+translateMultIndexes [] _ = []
+
 translateAST :: Ast -> Memory -> ([Instruction], Memory)
 translateAST (AstDefineVar (Variable varName _ varValue)) mem =
     ([], updateMemory mem varName varValue)
@@ -127,9 +132,11 @@ translateAST (AstFunc (Function funcName funcArgs _ _)) mem =
     (fst (translateArgs funcArgs mem 0 False) ++ [call Nothing ("." ++ funcName)], mem)
 translateAST (AstReturn ast) mem = (fst (translateAST ast mem) ++ [ret Nothing], mem)
 -- translateAST (AstPrefixFunc op ast) mem
--- translateAST (AstPostFunc op ast) mem
-translateAST (AstBinaryFunc "=" left right) mem = trace ("left " ++ show left ++ " right " ++ show right) $
-    handleAssignment left right mem
+translateAST (AstPostfixFunc "++" ast) mem = translateAST (AstBinaryFunc "=" ast (AstBinaryFunc "+" ast (AstInt 1))) mem
+translateAST (AstPostfixFunc "--" ast) mem = translateAST (AstBinaryFunc "=" ast (AstBinaryFunc "-" ast (AstInt 1))) mem
+translateAST (AstBinaryFunc "=" left right) mem =
+    trace ("left " ++ show left ++ " right " ++ show right) $
+        handleAssignment left right mem
 translateAST (AstBinaryFunc op left right) mem = translateBinaryFunc op left right mem
 translateAST (AstTernary cond doBlock elseBlock) mem =
     let (condInstructions, memAfterCond) = translateCondBlock' cond doBlock mem
@@ -145,7 +152,7 @@ translateAST (AstIf cond block elseifEles elseEle) mem =
 --         (blockInstructions, blockLength) = translateBlock' block memAfterCond
 --         allInstructions = condInstructions ++ blockInstructions ++ [jump ]
 --      in (allInstructions, finalMem)
-translateAST (AstBlock block) mem = 
+translateAST (AstBlock block) mem =
     let translatedASM = translateToASM block mem
      in (translatedASM, mem)
 translateAST AstVoid mem = ([], mem)
@@ -154,8 +161,7 @@ translateAST (AstBool b) mem = ([push Nothing (B b)], mem)
 translateAST (AstString s) mem = ([push Nothing (S s)], mem)
 translateAST (AstDouble d) mem = ([push Nothing (D d)], mem)
 translateAST (AstChar c) mem = ([push Nothing (S (c : ""))], mem)
-translateAST (AstList list) mem = ([push Nothing (L (translateList list mem) )], mem)
-translateAST (AstListElem var (idx : _)) mem =
-    (fst (translateAST (AstVar var) mem) ++ fst (translateAST (AstInt idx) mem) ++ [call Nothing "get"], mem)
--- handle mult now
+translateAST (AstList list) mem = ([push Nothing (L (translateList list mem))], mem)
+translateAST (AstListElem var idxs) mem =
+    (fst (translateAST (AstVar var) mem) ++ translateMultIndexes idxs mem, mem)
 translateAST _ mem = ([], mem)
