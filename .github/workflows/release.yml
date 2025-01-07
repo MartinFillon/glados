@@ -8,14 +8,15 @@ on:
 jobs:
   build:
     runs-on: self-hosted
-    container:
-      image: epitechcontent/epitest-docker:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Build
-        run: sudo make re && mv lisp/glados glados-lisp && mv maryl/glados glados-maryl
+        run: |
+          make re
+          mv lisp/glados glados-lisp
+          mv maryl/glados glados-maryl
 
       - name: Release
         uses: softprops/action-gh-release@v2
