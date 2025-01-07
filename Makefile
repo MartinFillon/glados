@@ -14,4 +14,6 @@ fclean:
 	make fclean -C lisp
 	make fclean -C maryl
 
+re: fclean all
+
 .PHONY: all lisp maryl clean fclean
