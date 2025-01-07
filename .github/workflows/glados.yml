@@ -31,9 +31,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Build {{ matrix.projects }}
+      - name: Build ${{ matrix.projects }}
         run: |
-          cd {{ matrix.projects }}
+          cd ${{ matrix.projects }}
           stack build --allow-different-user
           stack test --allow-different-user
 
