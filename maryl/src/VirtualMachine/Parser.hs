@@ -125,6 +125,21 @@ parseVal =
               try parseString
             ]
 
+parseFunctionHeader :: Parser String
+parseFunctionHeader = do
+    _ <- lexeme $ string ".header_function"
+    lexeme parseString'
+
+parseFunctionFooter :: Parser ()
+parseFunctionFooter = void $ lexeme $ string ".footer_function"
+
+parseFunction :: Parser (String, [Instruction])
+parseFunction = do
+    name <- parseFunctionHeader
+    body <- many parseKeyWords
+    parseFunctionFooter
+    return (name, body)
+
 parseLabel :: Parser String
 parseLabel = lexeme $ (:) <$> char '.' <*> many alphaNumChar
 
@@ -197,6 +212,9 @@ keyWords =
 parseKeyWords :: Parser Instruction
 parseKeyWords = choice $ map try keyWords
 
+parseData :: Parser (Either Instruction (String, [Instruction]))
+parseData = try (Right <$> parseFunction) <|> (Left <$> parseKeyWords)
+
 lineComment :: Parser ()
 lineComment = L.skipLineComment ";"
 
@@ -207,5 +225,7 @@ sc =
         lineComment
         empty
 
-parseAssembly :: String -> Either ParserError [Instruction]
-parseAssembly = parse (between sc eof (some parseKeyWords)) ""
+parseAssembly ::
+    String ->
+    Either ParserError [Either Instruction (String, [Instruction])]
+parseAssembly = parse (between sc eof (some parseData)) ""
