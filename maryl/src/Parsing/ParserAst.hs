@@ -217,6 +217,7 @@ convertValue =
           AstString <$> stringLiteral,
           AstBlock <$> block,
           try pFunc,
+          AstVoid <$ try (lexeme $ string "null"),
           AstVar <$> lexeme variable
         ]
 
