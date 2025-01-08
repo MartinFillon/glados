@@ -40,13 +40,17 @@ evalNode mem (AstReturn expr) = do
 evalNode mem (AstIf cond trueBranch elseIfBranches elseBranch) = do
   (condResult, mem') <- evalNode mem cond
   case condResult of
-    AstBool True -> evalAST mem' (extractBlock trueBranch)
+    AstBool True -> do
+      (evaluatedBlock, mem'') <- evalAST mem' (extractBlock trueBranch)
+      Right (AstBlock evaluatedBlock, mem'')
     AstBool False ->
       case elseIfBranches of
         (AstIf elifCond elifTrue [] Nothing : rest) ->
           evalNode mem' (AstIf elifCond elifTrue rest elseBranch)
         [] -> case elseBranch of
-          Just block -> evalAST mem' (extractBlock block)
+          Just block -> do
+            (evaluatedBlock, mem'') <- evalAST mem' (extractBlock block)
+            Right (AstBlock evaluatedBlock, mem'')
           Nothing -> Right (AstVoid, mem')
         _ -> Left "Invalid else-if structure"
     _ -> Left "Condition in if statement is not a boolean"
