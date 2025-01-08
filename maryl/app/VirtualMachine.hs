@@ -8,7 +8,7 @@
 module VirtualMachine (vm) where
 
 import Control.Exception (IOException, catch)
-import Control.Monad.State (evalStateT)
+import Control.Monad.State (evalStateT, foldM)
 import qualified Data.Map as Map
 import System.Exit (ExitCode (ExitFailure), exitSuccess, exitWith)
 import Utils (handleParseError, pError)
@@ -34,6 +34,11 @@ execParsed i =
         )
         >>= exit
 
-vm :: Maybe String -> IO ()
-vm Nothing = pError "A file is required for the vm to run"
-vm (Just s) = readFile s >>= (handleParseError True . parseAssembly) >>= execParsed
+parseOneFile :: FilePath -> IO [Instruction]
+parseOneFile s = readFile s >>= (handleParseError True . parseAssembly)
+
+vm :: [String] -> IO ()
+vm [] = pError "A file is required for the vm to run"
+vm files =
+    foldM (\a s -> (a ++) <$> parseOneFile s) [] files
+        >>= execParsed
