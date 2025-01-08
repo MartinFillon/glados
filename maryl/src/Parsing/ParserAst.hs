@@ -46,7 +46,8 @@ import Control.Monad.Combinators.Expr (
     Operator (..),
     makeExprParser,
  )
-import Data.Maybe (fromMaybe, fromJust)
+import Data.List (isPrefixOf, stripPrefix)
+import Data.Maybe (fromJust, fromMaybe)
 import Data.Void (Void)
 import Text.Megaparsec (
     MonadParsec (eof, try),
@@ -64,14 +65,13 @@ import Text.Megaparsec (
     (<?>),
     (<|>),
  )
-import Text.Megaparsec.Char (char, letterChar, space1, string, alphaNumChar)
+import Text.Megaparsec.Char (alphaNumChar, char, letterChar, space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
-import Data.List (stripPrefix, isPrefixOf)
 
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
 
-data MarylType = String | Integer | Double | Char | Bool | Void | List MarylType | Const MarylType | Undefined
+data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Undefined
     deriving (Eq, Ord, Show)
 
 data Function = Function
@@ -92,7 +92,7 @@ data Variable = Variable
 data Ast
     = AstVar String
     | AstVoid
-    | AstInt Integer
+    | AstInt Int
     | AstBool Bool
     | AstString String
     | AstChar Char
@@ -109,7 +109,7 @@ data Ast
     | AstDefineVar Variable
     | AstDefineFunc Function
     | AstList [Ast]
-    | AstListElem String [Integer] -- variable indexes
+    | AstListElem String [Int] -- variable indexes
     deriving (Eq, Ord, Show)
 
 lineComment :: Parser ()
@@ -150,7 +150,7 @@ variable =
         <*> many (alphaNumChar <|> bonusChar)
         <?> "variable"
 
-integer :: Parser Integer
+integer :: Parser Int
 integer = lexeme L.decimal
 
 double :: Parser Double
@@ -167,7 +167,7 @@ bool =
 pKeyword :: String -> Parser String
 pKeyword keyword = lexeme (string keyword)
 
-listElem :: Parser Integer
+listElem :: Parser Int
 listElem = do
     _ <- symbol "["
     i <- integer
@@ -228,7 +228,7 @@ types :: Parser String
 types = choice (map string (("[]" ++) <$> types')) <|> choice (map string types')
 
 getType :: String -> MarylType
-getType "int" = Integer
+getType "int" = Int
 getType "float" = Double
 getType "string" = String
 getType "char" = Char
@@ -357,7 +357,7 @@ operatorTable =
         [ binary "or" (AstBinaryFunc "or"),
           binary "and" (AstBinaryFunc "and")
         ],
-        [ternary AstTernary],
+      [ternary AstTernary],
         [ binary "=" (AstBinaryFunc "="),
           binary "+=" (AstBinaryFunc "+="),
           binary "-=" (AstBinaryFunc "-="),

@@ -6,11 +6,38 @@
 -}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
-module Eval.Evaluator (evalAST, evalNode) where
+module Eval.Evaluator (evalAST, evalNode, simplifyOp) where
 
+import qualified Data.Map as Map
 import Debug.Trace (trace)
+import Eval.Ops (evalAdd, evalDiv, evalMod, evalMul, evalSub)
 import Memory (Memory, freeMemory, readMemory, updateMemory)
 import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
+
+type FunctionRegistry =
+    Map.Map String (Memory -> Ast -> Ast -> Either String (Ast, Memory))
+
+defaultRegistry :: FunctionRegistry
+defaultRegistry =
+    Map.fromList
+        [ ("+", evalAdd),
+          ("-", evalSub),
+          ("*", evalMul),
+          ("/", evalDiv),
+          ("%", evalMod)
+          --   ("and", evalAnd),
+          --   ("or", evalOr)
+        ]
+
+maybeToEither :: String -> Maybe a -> Either String a
+maybeToEither err = maybe (Left err) Right
+
+simplifyOp :: Memory -> String -> Ast -> Ast -> Either String (Ast, Memory)
+simplifyOp m n left right =
+    maybeToEither
+        "Not a valid operator"
+        (Map.lookup n defaultRegistry)
+        >>= (\f -> f m left right)
 
 evalNode :: Memory -> Ast -> Either String (Ast, Memory)
 -- evalNode mem (AstVar name) =

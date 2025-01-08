@@ -33,7 +33,7 @@ spec = do
             fst (translateAST (AstChar 'a') initMemory) `shouldBe` [push Nothing (S "a")]
 
         it "translates AstDefineVar for integer" $
-            fst (translateAST (AstDefineVar (Variable "x" Integer (AstInt 42))) initMemory) `shouldBe` []
+            fst (translateAST (AstDefineVar (Variable "x" Int (AstInt 42))) initMemory) `shouldBe` []
 
         it "translates AstBinaryFunc for addition" $ do
             let ast = AstBinaryFunc "+" (AstInt 10) (AstInt 20)
@@ -53,7 +53,7 @@ spec = do
                            ]
 
 -- it "translates a function definition" $ do
---   let ast = AstDefineFunc (Function "add" [] [AstBinaryFunc "+" (AstInt 1) (AstInt 2)] Integer)
+--   let ast = AstDefineFunc (Function "add" [] [AstBinaryFunc "+" (AstInt 1) (AstInt 2)] Int)
 --   translateAST ast `shouldBe`
 --     [ pushArg Nothing 0,
 --       pushArg Nothing 1,

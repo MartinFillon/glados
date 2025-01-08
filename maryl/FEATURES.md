@@ -18,7 +18,7 @@ Example:
 Input:
 ```lisp
 (define foo 42)
-(Symbol "define", Symbol "foo", Integer 42)
+(Symbol "define", Symbol "foo", Int 42)
 ```
 
 ### 2. Error Handling
@@ -57,7 +57,7 @@ Input:
 ```
 Parsed AST:
 ```lisp
-List [Symbol "define", Symbol "foo", Integer 42]
+List [Symbol "define", Symbol "foo", Int 42]
 ```
 
 ### 4. Expression Evaluation
@@ -197,11 +197,11 @@ Evaluates one of the branches depending on **foo**
     **Tokenisation**:
     ```lisp
     (define foo 42)
-    [(, Symbol "define", Symbol "foo", Integer 42, )]
+    [(, Symbol "define", Symbol "foo", Int 42, )]
     ```
     ```lisp
     (+ 3 (* 2 4))
-    [(, Symbol "+", Integer 3, (, Symbol "*", Integer 2, Integer 4, ), )]
+    [(, Symbol "+", Int 3, (, Symbol "*", Int 2, Int 4, ), )]
     ```
     ```lisp
     (lambda (x) (* x x))
@@ -210,11 +210,11 @@ Evaluates one of the branches depending on **foo**
     **Parsing**:
     ```lisp
     (define foo 42)
-    List [Symbol "define", Symbol "foo", Integer 42]
+    List [Symbol "define", Symbol "foo", Int 42]
     ```
     ```lisp
     (+ 3 (* 2 4))
-    List [Symbol "+", Integer 3, List [Symbol "*", Integer 2, Integer 4]]
+    List [Symbol "+", Int 3, List [Symbol "*", Int 2, Int 4]]
     ```
     ```lisp
     (lambda (x) (* x x))

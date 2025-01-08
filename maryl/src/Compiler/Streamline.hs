@@ -9,19 +9,20 @@ module Compiler.Streamline (clarifyAST, updateList) where
 
 import Data.Maybe (fromMaybe)
 import Debug.Trace (trace)
+import Eval.Evaluator (simplifyOp)
 import Memory (Memory, readMemory)
-import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
+import Parsing.ParserAst (Ast (..))
 
-changeAtIdx :: Ast -> [Integer] -> Ast -> Ast
+changeAtIdx :: Ast -> [Int] -> Ast -> Ast
 changeAtIdx (AstList elements) [idx] newVal
-    | fromIntegral idx >= 0 && fromIntegral idx < length elements =
-        AstList (take (fromIntegral idx) elements ++ [newVal] ++ drop (fromIntegral idx + 1) elements)
+    | idx >= 0 && idx < length elements =
+        AstList (take idx elements ++ [newVal] ++ drop (idx + 1) elements)
     | otherwise = AstList elements
 changeAtIdx (AstList elements) (x : xs) newVal
-    | fromIntegral x >= 0 && fromIntegral x < length elements =
-        let current = elements !! fromIntegral x
+    | x >= 0 && x < length elements =
+        let current = elements !! x
             updated = changeAtIdx current xs newVal
-         in AstList (take (fromIntegral x) elements ++ [updated] ++ drop (fromIntegral x + 1) elements)
+         in AstList (take x elements ++ [updated] ++ drop (x + 1) elements)
     | otherwise = AstList elements
 changeAtIdx ast _ _ = ast
 
@@ -32,17 +33,20 @@ updateList listName (AstListElem _ idxs) mem newVal =
         _ -> (AstVoid, mem)
 updateList _ ast mem _ = (ast, mem)
 
--- simplifyOp :: String -> Ast -> Ast -> Ast
--- simplifyOp "+" left right = clarifyAST left mem + clarifyAST right mem
--- simplifyOp "-" left right = clarifyAST left mem - clarifyAST right mem
--- simplifyOp "*" left right = clarifyAST left mem * clarifyAST right mem
--- simplifyOp "/" left right = clarifyAST left mem `div` clarifyAST right mem
+-- simplifyOp :: String -> Ast -> Ast -> Memory -> Ast
+-- simplifyOp "+" left right mem = clarifyAST left mem + clarifyAST right mem
+-- simplifyOp "-" left right mem = clarifyAST left mem - clarifyAST right mem
+-- simplifyOp "*" left right mem = clarifyAST left mem * clarifyAST right mem
+-- simplifyOp "/" left right mem = clarifyAST left mem `div` clarifyAST right mem
 -- simplifyOp "%" left right = clarifyAST left mem % clarifyAST right mem
 
 clarifyAST :: Ast -> Memory -> Ast
--- clarifyAst (AstBinaryFunc op left right) mem = simplifyOp op left right
+clarifyAST (AstBinaryFunc op left right) mem =
+    case simplifyOp mem op (clarifyAST left mem) (clarifyAST right mem) of
+        Right (result, _) -> result
+        _ -> AstVoid
 clarifyAST (AstVar var) mem = fromMaybe AstVoid (readMemory mem var)
-clarifyAST ast mem = ast
+clarifyAST ast _ = ast
 
 -- terner
 -- operators
