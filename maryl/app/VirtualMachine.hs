@@ -35,14 +35,14 @@ execParsed i m =
         )
         >>= exit
 
-parseOneFile :: FilePath -> IO [Instruction]
+parseOneFile :: FilePath -> IO [Either Instruction (String, [Instruction])]
 parseOneFile s = readFile s >>= (handleParseError True . parseAssembly)
 
 vm :: [String] -> IO ()
 vm [] = pError "A file is required for the vm to run"
 vm files =
     foldM (\a s -> (a ++) <$> parseOneFile s) [] files
-        >>= execParsed
+        >>= uncurry execParsed . prepareParsed
 
 prepareParsed'' :: [Either Instruction (String, [Instruction])] -> Map String V
 prepareParsed'' [] = Map.fromList operators
@@ -57,9 +57,3 @@ prepareParsed' (_ : xs) = prepareParsed' xs
 prepareParsed ::
     [Either Instruction (String, [Instruction])] -> ([Instruction], Map String V)
 prepareParsed l = (prepareParsed' l, prepareParsed'' l)
-
-vm :: [String] -> IO ()
-vm [] = pError "A file is required for the vm to run"
-vm files =
-    (readFile s >>= (handleParseError True . parseAssembly))
-        >>= uncurry execParsed . prepareParsed
