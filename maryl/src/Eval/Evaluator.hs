@@ -19,12 +19,16 @@ evalNode :: Memory -> Ast -> Either String (Ast, Memory)
 --         Nothing -> Left $ "Undefined variable: " ++ name
 evalNode mem (AstDefineVar (Variable varName varType vVal)) =
     evalNode mem vVal >>= \(evaluatedExpr, updatedMem) ->
-        Right (AstDefineVar (Variable varName varType vVal), updateMemory updatedMem varName evaluatedExpr)
+        Right
+            ( AstDefineVar (Variable varName varType vVal),
+              updateMemory updatedMem varName evaluatedExpr
+            )
 evalNode mem (AstDefineFunc (Function funcName args body typ)) = do
     let newMem = freeMemory mem
      in evalAST newMem body >>= \(evaluatedBody, updatedMem) ->
             let evaluatedFunction = Function funcName args evaluatedBody typ
-             in Right (AstVoid, updateMemory updatedMem funcName (AstDefineFunc evaluatedFunction))
+             in Right
+                    (AstVoid, updateMemory updatedMem funcName (AstDefineFunc evaluatedFunction))
 evalNode mem rest = Right (rest, mem)
 
 evalAST :: Memory -> [Ast] -> Either String ([Ast], Memory)

@@ -11,7 +11,15 @@ import Debug.Trace (trace)
 import Eval.Evaluator (evalNode)
 import Memory (Memory, freeMemory, readMemory, updateMemory)
 import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
-import VirtualMachine.Instructions (Instruction (..), Value (..), call, jumpf, push, pushArg, ret)
+import VirtualMachine.Instructions (
+    Instruction (..),
+    Value (..),
+    call,
+    jumpf,
+    push,
+    pushArg,
+    ret,
+ )
 
 translateToASM :: [Ast] -> Memory -> [Instruction]
 translateToASM asts mem = fst $ foldl processAST ([], mem) asts
@@ -88,7 +96,11 @@ translateOpInst op = error ("Unsupported binary operator: " ++ op) -- dk how els
 
 translateBinaryFunc :: String -> Ast -> Ast -> Memory -> ([Instruction], Memory)
 translateBinaryFunc op left right mem =
-    (fst (translateAST left mem) ++ fst (translateAST right mem) ++ [translateOpInst op], mem)
+    ( fst (translateAST left mem)
+        ++ fst (translateAST right mem)
+        ++ [translateOpInst op],
+      mem
+    )
 
 translateAST :: Ast -> Memory -> ([Instruction], Memory)
 translateAST (AstDefineVar (Variable varName _ varValue)) mem =
@@ -101,7 +113,9 @@ translateAST (AstDefineFunc (Function _ funcArgs funcBody _)) mem =
                 ++ translateToASM funcBody newMem
      in (finalInstructions, newMem)
 translateAST (AstFunc (Function funcName funcArgs _ _)) mem =
-    (fst (translateArgs funcArgs mem 0 False) ++ [call Nothing ("." ++ funcName)], mem)
+    ( fst (translateArgs funcArgs mem 0 False) ++ [call Nothing ("." ++ funcName)],
+      mem
+    )
 translateAST (AstReturn ast) mem = (fst (translateAST ast mem) ++ [ret Nothing], mem)
 translateAST (AstBinaryFunc "=" left right) mem =
     handleAssignment left right mem
@@ -111,7 +125,11 @@ translateAST (AstIf cond block _ elseEle) mem =
         (blockInstructions, blockLength) = translateBlock' block memAfterCond -- cond
         -- elseif to do
         (elseInstructions, memAfterElse) = translateOptionalBlock elseEle memAfterCond -- else
-        allInstructions = condInstructions ++ [jumpf Nothing (Left blockLength)] ++ blockInstructions ++ elseInstructions
+        allInstructions =
+            condInstructions
+                ++ [jumpf Nothing (Left blockLength)]
+                ++ blockInstructions
+                ++ elseInstructions
      in (allInstructions, memAfterElse)
 translateAST (AstBlock block) mem = (translateToASM block mem, mem) -- always in scope so no mem
 translateAST AstVoid mem = ([], mem)
