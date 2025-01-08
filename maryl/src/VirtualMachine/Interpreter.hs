@@ -4,19 +4,15 @@
 -- File description:
 -- interpreter
 -}
-{-# LANGUAGE InstanceSigs #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-}
 {-# HLINT ignore "Use lambda-case" #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module VirtualMachine.Interpreter (
-    Numeric (..),
     exec,
-    operators,
 ) where
 
 import Control.Monad.State.Lazy (MonadState (get), evalStateT)
-import Data.Int (Int64)
 import VirtualMachine.Instructions (
     Inst (..),
     Instruction (..),
@@ -42,177 +38,23 @@ import VirtualMachine.State (
     register,
  )
 
-class Numeric a where
-    toDouble :: a -> Double
-    fromDouble :: Double -> Either String a
+-- operatorReadFile :: [Value] -> VmState [Value]
+-- operatorReadFile (S path : xs) = io $ do
+--     content <- readFile path
+--     return (S content : xs)
+-- operatorReadFile _ = fail "expects a string path"
 
-instance Numeric Int64 where
-    toDouble :: Int64 -> Double
-    toDouble = fromIntegral
-    fromDouble :: Double -> Either String Int64
-    fromDouble d =
-        if (fromIntegral (round d :: Int64) :: Double) == d
-            then Right (round d :: Int64)
-            else Left "Cant convert to Int64 without loss"
+-- operatorWriteFile :: [Value] -> VmState [Value]
+-- operatorWriteFile (S content : S path : xs) = io $ do
+--     writeFile path content
+--     return (N (fromIntegral $ length content) : xs)
+-- operatorWriteFile _ = fail "expects a string path and string content"
 
-instance Numeric Double where
-    toDouble :: Double -> Double
-    toDouble = id
-    fromDouble :: Double -> Either String Double
-    fromDouble = Right
-
--------------------------
--- operator operations --
-
--------------------------
-
-numericOp ::
-    (Double -> Double -> Double) -> Value -> Value -> Either String Value
-numericOp op (N x) (N y) = case fromDouble (op (toDouble x) (toDouble y)) of
-    Right n -> Right $ N n
-    Left _ -> Right $ D (op (toDouble x) (toDouble y))
-numericOp op (N x) (D y) = Right $ D (op (toDouble x) y)
-numericOp op (D x) (N y) = Right $ D (op x (toDouble y))
-numericOp op (D x) (D y) = Right $ D (op x y)
-numericOp _ _ _ = Left "Invalid numeric op"
-
-operatorAdd :: [Value] -> VmState [Value]
-operatorAdd (y : x : xs) = eitherS $ (: xs) <$> numericOp (+) x y
-operatorAdd _ = fail "expects two number"
-
-operatorSub :: [Value] -> VmState [Value]
-operatorSub (y : x : xs) = eitherS $ (: xs) <$> numericOp (-) x y
-operatorSub _ = fail "expects two number"
-
-operatorMul :: [Value] -> VmState [Value]
-operatorMul (y : x : xs) = eitherS $ (: xs) <$> numericOp (*) x y
-operatorMul _ = fail "expects two number"
-
-operatorDiv :: [Value] -> VmState [Value]
-operatorDiv (y : x : xs) =
-    case y of
-        N y' | y' == 0 -> fail "division by zero"
-        D y' | y' == 0.0 -> fail "division by zero"
-        _ -> eitherS $ (: xs) <$> numericOp (/) x y
-operatorDiv _ = fail "expects two number"
-
-operatorMod :: [Value] -> VmState [Value]
-operatorMod (N y : N x : xs)
-    | y == 0 = fail "modulo by zero"
-    | otherwise = return $ N (x `mod` y) : xs
-operatorMod _ = fail "xpects two int"
-
-operatorEq :: [Value] -> VmState [Value]
-operatorEq (x : y : xs) = return $ B (x == y) : xs
-operatorEq _ = fail "expects two value"
-
-operatorNEq :: [Value] -> VmState [Value]
-operatorNEq (x : y : xs) = return $ B (x /= y) : xs
-operatorNEq _ = fail "expects two value"
-
-operatorLt :: [Value] -> VmState [Value]
-operatorLt (y : x : xs) =
-    eitherS $
-        (: xs)
-            <$> case (x, y) of
-                (N a, N b) -> Right $ B (toDouble a < toDouble b)
-                (N a, D b) -> Right $ B (toDouble a < b)
-                (D a, N b) -> Right $ B (a < toDouble b)
-                (D a, D b) -> Right $ B (a < b)
-                _ -> Left "expects two number"
-operatorLt _ = fail "expects two number"
-
-operatorGt :: [Value] -> VmState [Value]
-operatorGt (y : x : xs) =
-    eitherS $
-        (: xs)
-            <$> case (x, y) of
-                (N a, N b) -> Right $ B (toDouble a > toDouble b)
-                (N a, D b) -> Right $ B (toDouble a > b)
-                (D a, N b) -> Right $ B (a > toDouble b)
-                (D a, D b) -> Right $ B (a > b)
-                _ -> Left "expects two number"
-operatorGt _ = fail "expects two number"
-
-operatorAnd :: [Value] -> VmState [Value]
-operatorAnd (B y : B x : xs) = return $ B (x && y) : xs
-operatorAnd _ = fail "And expects two bool"
-
-operatorOr :: [Value] -> VmState [Value]
-operatorOr (B y : B x : xs) = return $ B (x || y) : xs
-operatorOr _ = fail "Or expects two booleans"
-
-operatorPrint :: [Value] -> VmState [Value]
-operatorPrint (S s : xs) = io $ putStr s >> return (N (fromIntegral (length s)) : xs)
-operatorPrint (C c : xs) = io $ putChar c >> return (N 1 : xs)
-operatorPrint (val : xs) =
-    io $ (putStr . show) val >> return (N (fromIntegral (length (show val))) : xs)
-operatorPrint _ = fail "expects one val"
-
-operatorGet :: [Value] -> VmState [Value]
-operatorGet (N idx : L lst : xs)
-    | idx >= 0 && idx < fromIntegral (length lst) =
-        return $ (lst !! fromIntegral idx) : xs
-    | otherwise = fail "Index out of bound"
-operatorGet (N idx : S str : xs)
-    | idx >= 0 && idx < fromIntegral (length str) =
-        return $ C (str !! fromIntegral idx) : xs
-    | otherwise = fail "Index out of bound"
-operatorGet _ = fail "expects a list and an integer index"
-
-operatorSet :: [Value] -> VmState [Value]
-operatorSet (val : N idx : L lst : xs)
-    | idx >= 0 && idx < fromIntegral (length lst) =
-        return $
-            L (take (fromIntegral idx) lst ++ [val] ++ drop (fromIntegral idx + 1) lst)
-                : xs
-    | otherwise = fail "Index out of bound"
-operatorSet ((C ch) : N idx : S str : xs)
-    | idx >= 0 && idx < fromIntegral (length str) =
-        return $
-            S (take (fromIntegral idx) str ++ [ch] ++ drop (fromIntegral idx + 1) str)
-                : xs
-    | otherwise = fail "Index out of bound"
-operatorSet _ = fail "expects a list, an integer index, and a value"
-
-operatorReadFile :: [Value] -> VmState [Value]
-operatorReadFile (S path : xs) = io $ do
-    content <- readFile path
-    return (S content : xs)
-operatorReadFile _ = fail "expects a string path"
-
-operatorWriteFile :: [Value] -> VmState [Value]
-operatorWriteFile (S content : S path : xs) = io $ do
-    writeFile path content
-    return (N (fromIntegral $ length content) : xs)
-operatorWriteFile _ = fail "expects a string path and string content"
-
-operatorAppendFile :: [Value] -> VmState [Value]
-operatorAppendFile (S content : S path : xs) = io $ do
-    appendFile path content
-    return (N (fromIntegral $ length content) : xs)
-operatorAppendFile _ = fail "expects a string path and string content"
-
-operators :: [(String, V)]
-operators =
-    [ ("add", Op operatorAdd),
-      ("sub", Op operatorSub),
-      ("mul", Op operatorMul),
-      ("div", Op operatorDiv),
-      ("mod", Op operatorMod),
-      ("eq", Op operatorEq),
-      ("neq", Op operatorNEq),
-      ("less", Op operatorLt),
-      ("greater", Op operatorGt),
-      ("and", Op operatorAnd),
-      ("or", Op operatorOr),
-      ("get", Op operatorGet),
-      ("set", Op operatorSet),
-      ("print", Op operatorPrint),
-      ("readFile", Op operatorReadFile),
-      ("writeFile", Op operatorWriteFile),
-      ("appendFile", Op operatorAppendFile)
-    ]
+-- operatorAppendFile :: [Value] -> VmState [Value]
+-- operatorAppendFile (S content : S path : xs) = io $ do
+--     appendFile path content
+--     return (N (fromIntegral $ length content) : xs)
+-- operatorAppendFile _ = fail "expects a string path and string content"
 
 execRet :: [Value] -> Either String (Maybe Value)
 execRet [] = Left "No values on stack"
