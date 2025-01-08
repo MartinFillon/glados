@@ -16,41 +16,145 @@ parseAST' = parseAST
 
 spec :: Spec
 spec = do
-  describe "Parsing Maryl language constructs" $ do
-    context "Variable declaration" $ do
-      it "int foo = 42;" $ do
-        parseAST' "int foo = 42;"
-          `shouldBe` Right [AstDefineVar (Variable "foo" Integer (AstInt 42))]
+    describe "Parsing Maryl language constructs" $ do
+        context "Variable declaration" $ do
+            it "int foo = 42;" $ do
+                parseAST' "int foo = 42;"
+                    `shouldBe` Right [AstDefineVar (Variable "foo" Integer (AstInt 42))]
 
-      it "string name = \"John\";" $ do
-        parseAST' "string name = \"John\";"
-          `shouldBe` Right [AstDefineVar (Variable "name" String (AstString "John"))]
+            it "string name = \"John\";" $ do
+                parseAST' "string name = \"John\";"
+                    `shouldBe` Right [AstDefineVar (Variable "name" String (AstString "John"))]
 
-    context "Function declaration" $ do
-      it "int add(int a, int b) { return a + b; }" $ do
-        parseAST' "int add(int a, int b) { return a + b; }"
-          `shouldBe` Right [AstDefineFunc (Function "add" [AstDefineVar (Variable "a" Integer AstVoid), AstDefineVar (Variable "b" Integer AstVoid)] [AstReturn (AstBinaryFunc "+" (AstVar "a") (AstVar "b"))] Integer)]
+            it "bool isValid = true;" $ do
+                parseAST' "bool isValid = true;"
+                    `shouldBe` Right [AstDefineVar (Variable "isValid" Bool (AstBool True))]
 
-    context "If statement" $ do
-      it "if (a < b) { return a; } else { return b; }" $ do
-        parseAST' "if (a < b) { return a; } else { return b; }"
-          `shouldBe` Right [AstIf (AstBinaryFunc "<" (AstVar "a") (AstVar "b")) (AstBlock [AstReturn (AstVar "a")]) [] (Just (AstBlock [AstReturn (AstVar "b")]))]
+            it "double pi = 3.14;" $ do
+                parseAST' "double pi = 3.14;"
+                    `shouldBe` Right [AstDefineVar (Variable "pi" Double (AstDouble 3.14))]
 
-    context "While loop" $ do
-      it "while (i < 10) { i = i + 1; }" $ do
-        parseAST' "while (i < 10) { i = i + 1; }"
-          `shouldBe` Right [AstLoop (AstBinaryFunc "<" (AstVar "i") (AstInt 10)) (AstBlock [AstBinaryFunc "=" (AstVar "i") (AstBinaryFunc "+" (AstVar "i") (AstInt 1))])]
+            it "char letter = 'A';" $ do
+                parseAST' "char letter = 'A';"
+                    `shouldBe` Right [AstDefineVar (Variable "letter" Char (AstChar 'A'))]
 
-    context "List parsing" $ do
-      it "[1, 2, 3]" $ do
-        parseAST' "[1, 2, 3]"
-          `shouldBe` Right [AstList [AstInt 1, AstInt 2, AstInt 3]]
+        context "Function declaration" $ do
+            it "int add(int a, int b) { return a + b; }" $ do
+                parseAST' "int add(int a, int b) { return a + b; }"
+                    `shouldBe` Right [AstDefineFunc (Function "add" [AstDefineVar (Variable "a" Integer AstVoid), AstDefineVar (Variable "b" Integer AstVoid)] [AstReturn (AstBinaryFunc "+" (AstVar "a") (AstVar "b"))] Integer)]
 
-    context "Operator parsing" $ do
-      it "1 + 2 * 3" $ do
-        parseAST' "1 + 2 * 3;"
-          `shouldBe` Right [AstBinaryFunc "+" (AstInt 1) (AstBinaryFunc "*" (AstInt 2) (AstInt 3))]
+            it "void printHello() { }" $ do
+                parseAST' "void printHello() { }"
+                    `shouldBe` Right [AstDefineFunc (Function "printHello" [] [] Void)]
 
-    context "Invalid syntax" $ do
-      it "int = 42;" $ do
-        isLeft (parseAST' "int = 42;") `shouldBe` True
+            it "bool isEven(int x) { return x % 2 == 0; }" $ do
+                parseAST' "bool isEven(int x) { return x % 2 == 0; }"
+                    `shouldBe` Right [AstDefineFunc (Function "isEven" [AstDefineVar (Variable "x" Integer AstVoid)] [AstReturn (AstBinaryFunc "==" (AstBinaryFunc "%" (AstVar "x") (AstInt 2)) (AstInt 0))] Bool)]
+
+            it "string greet(string name) { return \"Hello, \" + name; }" $ do
+                parseAST' "string greet(string name) { return \"Hello, \" + name; }"
+                    `shouldBe` Right [AstDefineFunc (Function "greet" [AstDefineVar (Variable "name" String AstVoid)] [AstReturn (AstBinaryFunc "+" (AstString "Hello, ") (AstVar "name"))] String)]
+
+            it "char getFirstChar(string s) { return s[0]; }" $ do
+                parseAST' "char getFirstChar(string s) { return s[0]; }"
+                    `shouldBe` Right [AstDefineFunc (Function "getFirstChar" [AstDefineVar (Variable "s" String AstVoid)] [AstReturn (AstListElem "s" [0])] Char)]
+
+        context "If statement" $ do
+            it "if (a < b) { return a; } else { return b; }" $ do
+                parseAST' "if (a < b) { return a; } else { return b; }"
+                    `shouldBe` Right [AstIf (AstBinaryFunc "<" (AstVar "a") (AstVar "b")) (AstBlock [AstReturn (AstVar "a")]) [] (Just (AstBlock [AstReturn (AstVar "b")]))]
+
+            it "if (x == 0) { return 0; }" $ do
+                parseAST' "if (x == 0) { return 0; }"
+                    `shouldBe` Right [AstIf (AstBinaryFunc "==" (AstVar "x") (AstInt 0)) (AstBlock [AstReturn (AstInt 0)]) [] Nothing]
+
+            it "if (y > 10) { return y; } else if (y == 10) { return 0; }" $ do
+                parseAST' "if (y > 10) { return y; } else if (y == 10) { return 0; }"
+                    `shouldBe` Right [AstIf (AstBinaryFunc ">" (AstVar "y") (AstInt 10)) (AstBlock [AstReturn (AstVar "y")]) [AstIf (AstBinaryFunc "==" (AstVar "y") (AstInt 10)) (AstBlock [AstReturn (AstInt 0)]) [] Nothing] Nothing]
+
+            it "if (flag) { x = 1; }" $ do
+                parseAST' "if (flag) { x = 1; }"
+                    `shouldBe` Right [AstIf (AstVar "flag") (AstBlock [AstBinaryFunc "=" (AstVar "x") (AstInt 1)]) [] Nothing]
+
+            it "if (a && b) { return true; } else { return false; }" $ do
+                parseAST' "if (a && b) { return true; } else { return false; }"
+                    `shouldBe` Right [AstIf (AstBinaryFunc "and" (AstVar "a") (AstVar "b")) (AstBlock [AstReturn (AstBool True)]) [] (Just (AstBlock [AstReturn (AstBool False)]))]
+
+        context "While loop" $ do
+            it "while (i < 10) { i = i + 1; }" $ do
+                parseAST' "while (i < 10) { i = i + 1; }"
+                    `shouldBe` Right [AstLoop (AstBinaryFunc "<" (AstVar "i") (AstInt 10)) (AstBlock [AstBinaryFunc "=" (AstVar "i") (AstBinaryFunc "+" (AstVar "i") (AstInt 1))])]
+
+            it "while (true) { break; }" $ do
+                parseAST' "while (true) { break; }"
+                    `shouldBe` Right [AstLoop (AstBool True) (AstBlock [AstBreak])]
+
+            it "while (x != 0) { x = x - 1; }" $ do
+                parseAST' "while (x != 0) { x = x - 1; }"
+                    `shouldBe` Right [AstLoop (AstBinaryFunc "!=" (AstVar "x") (AstInt 0)) (AstBlock [AstBinaryFunc "=" (AstVar "x") (AstBinaryFunc "-" (AstVar "x") (AstInt 1))])]
+
+            it "while (n > 0) { n--; }" $ do
+                parseAST' "while (n > 0) { n--; }"
+                    `shouldBe` Right [AstLoop (AstBinaryFunc ">" (AstVar "n") (AstInt 0)) (AstBlock [AstPostfixFunc "--" (AstVar "n")])]
+
+            it "while (flag) { x = x * 2; }" $ do
+                parseAST' "while (flag) { x = x * 2; }"
+                    `shouldBe` Right [AstLoop (AstVar "flag") (AstBlock [AstBinaryFunc "=" (AstVar "x") (AstBinaryFunc "*" (AstVar "x") (AstInt 2))])]
+
+        context "List parsing" $ do
+            it "[1, 2, 3]" $ do
+                parseAST' "[1, 2, 3]"
+                    `shouldBe` Right [AstList [AstInt 1, AstInt 2, AstInt 3]]
+
+            it "[true, false, true]" $ do
+                parseAST' "[true, false, true]"
+                    `shouldBe` Right [AstList [AstBool True, AstBool False, AstBool True]]
+
+            it "[\"a\", \"b\"]" $ do
+                parseAST' "[\"a\", \"b\"]"
+                    `shouldBe` Right [AstList [AstString "a", AstString "b"]]
+
+            it "[1, [2, 3], 4]" $ do
+                parseAST' "[1, [2, 3], 4]"
+                    `shouldBe` Right [AstList [AstInt 1, AstList [AstInt 2, AstInt 3], AstInt 4]]
+
+            it "[]" $ do
+                parseAST' "[]"
+                    `shouldBe` Right [AstList []]
+
+        context "Operator parsing" $ do
+            it "1 + 2 * 3" $ do
+                parseAST' "1 + 2 * 3;"
+                    `shouldBe` Right [AstBinaryFunc "+" (AstInt 1) (AstBinaryFunc "*" (AstInt 2) (AstInt 3))]
+
+            it "(1 + 2) * 3" $ do
+                parseAST' "(1 + 2) * 3;"
+                    `shouldBe` Right [AstBinaryFunc "*" (AstBinaryFunc "+" (AstInt 1) (AstInt 2)) (AstInt 3)]
+
+            it "x = y = 42" $ do
+                parseAST' "x = y = 42;"
+                    `shouldBe` Right [AstBinaryFunc "=" (AstVar "x") (AstBinaryFunc "=" (AstVar "y") (AstInt 42))]
+
+            it "1 << 2 | 3" $ do
+                parseAST' "1 << 2 | 3;"
+                    `shouldBe` Right [AstBinaryFunc "|" (AstBinaryFunc "<<" (AstInt 1) (AstInt 2)) (AstInt 3)]
+
+            it "a && b || c" $ do
+                parseAST' "a && b || c;"
+                    `shouldBe` Right [AstBinaryFunc "or" (AstBinaryFunc "and" (AstVar "a") (AstVar "b")) (AstVar "c")]
+
+        context "Invalid syntax" $ do
+            it "int = 42;" $ do
+                isLeft (parseAST' "int = 42;") `shouldBe` True
+
+            it "if (x > 0 { return 1; }" $ do
+                isLeft (parseAST' "if (x > 0 { return 1; }") `shouldBe` True
+
+            it "while true { x++; }" $ do
+                isLeft (parseAST' "while true { x++; }") `shouldBe` True
+
+            it "[1, 2,]" $ do
+                isLeft (parseAST' "[1, 2,]") `shouldBe` True
+
+            it "a = b +;" $ do
+                isLeft (parseAST' "a = b +;") `shouldBe` True
