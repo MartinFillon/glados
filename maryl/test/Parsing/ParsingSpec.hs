@@ -1,11 +1,11 @@
 {-
--- Tests for the Maryl language parser
--- EPITECH PROJECT, 2024
+-- EPITECH PROJECT, 2025
+-- glados
 -- File description:
--- ParserAstSpec
+-- ParsingSpec
 -}
 
-module ParserAstSpec (spec) where
+module Parsing.ParsingSpec (spec) where
 
 import Data.Either (isLeft)
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), ParserError, Variable (..), parseAST)
