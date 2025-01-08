@@ -33,13 +33,6 @@ updateList listName (AstListElem _ idxs) mem newVal =
         _ -> (AstVoid, mem)
 updateList _ ast mem _ = (ast, mem)
 
--- simplifyOp :: String -> Ast -> Ast -> Memory -> Ast
--- simplifyOp "+" left right mem = clarifyAST left mem + clarifyAST right mem
--- simplifyOp "-" left right mem = clarifyAST left mem - clarifyAST right mem
--- simplifyOp "*" left right mem = clarifyAST left mem * clarifyAST right mem
--- simplifyOp "/" left right mem = clarifyAST left mem `div` clarifyAST right mem
--- simplifyOp "%" left right = clarifyAST left mem % clarifyAST right mem
-
 clarifyAST :: Ast -> Memory -> Ast
 clarifyAST (AstBinaryFunc op left right) mem =
     case simplifyOp mem op (clarifyAST left mem) (clarifyAST right mem) of
@@ -49,5 +42,4 @@ clarifyAST (AstVar var) mem = fromMaybe AstVoid (readMemory mem var)
 clarifyAST ast _ = ast
 
 -- terner
--- operators
--- var
+-- func
