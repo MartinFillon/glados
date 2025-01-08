@@ -172,7 +172,7 @@ bool =
 listElem :: Parser Int
 listElem = between (symbol "[") (symbol "]") integer
 
-listElem' :: Parser [Integer]
+listElem' :: Parser [Int]
 listElem' = between (symbol "[") (symbol "]") (integer `sepBy` lexeme ",")
 
 -- | Parsing access to an element of a list formatted: foo[index]. Multiple dimensions can be accessed by adding the index after, formatted like so: foo[i][j] or foo[i,j].
@@ -187,7 +187,7 @@ pListElem = do
 
     Double (0.42)
 
-    Integer (23)
+    Int (23)
 
     List element (foo[0])
 
