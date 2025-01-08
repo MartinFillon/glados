@@ -18,9 +18,20 @@ import VirtualMachine.Operators.Logical (
     operatorOr,
  )
 
-import VirtualMachine.Operators.Binary (binaryAnd, binaryOr, binaryXor)
+import VirtualMachine.Operators.Binary (
+    binaryAnd,
+    binaryOr,
+    binaryShiftL,
+    binaryShiftR,
+    binaryXor,
+ )
 import VirtualMachine.Operators.IO (operatorPrint)
-import VirtualMachine.Operators.Lists (operatorGet, operatorSet)
+import VirtualMachine.Operators.Lists (
+    listPop,
+    listPush,
+    operatorGet,
+    operatorSet,
+ )
 import VirtualMachine.State (V (Op))
 
 operators :: [(String, V)]
@@ -42,5 +53,9 @@ operators =
       ("print", Op operatorPrint),
       ("band", Op binaryAnd),
       ("bor", Op binaryOr),
-      ("xor", Op binaryXor)
+      ("xor", Op binaryXor),
+      ("shiftR", Op binaryShiftR),
+      ("shiftL", Op binaryShiftL),
+      ("listPop", Op listPop),
+      ("listPush", Op listPush)
     ]

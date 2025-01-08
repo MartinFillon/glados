@@ -5,9 +5,9 @@
 -- Binary
 -}
 
-module VirtualMachine.Operators.Binary (binaryAnd, binaryOr, binaryXor) where
+module VirtualMachine.Operators.Binary (binaryAnd, binaryOr, binaryXor, binaryShiftR, binaryShiftL) where
 
-import Data.Bits (Bits (xor, (.|.)), (.&.))
+import Data.Bits (Bits (shiftL, shiftR, xor, (.|.)), (.&.))
 import Data.Int (Int64)
 import VirtualMachine.Instructions (Value (..))
 import VirtualMachine.State (VmState, eitherS)
@@ -28,3 +28,11 @@ binaryOr _ = fail "expects two number"
 binaryXor :: [Value] -> VmState [Value]
 binaryXor (y : x : xs) = eitherS $ (: xs) <$> binaryOp xor x y
 binaryXor _ = fail "expects two number"
+
+binaryShiftR :: [Value] -> VmState [Value]
+binaryShiftR (N n : N v : xs) = pure $ N (shiftR v (fromIntegral n)) : xs
+binaryShiftR _ = fail "expects two ints"
+
+binaryShiftL :: [Value] -> VmState [Value]
+binaryShiftL (N n : N v : xs) = pure $ N (shiftL v (fromIntegral n)) : xs
+binaryShiftL _ = fail "expects two ints"
