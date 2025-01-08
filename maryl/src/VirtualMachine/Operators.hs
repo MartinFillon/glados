@@ -9,6 +9,7 @@ import VirtualMachine.Operators.Mathematicals (
  )
 
 import VirtualMachine.Operators.Logical (
+    logicalNot,
     operatorAnd,
     operatorEq,
     operatorGt,
@@ -17,6 +18,7 @@ import VirtualMachine.Operators.Logical (
     operatorOr,
  )
 
+import VirtualMachine.Operators.Binary (binaryAnd, binaryOr, binaryXor)
 import VirtualMachine.Operators.IO (operatorPrint)
 import VirtualMachine.Operators.Lists (operatorGet, operatorSet)
 import VirtualMachine.State (V (Op))
@@ -29,6 +31,7 @@ operators =
       ("div", Op operatorDiv),
       ("mod", Op operatorMod),
       ("eq", Op operatorEq),
+      ("not", Op logicalNot),
       ("neq", Op operatorNEq),
       ("less", Op operatorLt),
       ("greater", Op operatorGt),
@@ -36,5 +39,8 @@ operators =
       ("or", Op operatorOr),
       ("get", Op operatorGet),
       ("set", Op operatorSet),
-      ("print", Op operatorPrint)
+      ("print", Op operatorPrint),
+      ("band", Op binaryAnd),
+      ("bor", Op binaryOr),
+      ("xor", Op binaryXor)
     ]

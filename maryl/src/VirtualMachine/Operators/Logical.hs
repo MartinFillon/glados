@@ -5,7 +5,15 @@
 -- Logical
 -}
 
-module VirtualMachine.Operators.Logical (operatorEq, operatorNEq, operatorLt, operatorGt, operatorAnd, operatorOr) where
+module VirtualMachine.Operators.Logical (
+    operatorEq,
+    operatorNEq,
+    operatorLt,
+    operatorGt,
+    operatorAnd,
+    operatorOr,
+    logicalNot,
+) where
 
 import Numeric (Numeric (..))
 import VirtualMachine.Instructions (Value (B, D, N))
@@ -50,3 +58,7 @@ operatorAnd _ = fail "And expects two bool"
 operatorOr :: [Value] -> VmState [Value]
 operatorOr (B y : B x : xs) = return $ B (x || y) : xs
 operatorOr _ = fail "Or expects two booleans"
+
+logicalNot :: [Value] -> VmState [Value]
+logicalNot (B y : xs) = return $ B (not y) : xs
+logicalNot _ = fail "Or expects two booleans"
