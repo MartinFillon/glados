@@ -59,6 +59,10 @@ spec = do
                 parseAST' "char getFirstChar(string s) { return s[0]; }"
                     `shouldBe` Right [AstDefineFunc (Function "getFirstChar" [AstDefineVar (Variable "s" String AstVoid)] [AstReturn (AstListElem "s" [0])] Char)]
 
+            it "void emptyFunction() { }" $ do
+                parseAST' "void emptyFunction() { }"
+                    `shouldBe` Right [AstDefineFunc (Function "emptyFunction" [] [] Void)]
+
         context "If statement" $ do
             it "if (a < b) { return a; } else { return b; }" $ do
                 parseAST' "if (a < b) { return a; } else { return b; }"
@@ -80,6 +84,10 @@ spec = do
                 parseAST' "if (a && b) { return true; } else { return false; }"
                     `shouldBe` Right [AstIf (AstBinaryFunc "and" (AstVar "a") (AstVar "b")) (AstBlock [AstReturn (AstBool True)]) [] (Just (AstBlock [AstReturn (AstBool False)]))]
 
+            it "if (x > y) { return max; } else if (x < y) { return min; } else { return equal; }" $ do
+                parseAST' "if (x > y) { return max; } else if (x < y) { return min; } else { return equal; }"
+                    `shouldBe` Right [AstIf (AstBinaryFunc ">" (AstVar "x") (AstVar "y")) (AstBlock [AstReturn (AstVar "max")]) [AstIf (AstBinaryFunc "<" (AstVar "x") (AstVar "y")) (AstBlock [AstReturn (AstVar "min")]) [] Nothing] (Just (AstBlock [AstReturn (AstVar "equal")]))]
+
         context "While loop" $ do
             it "while (i < 10) { i = i + 1; }" $ do
                 parseAST' "while (i < 10) { i = i + 1; }"
@@ -92,6 +100,14 @@ spec = do
             it "while (x != 0) { x = x - 1; }" $ do
                 parseAST' "while (x != 0) { x = x - 1; }"
                     `shouldBe` Right [AstLoop (AstBinaryFunc "!=" (AstVar "x") (AstInt 0)) (AstBlock [AstBinaryFunc "=" (AstVar "x") (AstBinaryFunc "-" (AstVar "x") (AstInt 1))])]
+
+            it "while (flag) { continue; }" $ do
+                parseAST' "while (flag) { continue; }"
+                    `shouldBe` Right [AstLoop (AstVar "flag") (AstBlock [AstVoid])]
+
+            it "while (count < 100) { count += 10; }" $ do
+                parseAST' "while (count < 100) { count += 10; }"
+                    `shouldBe` Right [AstLoop (AstBinaryFunc "<" (AstVar "count") (AstInt 100)) (AstBlock [AstBinaryFunc "+=" (AstVar "count") (AstInt 10)])]
 
             it "while (n > 0) { n--; }" $ do
                 parseAST' "while (n > 0) { n--; }"
@@ -158,3 +174,18 @@ spec = do
 
             it "a = b +;" $ do
                 isLeft (parseAST' "a = b +;") `shouldBe` True
+
+            it "return; void 42;" $ do
+                isLeft (parseAST' "return; void 42;") `shouldBe` True
+
+            it "if (a > b) return max;" $ do
+                isLeft (parseAST' "if (a > b) return max;") `shouldBe` True
+
+            it "int 123 = foo;" $ do
+                isLeft (parseAST' "int 123 = foo;") `shouldBe` True
+
+            it "bool invalid true;" $ do
+                isLeft (parseAST' "bool invalid true;") `shouldBe` True
+
+            it "void func(int x) return x;" $ do
+                isLeft (parseAST' "void func(int x) return x;") `shouldBe` True
