@@ -14,7 +14,7 @@ all: $(NAME)
 
 $(NAME):
 	$(shell stack build --allow-different-user)
-	cp $(BIN_PATH)/bin/$(NAME)-exe $(NAME)
+	cp $(BIN_PATH)/bin/$(NAME)-lisp-exe $(NAME)
 
 clean:
 	stack clean --allow-different-user

@@ -1,0 +1,17 @@
+#dependencies
+.stack-work
+*.lock
+
+#editors
+.vscode
+.idea
+.cache
+
+*.log
+*.cabal
+glados
+*.lisp
+*.tix
+.hpc
+*.html
+*.asm

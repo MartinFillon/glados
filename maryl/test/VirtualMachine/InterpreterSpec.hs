@@ -7,193 +7,251 @@
 
 module VirtualMachine.InterpreterSpec (spec) where
 
-import Test.Hspec (Spec, describe, it, shouldBe)
+import Control.Monad.State (evalStateT)
+import Data.Map (Map)
 import qualified Data.Map as Map
-import VirtualMachine.Interpreter (
-    Value(..),
-    Inst(..),
-    initialMemory,
-    exec
-    )
+import Test.Hspec (Spec, describe, it, shouldReturn)
+import VirtualMachine.Instructions (
+    Instruction,
+    Value (..),
+    call,
+    get,
+    jump,
+    jumpf,
+    load,
+    push,
+    pushArg,
+    ret,
+ )
+import VirtualMachine.Interpreter (exec, operators)
+import VirtualMachine.State (V (..), initialState)
 
-factCode :: [Inst]
+factCode :: [Instruction]
 factCode =
-    [
-        PushArg 0,
-        Push (N 0),
-        Call "eq",
-        JumpIfFalse 2,
-        Push (N 1),
-        Ret,
-        PushArg 0,
-        Push (N 1),
-        Call "sub",
-        Call "fact",
-        PushArg 0,
-        Call "mul",
-        Ret
+    [ pushArg Nothing 0,
+      push Nothing (N 0),
+      call Nothing "eq",
+      jumpf Nothing (Left 2),
+      push Nothing (N 1),
+      ret Nothing,
+      pushArg Nothing 0,
+      push Nothing (N 1),
+      call Nothing "sub",
+      call Nothing "fact",
+      pushArg Nothing 0,
+      call Nothing "mul",
+      ret Nothing
     ]
+
+factCode' :: [Instruction]
+factCode' =
+    [ pushArg (Just ".fact") 0,
+      push Nothing (N 0),
+      call Nothing "eq",
+      jumpf Nothing (Left 2),
+      push Nothing (N 1),
+      ret Nothing,
+      pushArg Nothing 0,
+      push Nothing (N 1),
+      call Nothing "sub",
+      call Nothing ".fact",
+      pushArg Nothing 0,
+      call Nothing "mul",
+      ret Nothing
+    ]
+
+execTest :: [Instruction] -> IO Value
+execTest is = evalStateT exec (initialState is (Map.fromList operators) [])
+
+execTest' :: [Instruction] -> Map String V -> IO Value
+execTest' is m = evalStateT exec (initialState is m [])
 
 spec :: Spec
 spec = do
     describe "VirtualMachine Interpreter Spec" $ do
         it "should execute factorial" $ do
-            let mem = Map.insert "fact" (Bi factCode) initialMemory
-                args = []
-                code = [Push (N 5), Call "fact", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (N 120)
+            let mem = Map.insert "fact" (V $ Bi factCode) (Map.fromList operators)
+                code = [push Nothing (N 5), call Nothing "fact", ret Nothing]
+            execTest' code mem `shouldReturn` N 120
+
+        it "should execute factorial from label" $ do
+            let code = [push Nothing (N 5), call Nothing ".fact", ret Nothing] ++ factCode'
+            execTest code `shouldReturn` N 120
 
         it "should execute addition 10 + 30 + 20" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (N 10), Push (N 30), Call "add", Push (N 20), Call "add", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (N 60)
+            execTest
+                [ push Nothing (N 10),
+                  push Nothing (N 30),
+                  call Nothing "add",
+                  push Nothing (N 20),
+                  call Nothing "add",
+                  ret Nothing
+                ]
+                `shouldReturn` N 60
 
         it "should execute mixed addition (5 + 3.14)" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (N 5), Push (D 3.14), Call "add", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (D 8.14)
+            execTest
+                [ push Nothing (N 5),
+                  push Nothing (D 3.14),
+                  call Nothing "add",
+                  ret Nothing
+                ]
+                `shouldReturn` D 8.14
 
-        it "should execute mixed multiplication (2.5 * 3)" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (D 2.5), Push (N 3), Call "mul", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (D 7.5)
+        it "should execute mixed multiplication (2.5 * 3)" $
+            do
+                execTest
+                    [ push Nothing (D 2.5),
+                      push Nothing (N 3),
+                      call Nothing "mul",
+                      ret Nothing
+                    ]
+                `shouldReturn` D 7.5
 
-        it "should execute subtraction 30 - 10.5" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (F 30), Push (F 10.5), Call "sub", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (F 19.5)
+        it "should execute subtraction 30 - 10.5" $
+            do
+                execTest
+                    [push Nothing (D 30), push Nothing (D 10.5), call Nothing "sub", ret Nothing]
+                    `shouldReturn` D 19.5
 
-        it "should execute division 40 / 8" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (N 40), Push (N 8), Call "div", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (N 5)
+        it "should execute division 40 / 8" $
+            do
+                execTest
+                    [push Nothing (N 40), push Nothing (N 8), call Nothing "div", ret Nothing]
+                `shouldReturn` N 5
 
-        it "should execute mixed division (5.0 / 2)" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (D 5.0), Push (N 2), Call "div", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (D 2.5)
+        it "should execute mixed division (5.0 / 2)" $
+            do
+                execTest
+                    [push Nothing (D 5.0), push Nothing (N 2), call Nothing "div", ret Nothing]
+                `shouldReturn` D 2.5
 
-        it "should execute modulo 10 % 3" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (N 10), Push (N 3), Call "mod", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (N 1)
+        it "should execute modulo 10 % 3" $
+            do
+                execTest
+                    [push Nothing (N 10), push Nothing (N 3), call Nothing "mod", ret Nothing]
+                `shouldReturn` N 1
 
-        it "should execute mixed comparison 3.14 > 3" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (D 3.14), Push (N 3), Call "greater", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (B True)
+        it "should execute mixed comparison 3.14 > 3" $
+            do
+                execTest
+                    [push Nothing (D 3.14), push Nothing (N 3), call Nothing "greater", ret Nothing]
+                `shouldReturn` B True
 
-        it "should execute addition 10 + 30 + 20 with mixed types" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (N 10), Push (D 30), Call "add", Push (N 20), Call "add", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (D 60)
+        it "should execute addition 10 + 30 + 20 with mixed types" $
+            do
+                execTest
+                    [ push Nothing (N 10),
+                      push Nothing (D 30),
+                      call Nothing "add",
+                      push Nothing (N 20),
+                      call Nothing "add",
+                      ret Nothing
+                    ]
+                `shouldReturn` D 60
 
-        it "should execute subtraction 30 - 10" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (N 30), Push (N 10), Call "sub", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (N 20)
+        it "should execute subtraction 30 - 10" $
+            do
+                execTest
+                    [push Nothing (N 30), push Nothing (N 10), call Nothing "sub", ret Nothing]
+                `shouldReturn` N 20
 
-        it "should execute multiplication 6 * 7" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (N 6), Push (N 7), Call "mul", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (N 42)
+        it "should execute multiplication 6 * 7" $
+            do
+                execTest
+                    [push Nothing (N 6), push Nothing (N 7), call Nothing "mul", ret Nothing]
+                `shouldReturn` N 42
 
-        it "should execute division 40 / 8" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (N 40), Push (N 8), Call "div", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (N 5)
+        it "should execute division 40 / 8" $
+            do
+                execTest
+                    [push Nothing (N 40), push Nothing (N 8), call Nothing "div", ret Nothing]
+                `shouldReturn` N 5
 
-        it "should execute modulo 10 % 3" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (N 10), Push (N 3), Call "mod", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (N 1)
+        it "should execute modulo 10 % 3" $
+            do
+                execTest
+                    [push Nothing (N 10), push Nothing (N 3), call Nothing "mod", ret Nothing]
+                `shouldReturn` N 1
 
-        it "should execute equality Hello == Hello" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (S "hELLO"), Push (S "hELLO"), Call "eq", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (B True)
+        it "should execute equality Hello == Hello" $
+            do
+                execTest
+                    [ push Nothing (S "hELLO"),
+                      push Nothing (S "hELLO"),
+                      call Nothing "eq",
+                      ret Nothing
+                    ]
+                `shouldReturn` B True
 
-        it "should execute less than 3 < 5" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (N 3), Push (N 5), Call "less", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (B True)
+        it "should execute less than 3 < 5" $
+            do
+                execTest
+                    [push Nothing (N 3), push Nothing (N 5), call Nothing "less", ret Nothing]
+                `shouldReturn` B True
 
-        it "should execute greater than 10 > 2" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (N 10), Push (N 2), Call "greater", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (B True)
+        it "should execute greater than 10 > 2" $
+            do
+                execTest
+                    [push Nothing (N 10), push Nothing (N 2), call Nothing "greater", ret Nothing]
+                `shouldReturn` B True
 
-        it "should execute logical and true && false" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (B True), Push (B False), Call "and", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (B False)
+        it "should execute logical and true && false" $
+            do
+                execTest
+                    [push Nothing (B True), push Nothing (B False), call Nothing "and", ret Nothing]
+                `shouldReturn` B False
 
-        it "should execute logical or true || false" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (B True), Push (B False), Call "or", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (B True)
+        it "should execute logical or true || false" $
+            do
+                execTest
+                    [push Nothing (B True), push Nothing (B False), call Nothing "or", ret Nothing]
+                `shouldReturn` B True
 
-        it "should execute print length of 'Hello'" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (S "Hello"), Call "print", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (N 5)
+        it "should execute print length of 'Hello'" $
+            do
+                execTest [push Nothing (S "Hello"), call Nothing "print", ret Nothing]
+                `shouldReturn` N 5
 
-        it "should get element at index 1" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (L [N 1, N 2, N 3]), Push (N 1), Call "get", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (N 2)
+        it "should get element at index 1" $
+            do
+                execTest
+                    [ push Nothing (L [N 1, N 2, N 3]),
+                      push Nothing (N 1),
+                      call Nothing "get",
+                      ret Nothing
+                    ]
+                `shouldReturn` N 2
 
-        it "should set element at index 1" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (L [N 1, N 2, N 3]), Push (N 1), Push (N 8), Call "set", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (L [N 1, N 8, N 3])
+        it "should set element at index 1" $
+            do
+                execTest
+                    [ push Nothing (L [N 1, N 2, N 3]),
+                      push Nothing (N 1),
+                      push Nothing (N 8),
+                      call Nothing "set",
+                      ret Nothing
+                    ]
+                `shouldReturn` L [N 1, N 8, N 3]
 
-        it "should execute jump test" $ do
-            let mem = initialMemory
-                args = []
-                code = [Push (N 10), Jump 1, Push (N 2), Ret, Push (N 3), Call "add", Ret]
-            result <- exec mem args code []
-            result `shouldBe` Right (N 10)
+        it "should execute jump test" $
+            do
+                execTest
+                    [ push Nothing (N 10),
+                      jump Nothing (Left 1),
+                      push Nothing (N 2),
+                      ret Nothing,
+                      push Nothing (N 3),
+                      call Nothing "add",
+                      ret Nothing
+                    ]
+                `shouldReturn` N 10
+
+        it "should set element in memory and retrieve it" $
+            do
+                execTest
+                    [ load Nothing "v" $ N 42,
+                      get Nothing "v",
+                      ret Nothing
+                    ]
+                `shouldReturn` N 42

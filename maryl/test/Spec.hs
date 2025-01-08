@@ -9,18 +9,16 @@ module Main (main) where
 
 import Test.Hspec (describe, hspec)
 
-import EvalAstSpec (spec)
+import Compiler.SerializeSpec (spec)
+import Compiler.TranslationSpec (spec)
 import PrinterSpec (spec)
-import SExprParserSpec (spec)
-import SExprToAstSpec (spec)
-import VirtualMachine.ParserSpec (spec)
 import VirtualMachine.InterpreterSpec (spec)
+import VirtualMachine.ParserSpec (spec)
 
 main :: IO ()
 main = hspec $ do
     describe "Printer test" PrinterSpec.spec
-    describe "SExpr Parser test" SExprParserSpec.spec
-    describe "Eval Ast test" EvalAstSpec.spec
-    describe "SExprToAst test" SExprToAstSpec.spec
     describe "VirtualMachine Parser spec" VirtualMachine.ParserSpec.spec
     describe "VirtualMachine Interpreter spec" VirtualMachine.InterpreterSpec.spec
+    describe "Compiler Translation spec" Compiler.TranslationSpec.spec
+    describe "Compiler Serializing spec" Compiler.SerializeSpec.spec

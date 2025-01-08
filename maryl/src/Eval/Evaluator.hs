@@ -5,71 +5,37 @@
 -- Evaluator
 -}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Use fromMaybe" #-}
 
-module Eval.Evaluator (evalAST) where
+module Eval.Evaluator (evalAST, evalNode) where
 
-import Control.Monad (foldM)
-import qualified Data.Map as Map
-import Memory (Memory, readMemory, updateMemory)
-import Parsing.ParserAst (Ast(..), Function(..))
+import Debug.Trace (trace)
+import Memory (Memory, freeMemory, readMemory, updateMemory)
+import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
 
-type FunctionRegistry =
-    Map.Map String (Memory -> [Ast] -> Either String (Ast, Memory))
+evalNode :: Memory -> Ast -> Either String (Ast, Memory)
+-- evalNode mem (AstVar name) =
+--     case readMemory mem name of
+--         Just value -> Right (value, mem)
+--         Nothing -> Left $ "Undefined variable: " ++ name
+evalNode mem (AstDefineVar (Variable varName varType vVal)) =
+    evalNode mem vVal >>= \(evaluatedExpr, updatedMem) ->
+        Right
+            ( AstDefineVar (Variable varName varType vVal),
+              updateMemory updatedMem varName evaluatedExpr
+            )
+evalNode mem (AstDefineFunc (Function funcName args body typ)) = do
+    let newMem = freeMemory mem
+     in evalAST newMem body >>= \(evaluatedBody, updatedMem) ->
+            let evaluatedFunction = Function funcName args evaluatedBody typ
+             in Right
+                    (AstVoid, updateMemory updatedMem funcName (AstDefineFunc evaluatedFunction))
+evalNode mem rest = Right (rest, mem)
 
-defaultRegistry :: FunctionRegistry
-defaultRegistry =
-    Map.fromList
-        [ ("+", evalBinaryOp AstInt (+)),
-          ("-", evalBinaryOp AstInt (-)),
-          ("*", evalBinaryOp AstInt (*)),
-          ("/", evalBinaryOp AstInt div),
-          ("%", evalBinaryOp AstInt mod)
-        ]
-
--- Helper function to evaluate binary operators
-evalBinaryOp :: (Integer -> Ast) -> (Integer -> Integer -> Integer) -> Memory -> [Ast] -> Either String (Ast, Memory)
-evalBinaryOp constructor op mem [AstInt x, AstInt y] =
-    Right (constructor (x `op` y), mem)
-evalBinaryOp _ _ _ _ = Left "Invalid arguments for binary operator"
-
-evalAST :: Memory -> Ast -> Either String (Ast, Memory)
-evalAST mem (AstInt i) = Right (AstInt i, mem)
-evalAST mem (AstBool b) = Right (AstBool b, mem)
-evalAST mem (AstString s) = Right (AstString s, mem)
-evalAST mem (AstChar c) = Right (AstChar c, mem)
-evalAST mem AstVoid = Right (AstVoid, mem)
-evalAST mem (AstVar name) =
-    maybe (Left $ "Undefined variable: " ++ name) (\val -> Right (val, mem)) (readMemory mem name)
-evalAST mem (AstBinaryFunc op left right) = do
-    (evaluatedLeft, mem') <- evalAST mem left
-    (evaluatedRight, mem'') <- evalAST mem' right
-    case Map.lookup op defaultRegistry of
-        Just func -> func mem'' [evaluatedLeft, evaluatedRight]
-        Nothing -> Left $ "Unknown operator: " ++ op
-
-evalAST mem (AstDefineVar var) =
-    let name = vName var
-        value = vValue var
-    in evalAST mem value >>= \(evaluatedValue, updatedMem) ->
-           Right (AstVoid, updateMemory updatedMem name evaluatedValue)
-
-evalAST mem (AstIf cond thenBranch elseIfs maybeElse) = do
-    (AstBool condResult, mem') <- evalAST mem cond
-    if condResult
-        then evalAST mem' thenBranch
-        else evalElseIfs mem' elseIfs maybeElse
-  where
-    evalElseIfs :: Memory -> [Ast] -> Maybe Ast -> Either String (Ast, Memory)
-    evalElseIfs mem [] (Just elseBranch) = evalAST mem elseBranch
-    evalElseIfs mem [] Nothing = Right (AstVoid, mem)
-    evalElseIfs mem (AstIf cond body _ _ : rest) maybeElse = do
-        (AstBool condResult, mem') <- evalAST mem cond
-        if condResult
-            then evalAST mem' body
-            else evalElseIfs mem' rest maybeElse
-    evalElseIfs _ _ _ = Left "Malformed else-if structure"
-
-evalAST mem (AstReturn expr) = evalAST mem expr
-
-evalAST _ _ = Left "Unhandled AST node"
+evalAST :: Memory -> [Ast] -> Either String ([Ast], Memory)
+evalAST mem [] = Right ([], mem)
+evalAST mem (ast : asts) =
+    case evalNode mem ast of
+        Left err -> Left err
+        Right (transformedAst, updatedMem) ->
+            evalAST updatedMem asts >>= \(restAst, finalMem) ->
+                Right (transformedAst : restAst, finalMem)

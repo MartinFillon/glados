@@ -1,0 +1,11 @@
+.start push 5
+push 3
+call ".add1"
+ret
+
+.add1 pushArg 0
+pushArg 1
+push 1
+call "add"
+ret
+
