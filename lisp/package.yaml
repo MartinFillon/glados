@@ -1,4 +1,4 @@
-name: glados
+name: glados-lisp
 version: 0.1.0.0
 github: "MartinFillon/gladdos"
 license: BSD-3-Clause
@@ -45,7 +45,7 @@ library:
   source-dirs: src
 
 executables:
-  glados-exe:
+  glados-lisp-exe:
     main: Main.hs
     source-dirs: app
     ghc-options:
@@ -53,10 +53,10 @@ executables:
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
-      - glados
+      - glados-lisp
 
 tests:
-  glados-test:
+  glados-lisp-test:
     main: Spec.hs
     source-dirs: test
     ghc-options:
@@ -65,6 +65,6 @@ tests:
       - -with-rtsopts=-N
       - -fhpc
     dependencies:
-      - glados
+      - glados-lisp
       - hspec
       - hspec-megaparsec

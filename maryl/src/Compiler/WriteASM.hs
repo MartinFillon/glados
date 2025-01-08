@@ -5,7 +5,14 @@
 -- WriteASM
 -}
 
-module Compiler.WriteASM (serializeInstructions, serializeFunction, serializeInstArgs, serializeInstruction, serializeMemoryFunctions, writeInstructionsToFile) where
+module Compiler.WriteASM (
+    serializeInstructions,
+    serializeFunction,
+    serializeInstArgs,
+    serializeInstruction,
+    serializeMemoryFunctions,
+    writeInstructionsToFile,
+) where
 
 import Compiler.ASTtoASM (translateAST)
 import qualified Data.Map as Map

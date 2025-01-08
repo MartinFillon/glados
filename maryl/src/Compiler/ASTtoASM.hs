@@ -150,7 +150,9 @@ translateAST (AstDefineFunc (Function _ funcArgs funcBody _)) mem =
     let newMem = freeMemory mem
      in (fst (translateArgs funcArgs newMem 0 True) ++ translateToASM funcBody newMem, newMem)
 translateAST (AstFunc (Function funcName funcArgs _ _)) mem =
-    (fst (translateArgs funcArgs mem 0 False) ++ [call Nothing ("." ++ funcName)], mem)
+    ( fst (translateArgs funcArgs mem 0 False) ++ [call Nothing ("." ++ funcName)],
+      mem
+    )
 translateAST (AstReturn ast) mem = (fst (translateAST ast mem) ++ [ret Nothing], mem)
 translateAST (AstPrefixFunc "++" ast) mem = translateAST (AstBinaryFunc "=" ast (AstBinaryFunc "+" ast (AstInt 1))) mem -- check differences
 translateAST (AstPrefixFunc "--" ast) mem = translateAST (AstBinaryFunc "=" ast (AstBinaryFunc "-" ast (AstInt 1))) mem

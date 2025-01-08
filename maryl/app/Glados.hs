@@ -94,7 +94,7 @@ getContentFromStdin mem =
     hIsTerminalDevice stdin
         >>= getLineFromStdin mem ""
 
-glados :: Mode -> Maybe String -> IO ()
-glados Compile (Just filepath) = Monad.void (getContentFromFile initMemory filepath)
-glados Compile Nothing = getContentFromStdin initMemory
+glados :: Mode -> [String] -> IO ()
+glados Compile (filepath : _) = Monad.void (getContentFromFile initMemory filepath)
+glados Compile [] = getContentFromStdin initMemory
 glados Vm x = vm x

@@ -17,7 +17,6 @@ module VirtualMachine.Interpreter (
 
 import Control.Monad.State.Lazy (MonadState (get), evalStateT)
 import Data.Int (Int64)
-import Debug.Trace (traceShowId)
 import VirtualMachine.Instructions (
     Inst (..),
     Instruction (..),
@@ -145,6 +144,7 @@ operatorOr _ = fail "Or expects two booleans"
 
 operatorPrint :: [Value] -> VmState [Value]
 operatorPrint (S s : xs) = io $ putStr s >> return (N (fromIntegral (length s)) : xs)
+operatorPrint (C c : xs) = io $ putChar c >> return (N 1 : xs)
 operatorPrint (val : xs) =
     io $ (putStr . show) val >> return (N (fromIntegral (length (show val))) : xs)
 operatorPrint _ = fail "expects one val"
@@ -154,6 +154,10 @@ operatorGet (N idx : L lst : xs)
     | idx >= 0 && idx < fromIntegral (length lst) =
         return $ (lst !! fromIntegral idx) : xs
     | otherwise = fail "Index out of bound"
+operatorGet (N idx : S str : xs)
+    | idx >= 0 && idx < fromIntegral (length str) =
+        return $ C (str !! fromIntegral idx) : xs
+    | otherwise = fail "Index out of bound"
 operatorGet _ = fail "expects a list and an integer index"
 
 operatorSet :: [Value] -> VmState [Value]
@@ -161,6 +165,12 @@ operatorSet (val : N idx : L lst : xs)
     | idx >= 0 && idx < fromIntegral (length lst) =
         return $
             L (take (fromIntegral idx) lst ++ [val] ++ drop (fromIntegral idx + 1) lst)
+                : xs
+    | otherwise = fail "Index out of bound"
+operatorSet ((C ch) : N idx : S str : xs)
+    | idx >= 0 && idx < fromIntegral (length str) =
+        return $
+            S (take (fromIntegral idx) str ++ [ch] ++ drop (fromIntegral idx + 1) str)
                 : xs
     | otherwise = fail "Index out of bound"
 operatorSet _ = fail "expects a list, an integer index, and a value"
@@ -204,7 +214,7 @@ execCall s =
                         >>= appendStack
                 Nothing ->
                     getInstructionIdxAtLabel s
-                        >>= ( \r -> case traceShowId r of
+                        >>= ( \r -> case r of
                                 Just idx ->
                                     (copyVm' idx <$> getStack <*> get >>= (io . evalStateT exec))
                                         >>= appendStack
@@ -259,23 +269,6 @@ exec' (Just i) =
     execInstruction i
         >>= maybe (incPc >> getNextInstruction >>= exec') return
 exec' Nothing = return $ N 0
-
--- factCode :: [Instruction]
--- factCode =
---     [ pushArg Nothing 0,
---       push Nothing (N 0),
---       call Nothing "eq",
---       jumpf Nothing (Left 2),
---       push Nothing (N 1),
---       ret Nothing,
---       pushArg Nothing 0,
---       push Nothing (N 1),
---       call Nothing "sub",
---       call Nothing "fact",
---       pushArg Nothing 0,
---       call Nothing "mul",
---       ret Nothing
---     ]
 
 exec :: VmState Value
 exec = getNextInstruction >>= exec'
