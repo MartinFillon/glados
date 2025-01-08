@@ -30,8 +30,8 @@ spec = do
                 parseAST' "bool isValid = true;"
                     `shouldBe` Right [AstDefineVar (Variable "isValid" Bool (AstBool True))]
 
-            it "double pi = 3.14;" $ do
-                parseAST' "double pi = 3.14;"
+            it "float pi = 3.14;" $ do
+                parseAST' "float pi = 3.14;"
                     `shouldBe` Right [AstDefineVar (Variable "pi" Double (AstDouble 3.14))]
 
             it "char letter = 'A';" $ do
