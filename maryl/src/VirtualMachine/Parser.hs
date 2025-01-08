@@ -40,6 +40,9 @@ import VirtualMachine.Instructions (
     push,
     pushArg,
     ret,
+    vmReadFile,
+    vmWriteFile,
+    vmAppendFile,
  )
 
 type Parser = Parsec Void String
@@ -197,6 +200,15 @@ parseGet = lexeme (parseInstruction get "get" parseString')
 parseLoad :: Parser Instruction
 parseLoad = lexeme (parseInstruction2A load "load" parseString' parseVal)
 
+parseReadFile :: Parser Instruction
+parseReadFile = lexeme (parseInstruction vmReadFile "readFile" parseString')
+
+parseWriteFile :: Parser Instruction
+parseWriteFile = lexeme (parseInstruction2A vmWriteFile "writeFile" parseString' parseString')
+
+parseAppendFile :: Parser Instruction
+parseAppendFile = lexeme (parseInstruction2A vmAppendFile "appendFile" parseString' parseString')
+
 keyWords :: [Parser Instruction]
 keyWords =
     [ parseRet,
@@ -206,7 +218,10 @@ keyWords =
       parseCall,
       parsePush,
       parseGet,
-      parseLoad
+      parseLoad,
+      parseReadFile,
+      parseWriteFile,
+      parseAppendFile
     ]
 
 parseKeyWords :: Parser Instruction
