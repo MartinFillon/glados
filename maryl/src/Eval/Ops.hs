@@ -13,6 +13,12 @@ import GHC.Float (double2Int, int2Double)
 import Memory (Memory)
 import Parsing.ParserAst (Ast (..))
 
+-- Booleans
+
+--TODO
+
+-- Maths
+
 isNumeric :: Ast -> Bool
 isNumeric (AstInt _) = True
 isNumeric (AstDouble _) = True

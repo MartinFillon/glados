@@ -49,21 +49,27 @@ serializeFunction nameVal func =
 
 serializeMemoryFunctions :: Memory -> String
 serializeMemoryFunctions mem =
-    unlines $ Map.foldrWithKey extractFunction [] mem
+    let (serializedFuncs, _) = Map.foldlWithKey extractFunction ([], mem) mem
+     in unlines serializedFuncs
   where
-    extractFunction key (AstDefineFunc val) acc
+    extractFunction (acc, currentMem) key (AstDefineFunc val)
         | key /= "start" =
-            serializeFunction key (fst (translateAST (AstDefineFunc val) mem)) : acc
-        | otherwise = acc
-    extractFunction _ _ acc = acc -- != AstDefineFunc
+            let (instructions, updatedMem) = translateAST (AstDefineFunc val) currentMem
+                serializedFunc = serializeFunction key instructions
+             in (acc ++ [serializedFunc], updatedMem)
+    extractFunction accAndMem _ _ = accAndMem -- != AstDefineFunc
 
-serializeMain :: Memory -> String
+serializeMain :: Memory -> (String, Memory)
 serializeMain mem =
-    unlines $ Map.foldrWithKey extractFunction [] mem
-  where
-    extractFunction "start" ast acc = serializeFunction "start" (fst (translateAST ast mem)) : acc
-    extractFunction _ _ acc = acc -- != entrypoint
-
+    let extractFunction (acc, currentMem) "start" ast =
+            let (instructions, updatedMem) = translateAST ast currentMem
+                serializedFunc = serializeFunction "start" instructions
+             in (acc ++ [serializedFunc], updatedMem)
+        extractFunction accAndMem _ _ = accAndMem -- Ignore other entries
+        (serializedMain, latestMem) = Map.foldlWithKey extractFunction ([], mem) mem
+     in (unlines serializedMain, latestMem)
+     
 writeInstructionsToFile :: FilePath -> Memory -> IO ()
 writeInstructionsToFile filePath mem =
-    writeFile filePath (serializeMain mem ++ serializeMemoryFunctions mem)
+    let (mainInstructions, updatedMem) = serializeMain mem
+     in writeFile filePath (mainInstructions ++ serializeMemoryFunctions updatedMem)

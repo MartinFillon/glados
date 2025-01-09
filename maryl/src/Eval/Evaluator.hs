@@ -11,7 +11,7 @@ module Eval.Evaluator (evalAST, evalNode, simplifyOp) where
 import qualified Data.Map as Map
 import Debug.Trace (trace)
 import Eval.Ops (evalAdd, evalDiv, evalMod, evalMul, evalSub)
-import Memory (Memory, freeMemory, readMemory, updateMemory)
+import Memory (Memory, addMemory, freeMemory, readMemory, updateMemory)
 import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
 
 type FunctionRegistry =
@@ -46,16 +46,19 @@ evalNode :: Memory -> Ast -> Either String (Ast, Memory)
 --         Nothing -> Left $ "Undefined variable: " ++ name
 evalNode mem (AstDefineVar (Variable varName varType vVal)) =
     evalNode mem vVal >>= \(evaluatedExpr, updatedMem) ->
-        Right
-            ( AstDefineVar (Variable varName varType vVal),
-              updateMemory updatedMem varName evaluatedExpr
-            )
-evalNode mem (AstDefineFunc (Function funcName args body typ)) = do
-    let newMem = freeMemory mem
-     in evalAST newMem body >>= \(evaluatedBody, updatedMem) ->
+        case addMemory updatedMem varName evaluatedExpr of
+            Right finalMem -> Right
+                ( AstDefineVar (Variable varName varType vVal),
+                finalMem
+                )
+            Left err -> Left $ "Failed to define var (" ++ err ++ ")"
+evalNode mem (AstDefineFunc (Function funcName args body typ)) =
+    let clearedMem = freeMemory mem
+     in evalAST clearedMem body >>= \(evaluatedBody, updatedMem) ->
             let evaluatedFunction = Function funcName args evaluatedBody typ
-             in Right
-                    (AstVoid, updateMemory updatedMem funcName (AstDefineFunc evaluatedFunction))
+            in case addMemory updatedMem funcName (AstDefineFunc evaluatedFunction) of
+                Right finalMem -> Right (AstVoid, finalMem)
+                Left err -> Left $ "Failed to define function (" ++ err ++ ")"
 evalNode mem rest = Right (rest, mem)
 
 evalAST :: Memory -> [Ast] -> Either String ([Ast], Memory)
