@@ -50,10 +50,10 @@ spec = do
         it "translates a list of Ast nodes" $ do
             let asts = [AstInt 10, AstBool False, AstString "test"]
             translateToASM asts initMemory
-                `shouldBe` [ push Nothing (N 10),
+                `shouldBe` ([ push Nothing (N 10),
                              push Nothing (B False),
                              push Nothing (S "test")
-                           ]
+                           ], initMemory)
 
 -- it "translates a function definition" $ do
 --   let ast = AstDefineFunc (Function "add" [] [AstBinaryFunc "+" (AstInt 1) (AstInt 2)] Int)

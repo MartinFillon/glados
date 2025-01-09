@@ -65,7 +65,7 @@ serializeMain mem =
             let (instructions, updatedMem) = translateAST ast currentMem
                 serializedFunc = serializeFunction "start" instructions
              in (acc ++ [serializedFunc], updatedMem)
-        extractFunction accAndMem _ _ = accAndMem -- Ignore other entries
+        extractFunction accAndMem _ _ = accAndMem
         (serializedMain, latestMem) = Map.foldlWithKey extractFunction ([], mem) mem
      in (unlines serializedMain, latestMem)
      
