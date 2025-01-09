@@ -29,6 +29,8 @@ import VirtualMachine.Interpreter (exec)
 import VirtualMachine.Operators (operators)
 import VirtualMachine.State (V (..), initialState)
 
+import qualified VirtualMachine.Operators.LogicSpec as LogicSpec
+
 factCode :: [Instruction]
 factCode =
     [ pushArg Nothing 0,
@@ -72,6 +74,7 @@ execTest' is m = evalStateT exec (initialState is m [])
 spec :: Spec
 spec = do
     describe "VirtualMachine Interpreter Spec" $ do
+        LogicSpec.spec
         it "should execute factorial" $ do
             let mem = Map.insert "fact" (V $ Bi factCode) (Map.fromList operators)
                 code = [push Nothing (N 5), call Nothing "fact", ret Nothing]
@@ -176,40 +179,6 @@ spec = do
                 execTest
                     [push Nothing (N 10), push Nothing (N 3), call Nothing "mod", ret Nothing]
                 `shouldReturn` N 1
-
-        it "should execute equality Hello == Hello" $
-            do
-                execTest
-                    [ push Nothing (S "hELLO"),
-                      push Nothing (S "hELLO"),
-                      call Nothing "eq",
-                      ret Nothing
-                    ]
-                `shouldReturn` B True
-
-        it "should execute less than 3 < 5" $
-            do
-                execTest
-                    [push Nothing (N 3), push Nothing (N 5), call Nothing "less", ret Nothing]
-                `shouldReturn` B True
-
-        it "should execute greater than 10 > 2" $
-            do
-                execTest
-                    [push Nothing (N 10), push Nothing (N 2), call Nothing "greater", ret Nothing]
-                `shouldReturn` B True
-
-        it "should execute logical and true && false" $
-            do
-                execTest
-                    [push Nothing (B True), push Nothing (B False), call Nothing "and", ret Nothing]
-                `shouldReturn` B False
-
-        it "should execute logical or true || false" $
-            do
-                execTest
-                    [push Nothing (B True), push Nothing (B False), call Nothing "or", ret Nothing]
-                `shouldReturn` B True
 
         it "should execute print length of 'Hello'" $
             do
