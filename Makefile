@@ -16,4 +16,4 @@ fclean:
 
 re: fclean all
 
-.PHONY: all lisp maryl clean fclean
+PHONY: all lisp maryl clean fclean re
