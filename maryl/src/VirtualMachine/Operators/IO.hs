@@ -16,12 +16,13 @@ module VirtualMachine.Operators.IO (
     opOpenFile,
     opCloseHandle,
     opWriteHandle,
+    opReadHandle,
+    opGetLineHandle,
 ) where
 
 import Data.Functor ((<&>))
 import Data.Int (Int64)
-import Debug.Trace (trace)
-import GHC.IO.Handle (Handle, hPutChar, hPutStr)
+import GHC.IO.Handle (Handle, hGetContents, hGetLine, hPutChar, hPutStr)
 import System.IO (IOMode (AppendMode, ReadMode, ReadWriteMode, WriteMode), hClose, openFile)
 import VirtualMachine.Instructions (Value (..))
 import VirtualMachine.State (VmState, getHandleInMemory, io, ioCatch, registerHandle)
@@ -71,12 +72,10 @@ opCloseHandle' (Left _) = pure $ N 0
 
 opCloseHandle :: [Value] -> VmState [Value]
 opCloseHandle (N hdl : xs) =
-    trace
-        ("Closing handle n " ++ show hdl)
-        ( getHandleInMemory hdl
-            >>= (\h -> trace (show h) $ ioCatch (hClose h) (-1))
-            >>= opCloseHandle'
-        )
+    ( getHandleInMemory hdl
+        >>= (\h -> ioCatch (hClose h) (-1))
+        >>= opCloseHandle'
+    )
         <&> (: xs)
 opCloseHandle xs = pure (N (-1) : xs)
 
@@ -122,3 +121,25 @@ opWriteHandle (h'@(N hdl) : v : xs) =
     )
         <&> (: h' : xs)
 opWriteHandle xs = pure $ N (-1) : xs
+
+opReadHandle' :: Either String Int64 -> VmState Value
+opReadHandle' (Left s) = pure $ S s
+opReadHandle' (Right n) = pure $ N n
+
+opReadHandle :: [Value] -> VmState [Value]
+opReadHandle (N hdl : xs) =
+    ( getHandleInMemory hdl
+        >>= (\h -> ioCatch (hGetContents h) (-1))
+        >>= opReadHandle'
+    )
+        <&> (: xs)
+opReadHandle xs = pure (N (-1) : xs)
+
+opGetLineHandle :: [Value] -> VmState [Value]
+opGetLineHandle (N hdl : xs) =
+    ( getHandleInMemory hdl
+        >>= (\h -> ioCatch (hGetLine h) (-1))
+        >>= opReadHandle'
+    )
+        <&> (: xs)
+opGetLineHandle xs = pure (N (-1) : xs)

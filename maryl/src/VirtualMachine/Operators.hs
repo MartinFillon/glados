@@ -33,12 +33,15 @@ import VirtualMachine.Operators.Binary (
     binaryXor,
  )
 import VirtualMachine.Operators.IO (
+    opCloseHandle,
+    opGetLineHandle,
     opOpenFile,
+    opReadHandle,
     opWriteHandle,
     operatorAppendFile,
     operatorPrint,
     operatorReadFile,
-    operatorWriteFile, opCloseHandle,
+    operatorWriteFile,
  )
 import VirtualMachine.Operators.Lists (
     listPop,
@@ -77,5 +80,7 @@ operators =
       ("listPush", Op listPush),
       ("open", Op opOpenFile),
       ("close", Op opCloseHandle),
-      ("write", Op opWriteHandle)
+      ("write", Op opWriteHandle),
+      ("read", Op opReadHandle),
+      ("getLine", Op opGetLineHandle)
     ]

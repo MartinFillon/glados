@@ -24,8 +24,6 @@ import VirtualMachine.State (
     appendStack,
     copyVm,
     copyVm',
-    dbg,
-    dbgStack,
     eitherS,
     getArgs,
     getElemInMemory,
@@ -117,8 +115,7 @@ execInstruction i = fail $ "Not handled" ++ name i
 
 exec' :: Maybe Instruction -> VmState Value
 exec' (Just i) =
-    dbg
-        >> execInstruction i
+    execInstruction i
         >>= maybe (incPc >> getNextInstruction >>= exec') return
 exec' Nothing = return $ N 0
 
