@@ -24,6 +24,8 @@ import VirtualMachine.State (
     appendStack,
     copyVm,
     copyVm',
+    dbg,
+    dbgStack,
     eitherS,
     getArgs,
     getElemInMemory,
@@ -95,12 +97,16 @@ execGet n =
                 Just _ -> fail "cannot access an operator using get"
             )
 
+drop1 :: [a] -> [a]
+drop1 [] = []
+drop1 (_ : xs) = xs
+
 execInstruction :: Instruction -> VmState (Maybe Value)
 execInstruction (Instruction _ _ Ret _) =
     getStack >>= eitherS . execRet
 execInstruction (Instruction _ _ (Push x) _) =
     getStack >>= modifyStack . (x :) >> return Nothing
-execInstruction (Instruction _ _ Noop _) = return Nothing
+execInstruction (Instruction _ _ Noop _) = getStack >>= (modifyStack . drop1) >> return Nothing
 execInstruction (Instruction _ _ (PushArg x) _) = execPushArg x >> return Nothing
 execInstruction (Instruction _ _ (Call n) _) = execCall n >> return Nothing
 execInstruction (Instruction _ _ (Jump j) _) = execJump j >> return Nothing
@@ -111,7 +117,8 @@ execInstruction i = fail $ "Not handled" ++ name i
 
 exec' :: Maybe Instruction -> VmState Value
 exec' (Just i) =
-    execInstruction i
+    dbg
+        >> execInstruction i
         >>= maybe (incPc >> getNextInstruction >>= exec') return
 exec' Nothing = return $ N 0
 

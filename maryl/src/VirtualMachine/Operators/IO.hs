@@ -15,11 +15,13 @@ module VirtualMachine.Operators.IO (
     operatorAppendFile,
     opOpenFile,
     opCloseHandle,
+    opWriteHandle,
 ) where
 
 import Data.Functor ((<&>))
 import Data.Int (Int64)
-import GHC.IO.Handle (Handle)
+import Debug.Trace (trace)
+import GHC.IO.Handle (Handle, hPutChar, hPutStr)
 import System.IO (IOMode (AppendMode, ReadMode, ReadWriteMode, WriteMode), hClose, openFile)
 import VirtualMachine.Instructions (Value (..))
 import VirtualMachine.State (VmState, getHandleInMemory, io, ioCatch, registerHandle)
@@ -68,5 +70,55 @@ opCloseHandle' (Right n) = pure $ N n
 opCloseHandle' (Left _) = pure $ N 0
 
 opCloseHandle :: [Value] -> VmState [Value]
-opCloseHandle (N hdl : xs) = (getHandleInMemory hdl >>= (\h -> ioCatch (hClose h) (-1)) >>= opCloseHandle') <&> (: xs)
+opCloseHandle (N hdl : xs) =
+    trace
+        ("Closing handle n " ++ show hdl)
+        ( getHandleInMemory hdl
+            >>= (\h -> trace (show h) $ ioCatch (hClose h) (-1))
+            >>= opCloseHandle'
+        )
+        <&> (: xs)
 opCloseHandle xs = pure (N (-1) : xs)
+
+opWriteHandle' :: Either Int64 Int64 -> VmState Value
+opWriteHandle' (Left n) = pure $ N n
+opWriteHandle' (Right n) = pure $ N n
+
+opWriteHandle :: [Value] -> VmState [Value]
+opWriteHandle (h'@(N hdl) : S str : xs) =
+    ( getHandleInMemory hdl
+        >>= ( \h ->
+                ioCatch
+                    ( hPutStr h str
+                        >> pure (fromIntegral $ length str)
+                    )
+                    (-1)
+            )
+        >>= opWriteHandle'
+    )
+        <&> (: h' : xs)
+opWriteHandle (h'@(N hdl) : C ch : xs) =
+    ( getHandleInMemory hdl
+        >>= ( \h ->
+                ioCatch
+                    ( hPutChar h ch
+                        >> pure 1
+                    )
+                    (-1)
+            )
+        >>= opWriteHandle'
+    )
+        <&> (: h' : xs)
+opWriteHandle (h'@(N hdl) : v : xs) =
+    ( getHandleInMemory hdl
+        >>= ( \h ->
+                ioCatch
+                    ( hPutStr h (show v)
+                        >> pure (fromIntegral $ length $ show v)
+                    )
+                    (-1)
+            )
+        >>= opWriteHandle'
+    )
+        <&> (: h' : xs)
+opWriteHandle xs = pure $ N (-1) : xs

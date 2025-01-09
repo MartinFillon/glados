@@ -7,6 +7,7 @@
 -- State
 -}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
 {-# HLINT ignore "Evaluate" #-}
 
 {- |
@@ -188,7 +189,18 @@ It will do a basic print of the state and won't modify it.
 It is a safe function.
 -}
 dbg :: VmState ()
-dbg = get >>= (io . print)
+dbg = get >>= (io . printVM)
+
+printVM :: Vm -> IO ()
+printVM (Vm s i m p a) =
+    putStrLn "==============================\nStack :"
+        >> print s
+        >> putStrLn "==============================\nHandles :"
+        >> mapM print (handles m)
+        >> putStrLn "\n\nInsts :"
+        >> mapM print i
+        >> putStrLn "\nCurrent: "
+        >> print (i !! p)
 
 {- | The 'dgbStack' function is used for, as it name tells, debug purposes.
 It will do a basic print of the stack and won't modify it.

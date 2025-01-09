@@ -37,6 +37,7 @@ import VirtualMachine.Instructions (
     jump,
     jumpf,
     load,
+    noop,
     push,
     pushArg,
     ret,
@@ -179,6 +180,9 @@ parsePush = lexeme (parseInstruction push "push" parseVal)
 parseRet :: Parser Instruction
 parseRet = lexeme (parseInstruction' ret "ret")
 
+parseNoop :: Parser Instruction
+parseNoop = lexeme (parseInstruction' noop "noop")
+
 parseCall :: Parser Instruction
 parseCall = lexeme (parseInstruction call "call" parseString')
 
@@ -206,7 +210,8 @@ keyWords =
       parseCall,
       parsePush,
       parseGet,
-      parseLoad
+      parseLoad,
+      parseNoop
     ]
 
 parseKeyWords :: Parser Instruction
