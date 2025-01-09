@@ -27,15 +27,7 @@ import VirtualMachine.Instructions (
 import VirtualMachine.Interpreter (exec)
 import VirtualMachine.Operators (operators)
 import VirtualMachine.State (V (..), initialState)
-
-execTest :: [Instruction] -> IO Value
-execTest is = evalStateT exec (initialState is (Map.fromList operators) [])
-
-execTest' :: [Instruction] -> Map String V -> IO Value
-execTest' is m = evalStateT exec (initialState is m [])
-
-constIO :: IOException -> Bool
-constIO = const True
+import VirtualMachine.TestUtils (constIO, execTest)
 
 notEnoughArg :: String -> Spec
 notEnoughArg s = it ("should fail on " ++ s ++ " cause not enough arguments") $ do
@@ -180,3 +172,9 @@ spec = do
         notEnoughArg "or"
         notEnoughArg "less"
         notEnoughArg "not"
+
+        it "should execute mixed comparison 3.14 > 3" $
+            do
+                execTest
+                    [push Nothing (D 3.14), push Nothing (N 3), call Nothing "greater", ret Nothing]
+                `shouldReturn` B True
