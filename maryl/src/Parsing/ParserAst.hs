@@ -147,9 +147,28 @@ bonusChar' = "_"
 bonusChar :: Parser Char
 bonusChar = choice $ char <$> bonusChar'
 
+rWords :: [String]
+rWords = types' ++
+    [ "while",
+      "if",
+      "else",
+      "true",
+      "false",
+      "return",
+      "null",
+      "const"
+    ]
+
 -- | Variable names must start with a letter or an underscore ([_a-zA-Z]), and can be followed by any alphanumerical character or underscore ([_a-zA-Z0-9])
 variable :: Parser String
-variable =
+variable = variable' >>= check
+    where
+        check x = if x `elem` rWords
+            then fail $ show x ++ " is a reserved identifier"
+            else return x
+
+variable' :: Parser String
+variable' =
     (:)
         <$> (try letterChar <|> bonusChar)
         <*> many (alphaNumChar <|> bonusChar)
@@ -239,7 +258,7 @@ listVariables' =
     between
         (symbol "(")
         (symbol ")")
-        ((types >> sc >> convertValue) `sepBy` lexeme ",")
+        (pDeclarationVar `sepBy` lexeme ",")
 
 block :: Parser [Ast]
 block = between (symbol "{") (symbol "}") (many pTerm)
@@ -347,7 +366,7 @@ pVoid' = AstVoid <$ ""
 >>> return;
 -}
 pReturn :: Parser Ast
-pReturn = string "return" >> sc >> (try pFunc <|> try pExpr <|> pVoid)
+pReturn = string "return" >> sc >> (try pExpr <|> pVoid)
 
 -- | Parsing else statement formatted with the "else" keyword followed by a block: else {}
 pElse :: Parser (Maybe Ast)
