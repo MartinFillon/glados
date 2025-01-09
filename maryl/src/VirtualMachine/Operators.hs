@@ -1,3 +1,10 @@
+{-
+-- EPITECH PROJECT, 2025
+-- gladdos
+-- File description:
+-- Operators
+-}
+
 module VirtualMachine.Operators (operators) where
 
 import VirtualMachine.Operators.Mathematicals (
@@ -26,6 +33,7 @@ import VirtualMachine.Operators.Binary (
     binaryXor,
  )
 import VirtualMachine.Operators.IO (
+    opOpenFile,
     operatorAppendFile,
     operatorPrint,
     operatorReadFile,
@@ -65,5 +73,7 @@ operators =
       ("shiftR", Op binaryShiftR),
       ("shiftL", Op binaryShiftL),
       ("listPop", Op listPop),
-      ("listPush", Op listPush)
+      ("listPush", Op listPush),
+      ("open", Op opOpenFile),
+      ("close", Op opOpenFile)
     ]

@@ -1,13 +1,13 @@
+{-# HLINT ignore "Use lambda-case" #-}
+{-# LANGUAGE InstanceSigs #-}
 {-
 -- EPITECH PROJECT, 2024
 -- maryl
 -- File description:
 -- State
 -}
-{-# LANGUAGE InstanceSigs #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
-{-# HLINT ignore "Use lambda-case" #-}
+{-# HLINT ignore "Evaluate" #-}
 
 {- |
 Description : This is the type used in the virtual machine in order for it to keep it state.
@@ -42,8 +42,13 @@ module VirtualMachine.State (
     dbgStack,
     copyVm',
     appendStack,
+    getHandleInMemory,
+    registerHandle,
+    initialMemory,
+    ioCatch,
 ) where
 
+import Control.Exception (catch)
 import Control.Monad.State (
     MonadIO (..),
     MonadState (get),
@@ -52,9 +57,13 @@ import Control.Monad.State (
     modify,
  )
 import Data.Functor ((<&>))
+import Data.Int (Int64)
 import Data.List (elemIndex)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import GHC.IO.Exception (IOException)
+import GHC.IO.Handle (Handle)
+import System.IO (stderr, stdin, stdout)
 import VirtualMachine.Instructions (Instruction (Instruction), Value)
 
 {- | The 'V' data is just a wrapper between 'Value' and Operators 'Op'.
@@ -67,6 +76,18 @@ instance Show V where
     show (V v) = show v
     show (Op _) = "<operator>"
 
+data VmMemory = VmMemory
+    { values :: Map String V,
+      handles :: [Handle]
+    }
+    deriving (Show)
+
+initialMemory :: Map String V -> VmMemory
+initialMemory op = VmMemory op [stdin, stdout, stderr]
+
+registerValue :: VmMemory -> (String, V) -> VmMemory
+registerValue v@(VmMemory vls _) (k, k') = v {values = Map.insert k k' vls}
+
 {- | The 'Vm' Data is what holds every useful information about the state of the vitual machine.
 It can be used by itself but it is highly recommended to use it with 'VmState'.
 -}
@@ -78,7 +99,7 @@ data Vm = Vm
       -- | The 'memory' field, as it name implies is where the operators,
       --       and constants values are stored. It is, for the moment,
       --       only used for operators or testing purposes.
-      memory :: Map String V,
+      memory :: VmMemory,
       -- | The 'pc' field, also known as program counter, is the current index executed in the list of instructions specified in the field 'instructions.
       pc :: Int,
       -- | The 'args' field, is the arguments passed to the program at startup.
@@ -99,7 +120,7 @@ This function will always initialise an empty 'stack' and a 'pc' at 0
 
 >>> initialState [push 10, ret 5] (Map.fromList []) []
 -}
-initialState :: [Instruction] -> Map String V -> [Value] -> Vm
+initialState :: [Instruction] -> VmMemory -> [Value] -> Vm
 initialState i m = Vm [] i m 0
 
 {- | The 'copyVm' function is used to copy a vm state and its memory and change its instructions.
@@ -123,6 +144,9 @@ Here is an example of a print string from the stack.
 io :: IO a -> VmState a
 io = liftIO
 
+ioCatch :: IO a -> b -> VmState (Either a b)
+ioCatch v b = io (catch (v <&> Left) (\e -> (const $ pure $ Right b) (e :: IOException)))
+
 eitherS' :: Show e => Either e a -> IO a
 eitherS' (Left e') = fail . show $ e'
 eitherS' (Right a) = return a
@@ -134,7 +158,7 @@ eitherS :: Show e => Either e a -> VmState a
 eitherS = io . eitherS'
 
 register' :: (String, V) -> Vm -> Vm
-register' (k, nw) v = v {memory = Map.insert k nw $ memory v}
+register' k v = v {memory = registerValue (memory v) k}
 
 register :: (String, V) -> VmState ()
 register (n, v) =
@@ -146,6 +170,18 @@ register (n, v) =
 
 registerL :: [(String, V)] -> VmState ()
 registerL = foldr ((>>) . register) (pure ())
+
+registerHandle' :: Handle -> VmMemory -> VmState VmMemory
+registerHandle' h vmm@(VmMemory _ h') = modify (\v -> v {memory = vmm {handles = h' ++ [h]}}) >> getMemory
+
+registerHandle :: Handle -> VmState Int64
+registerHandle h =
+    getMemory
+        >>= registerHandle' h
+        >>= ( \v -> case elemIndex h (handles v) of
+                Just n -> pure $ fromIntegral n
+                _ -> fail "should not happen"
+            )
 
 {- | The 'dbg' function is used for, as it name tells, debug purposes.
 It will do a basic print of the state and won't modify it.
@@ -186,12 +222,16 @@ getStack = gets stack
 getArgs :: VmState [Value]
 getArgs = gets args
 
-getMemory :: VmState (Map String V)
+getMemory :: VmState VmMemory
 getMemory = gets memory
 
 getElemInMemory :: String -> VmState (Maybe V)
 getElemInMemory s =
-    getMemory <&> Map.lookup s
+    getMemory <&> Map.lookup s . values
+
+getHandleInMemory :: Int64 -> VmState Handle
+getHandleInMemory i =
+    getMemory <&> (!! fromIntegral i) . handles
 
 modifyStack :: [Value] -> VmState ()
 modifyStack vs = modify (\v -> v {stack = vs})
