@@ -20,7 +20,7 @@ spec = do
     context "Variable declaration" $ do
       it "int foo = 42;" $ do
         parseAST' "int foo = 42;"
-          `shouldBe` Right [AstDefineVar (Variable "foo" Integer (AstInt 42))]
+          `shouldBe` Right [AstDefineVar (Variable "foo" Int (AstInt 42))]
 
       it "string name = \"John\";" $ do
         parseAST' "string name = \"John\";"
@@ -41,7 +41,7 @@ spec = do
     context "Function declaration" $ do
       it "int add(int a, int b) { return a + b; }" $ do
         parseAST' "int add(int a, int b) { return a + b; }"
-          `shouldBe` Right [AstDefineFunc (Function "add" [AstDefineVar (Variable "a" Integer AstVoid), AstDefineVar (Variable "b" Integer AstVoid)] [AstReturn (AstBinaryFunc "+" (AstVar "a") (AstVar "b"))] Integer)]
+          `shouldBe` Right [AstDefineFunc (Function "add" [AstDefineVar (Variable "a" Int AstVoid), AstDefineVar (Variable "b" Int AstVoid)] [AstReturn (AstBinaryFunc "+" (AstVar "a") (AstVar "b"))] Int)]
 
       it "void printHello() { }" $ do
         parseAST' "void printHello() { }"
@@ -49,7 +49,7 @@ spec = do
 
       it "bool isEven(int x) { return x % 2 == 0; }" $ do
         parseAST' "bool isEven(int x) { return x % 2 == 0; }"
-          `shouldBe` Right [AstDefineFunc (Function "isEven" [AstDefineVar (Variable "x" Integer AstVoid)] [AstReturn (AstBinaryFunc "==" (AstBinaryFunc "%" (AstVar "x") (AstInt 2)) (AstInt 0))] Bool)]
+          `shouldBe` Right [AstDefineFunc (Function "isEven" [AstDefineVar (Variable "x" Int AstVoid)] [AstReturn (AstBinaryFunc "==" (AstBinaryFunc "%" (AstVar "x") (AstInt 2)) (AstInt 0))] Bool)]
 
       -- it "string greet(string name) { return \"Hello, \" + name; }" $ do
       --   parseAST' "string greet(string name) { return \"Hello, \" + name; }"
