@@ -48,7 +48,8 @@ import Control.Monad.Combinators.Expr (
     Operator (..),
     makeExprParser,
  )
-import Data.Maybe (fromMaybe, fromJust)
+import Data.List (isPrefixOf, stripPrefix)
+import Data.Maybe (fromJust, fromMaybe)
 import Data.Void (Void)
 import Text.Megaparsec (
     MonadParsec (eof, try),
@@ -66,15 +67,14 @@ import Text.Megaparsec (
     (<?>),
     (<|>),
  )
-import Text.Megaparsec.Char (char, letterChar, string, alphaNumChar)
+import Text.Megaparsec.Char (alphaNumChar, char, letterChar, space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
-import Data.List (stripPrefix, isPrefixOf)
 
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
 
 -- | Types handled by the program.
-data MarylType = String | Integer | Double | Char | Bool | Void | List MarylType | Const MarylType | Undefined
+data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Undefined
     deriving (Eq, Ord, Show)
 
 -- | Function structure containing the name of the function, its arguments, the content of the function, and the return value of the function.
@@ -98,7 +98,7 @@ data Variable = Variable
 data Ast
     = AstVar String
     | AstVoid
-    | AstInt Integer
+    | AstInt Int
     | AstBool Bool
     | AstString String
     | AstChar Char
@@ -116,7 +116,7 @@ data Ast
     | AstDefineVar Variable
     | AstDefineFunc Function
     | AstList [Ast]
-    | AstListElem String [Integer] -- ^ variable indexes
+    | AstListElem String [Int] -- ^ variable indexes
     deriving (Eq, Ord, Show)
 
 lineComment :: Parser ()
@@ -155,7 +155,7 @@ variable =
         <*> many (alphaNumChar <|> bonusChar)
         <?> "variable"
 
-integer :: Parser Integer
+integer :: Parser Int
 integer = lexeme L.decimal
 
 double :: Parser Double
@@ -169,10 +169,10 @@ bool =
               True <$ string "true"
             ]
 
-listElem :: Parser Integer
+listElem :: Parser Int
 listElem = between (symbol "[") (symbol "]") integer
 
-listElem' :: Parser [Integer]
+listElem' :: Parser [Int]
 listElem' = between (symbol "[") (symbol "]") (integer `sepBy` lexeme ",")
 
 -- | Parsing access to an element of a list formatted: foo[index]. Multiple dimensions can be accessed by adding the index after, formatted like so: foo[i][j] or foo[i,j].
@@ -187,7 +187,7 @@ pListElem = do
 
     Double (0.42)
 
-    Integer (23)
+    Int (23)
 
     List element (foo[0])
 
@@ -259,7 +259,7 @@ types = choice (map string (("[]" ++) <$> types')) <|> choice (map string types'
 
 -- | Returns a 'MarylType' based on string given as parameter. If the string is not supported, returns 'Undefined'.
 getType :: String -> MarylType
-getType "int" = Integer
+getType "int" = Int
 getType "float" = Double
 getType "string" = String
 getType "char" = Char
@@ -464,7 +464,7 @@ operatorTable =
         [ binary "or" (AstBinaryFunc "or"),
           binary "and" (AstBinaryFunc "and")
         ],
-        [ ternary AstTernary ],
+      [ternary AstTernary],
         [ binary "=" (AstBinaryFunc "="),
           binary "+=" (AstBinaryFunc "+="),
           binary "-=" (AstBinaryFunc "-="),

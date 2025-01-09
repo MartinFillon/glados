@@ -82,14 +82,14 @@ spec = do
         it "serializes memory with multiple functions" $ do
             let memory =
                     Map.fromList
-                        [ ("foo", AstDefineVar (Variable "foo" Integer (AstInt 4))),
+                        [ ("foo", AstDefineVar (Variable "foo" Int (AstInt 4))),
                             ( "add2",
                               AstDefineFunc
                                 ( Function
                                     "add"
                                     [AstVar "x", AstVar "y"]
                                     [AstReturn (AstBinaryFunc "+" (AstVar "x") (AstVar "y"))]
-                                    Integer
+                                    Int
                                 )
                             ),
                             ( "mysucc",
@@ -98,7 +98,7 @@ spec = do
                                     "add"
                                     [AstVar "x"]
                                     [AstReturn (AstBinaryFunc "+" (AstVar "x") (AstInt 1))]
-                                    Integer
+                                    Int
                                 )
                             )
                         ]
