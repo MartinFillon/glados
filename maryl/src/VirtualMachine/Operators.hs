@@ -25,7 +25,12 @@ import VirtualMachine.Operators.Binary (
     binaryShiftR,
     binaryXor,
  )
-import VirtualMachine.Operators.IO (operatorPrint)
+import VirtualMachine.Operators.IO (
+    operatorAppendFile,
+    operatorPrint,
+    operatorReadFile,
+    operatorWriteFile,
+ )
 import VirtualMachine.Operators.Lists (
     listPop,
     listPush,
@@ -51,6 +56,9 @@ operators =
       ("get", Op operatorGet),
       ("set", Op operatorSet),
       ("print", Op operatorPrint),
+      ("readFile", Op operatorReadFile),
+      ("writeFile", Op operatorWriteFile),
+      ("appendFile", Op operatorAppendFile),
       ("band", Op binaryAnd),
       ("bor", Op binaryOr),
       ("xor", Op binaryXor),

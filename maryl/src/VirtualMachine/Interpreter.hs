@@ -38,24 +38,6 @@ import VirtualMachine.State (
     register,
  )
 
--- operatorReadFile :: [Value] -> VmState [Value]
--- operatorReadFile (S path : xs) = io $ do
---     content <- readFile path
---     return (S content : xs)
--- operatorReadFile _ = fail "expects a string path"
-
--- operatorWriteFile :: [Value] -> VmState [Value]
--- operatorWriteFile (S content : S path : xs) = io $ do
---     writeFile path content
---     return (N (fromIntegral $ length content) : xs)
--- operatorWriteFile _ = fail "expects a string path and string content"
-
--- operatorAppendFile :: [Value] -> VmState [Value]
--- operatorAppendFile (S content : S path : xs) = io $ do
---     appendFile path content
---     return (N (fromIntegral $ length content) : xs)
--- operatorAppendFile _ = fail "expects a string path and string content"
-
 execRet :: [Value] -> Either String (Maybe Value)
 execRet [] = Left "No values on stack"
 execRet (x : _) = Right $ Just x
@@ -125,12 +107,6 @@ execInstruction (Instruction _ _ (Jump j) _) = execJump j >> return Nothing
 execInstruction (Instruction _ _ (JumpIfFalse j) _) = execJumpF j >> return Nothing
 execInstruction (Instruction _ _ (Load n v) _) = register (n, V v) >> return Nothing
 execInstruction (Instruction _ _ (Get n) _) = execGet n >> return Nothing
-execInstruction (Instruction _ _ (VmReadFile path) _) =
-    getStack >>= modifyStack . (S path :) >> execCall "readFile" >> return Nothing
-execInstruction (Instruction _ _ (VmWriteFile path content) _) =
-    getStack >>= modifyStack . (S content :) . (S path :) >> execCall "writeFile" >> return Nothing
-execInstruction (Instruction _ _ (VmAppendFile path content) _) =
-    getStack >>= modifyStack . (S content :) . (S path :) >> execCall "appendFile" >> return Nothing
 execInstruction i = fail $ "Not handled" ++ name i
 
 exec' :: Maybe Instruction -> VmState Value

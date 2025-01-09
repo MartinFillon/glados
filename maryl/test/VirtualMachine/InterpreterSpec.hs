@@ -25,7 +25,8 @@ import VirtualMachine.Instructions (
     pushArg,
     ret,
  )
-import VirtualMachine.Interpreter (exec, operators)
+import VirtualMachine.Interpreter (exec)
+import VirtualMachine.Operators (operators)
 import VirtualMachine.State (V (..), initialState)
 
 factCode :: [Instruction]

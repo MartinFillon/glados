@@ -20,9 +20,6 @@ module VirtualMachine.Instructions (
     Label,
     load,
     get,
-    vmReadFile,
-    vmWriteFile,
-    vmAppendFile,
 ) where
 
 import Data.Int (Int64)
@@ -88,9 +85,6 @@ data Inst
     | Get String
     | JumpIfFalse (Either Int String)
     | Jump (Either Int String)
-    | VmReadFile String
-    | VmWriteFile String String
-    | VmAppendFile String String
     deriving (Show, Eq)
 
 -- | The 'Noop' instruction constructor. 'Noop' means doing nothing.
@@ -145,11 +139,11 @@ load l n v = Instruction 6 "load" (Load n v) l
 get :: Label -> String -> Instruction
 get l n = Instruction 7 "get" (Get n) l
 
-vmReadFile :: Label -> String -> Instruction
-vmReadFile l s = Instruction 0 "readFile" (VmReadFile s) l
+-- vmReadFile :: Label -> String -> Instruction
+-- vmReadFile l s = Instruction 0 "readFile" (VmReadFile s) l
 
-vmWriteFile :: Label -> String -> String -> Instruction
-vmWriteFile l p c = Instruction 0 "writeFile" (VmWriteFile p c) l
+-- vmWriteFile :: Label -> String -> String -> Instruction
+-- vmWriteFile l p c = Instruction 0 "writeFile" (VmWriteFile p c) l
 
-vmAppendFile :: Label -> String -> String -> Instruction
-vmAppendFile l p c = Instruction 0 "appendFile" (VmAppendFile p c) l
+-- vmAppendFile :: Label -> String -> String -> Instruction
+-- vmAppendFile l p c = Instruction 0 "appendFile" (VmAppendFile p c) l

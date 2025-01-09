@@ -19,9 +19,6 @@ import VirtualMachine.Instructions (
     push,
     pushArg,
     ret,
-    vmAppendFile,
-    vmReadFile,
-    vmWriteFile,
  )
 import VirtualMachine.Parser (parseAssembly)
 
@@ -108,30 +105,6 @@ spec = do
                           [push Nothing $ N 1, pushArg Nothing 0, call Nothing "add", ret Nothing]
                         )
                     ]
-
-        it "should parse readFile instruction" $ do
-            parseAssembly "readFile \"test.txt\""
-                `shouldBe` Right [Left $ vmReadFile Nothing "test.txt"]
-
-        it "should parse readFile with label" $ do
-            parseAssembly ".read readFile \"test.txt\""
-                `shouldBe` Right [Left $ vmReadFile (Just ".read") "test.txt"]
-
-        it "should parse writeFile instruction" $ do
-            parseAssembly "writeFile \"test.txt\" \"Hello\""
-                `shouldBe` Right [Left $ vmWriteFile Nothing "test.txt" "Hello"]
-
-        it "should parse writeFile with label" $ do
-            parseAssembly ".write writeFile \"test.txt\" \"Hello\""
-                `shouldBe` Right [Left $ vmWriteFile (Just ".write") "test.txt" "Hello"]
-
-        it "should parse appendFile instruction" $ do
-            parseAssembly "appendFile \"test.txt\" \"World\""
-                `shouldBe` Right [Left $ vmAppendFile Nothing "test.txt" "World"]
-
-        it "should parse appendFile with label" $ do
-            parseAssembly ".append appendFile \"test.txt\" \"World\""
-                `shouldBe` Right [Left $ vmAppendFile (Just ".append") "test.txt" "World"]
 
         it "should fail on readFile with non-string argument" $ do
             isLeft (parseAssembly "readFile 42") `shouldBe` True
