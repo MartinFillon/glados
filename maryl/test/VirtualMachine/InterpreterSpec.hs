@@ -7,10 +7,12 @@
 
 module VirtualMachine.InterpreterSpec (spec) where
 
+import Control.Exception (IOException)
 import Control.Monad.State (evalStateT)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Test.Hspec (Spec, describe, it, shouldReturn)
+import System.IO.Error (isDoesNotExistError)
+import Test.Hspec (Spec, describe, it, shouldReturn, shouldThrow)
 import VirtualMachine.Instructions (
     Instruction,
     Value (..),
@@ -255,3 +257,45 @@ spec = do
                       ret Nothing
                     ]
                 `shouldReturn` N 42
+
+        it "should write content to a file and read it back" $ do
+            execTest
+                [ push Nothing (S "test.txt"),
+                  push Nothing (S "Hello, World!"),
+                  call Nothing "writeFile",
+                  push Nothing (S "test.txt"),
+                  call Nothing "readFile",
+                  ret Nothing
+                ]
+                `shouldReturn` S "Hello, World!"
+
+        it "should return length of written content" $ do
+            execTest
+                [ push Nothing (S "test.txt"),
+                  push Nothing (S "Hello Man"),
+                  call Nothing "writeFile",
+                  ret Nothing
+                ]
+                `shouldReturn` N 9
+
+        it "should append content to a file" $ do
+            execTest
+                [ push Nothing (S "test.txt"),
+                  push Nothing (S "First line\n"),
+                  call Nothing "writeFile",
+                  push Nothing (S "test.txt"),
+                  push Nothing (S "Second line\n"),
+                  call Nothing "appendFile",
+                  push Nothing (S "test.txt"),
+                  call Nothing "readFile",
+                  ret Nothing
+                ]
+                `shouldReturn` S "First line\nSecond line\n"
+
+        it "should handle reading non-existent file" $ do
+            execTest
+                [ push Nothing (S "nonexistent.txt"),
+                  call Nothing "readFile",
+                  ret Nothing
+                ]
+                `shouldThrow` \e -> isDoesNotExistError (e :: IOException)
