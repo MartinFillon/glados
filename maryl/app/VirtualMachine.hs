@@ -14,7 +14,8 @@ import qualified Data.Map as Map
 import System.Exit (ExitCode (ExitFailure), exitSuccess, exitWith)
 import Utils (handleParseError, pError)
 import VirtualMachine.Instructions (Instruction (..), Value (..), jump)
-import VirtualMachine.Interpreter (exec, operators)
+import VirtualMachine.Interpreter (exec)
+import VirtualMachine.Operators (operators)
 import VirtualMachine.Parser (parseAssembly)
 import VirtualMachine.State (V (..), initialState)
 
