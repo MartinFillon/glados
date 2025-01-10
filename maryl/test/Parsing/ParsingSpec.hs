@@ -38,6 +38,84 @@ spec = do
         parseAST' "char letter = 'A';"
           `shouldBe` Right [AstDefineVar (Variable "letter" Char (AstChar 'A'))]
 
+    context "Variables and numbers math" $ do
+      it "a + 1" $ do
+        parseAST' "a + 1;"
+          `shouldBe` Right [AstBinaryFunc "+" (AstVar "a") (AstInt 1)]
+
+      it "a + b" $ do
+        parseAST' "a + b;"
+          `shouldBe` Right [AstBinaryFunc "+" (AstVar "a") (AstVar "b")]
+
+      it "ab - ba" $ do
+        parseAST' "ab - ba;"
+          `shouldBe` Right [AstBinaryFunc "-" (AstVar "ab") (AstVar "ba")]
+
+      it "1.45 - ba" $ do
+        parseAST' "1.45 - ba;"
+          `shouldBe` Right [AstBinaryFunc "-" (AstDouble 1.45) (AstVar "ba")]
+
+      it "a * b" $ do
+        parseAST' "a * b;"
+          `shouldBe` Right [AstBinaryFunc "*" (AstVar "a") (AstVar "b")]
+
+      it "a * 3.4" $ do
+        parseAST' "a * 3.4;"
+          `shouldBe` Right [AstBinaryFunc "*" (AstVar "a") (AstDouble 3.4)]
+
+      it "((a ** b) % 30) / 2" $ do
+        parseAST' "((a ** b) % 30) / 2;"
+          `shouldBe` Right [AstBinaryFunc "/" (AstBinaryFunc "%" (AstBinaryFunc "**" (AstVar "a") (AstVar "b")) (AstInt 30)) (AstInt 2)]
+
+      it "(a + b++) ^ 30" $ do
+        parseAST' "(a + b++) ^ 30;"
+          `shouldBe` Right [AstBinaryFunc "^" (AstBinaryFunc "+" (AstVar "a") (AstPostfixFunc "++" (AstVar "b"))) (AstInt 30)]
+
+      it "(a + b++) ^ 30" $ do
+        parseAST' "(a + b++) ^ 30;"
+          `shouldBe` Right [AstBinaryFunc "^" (AstBinaryFunc "+" (AstVar "a") (AstPostfixFunc "++" (AstVar "b"))) (AstInt 30)]
+
+      it "(a + b++) ^ 30" $ do
+        parseAST' "(a-- + b++) ^ 30;"
+          `shouldBe` Right [AstBinaryFunc "^" (AstBinaryFunc "+" (AstPostfixFunc "--" (AstVar "a")) (AstPostfixFunc "++" (AstVar "b"))) (AstInt 30)]
+      it "(a + b++) ^ 30" $ do
+        parseAST' "(a + b++) ^ 30;"
+          `shouldBe` Right [AstBinaryFunc "^" (AstBinaryFunc "+" (AstVar "a") (AstPostfixFunc "++" (AstVar "b"))) (AstInt 30)]
+
+      it "+a + b++" $ do
+        parseAST' "+a + b++;"
+          `shouldBe` Right [AstBinaryFunc "+" (AstVar "a") (AstPostfixFunc "++" (AstVar "b"))]
+
+      it "bool a = b == c" $ do
+        parseAST' "bool a = b == c;"
+          `shouldBe` Right [AstDefineVar (Variable "a" Bool (AstBinaryFunc "==" (AstVar "b") (AstVar "c")))]
+
+      it "bool a = b != c" $ do
+        parseAST' "bool a = b != c;"
+          `shouldBe` Right [AstDefineVar (Variable "a" Bool (AstBinaryFunc "!=" (AstVar "b") (AstVar "c")))]
+
+      it "b += 1" $ do
+        parseAST' "b += 1;"
+          `shouldBe` Right [AstBinaryFunc "+=" (AstVar "b") (AstInt 1)]
+
+      it "a -= b" $ do
+        parseAST' "a -= b;"
+          `shouldBe` Right [AstBinaryFunc "-=" (AstVar "a") (AstVar "b")]
+
+      it "a /= b" $ do
+        parseAST' "a /= b;"
+          `shouldBe` Right [AstBinaryFunc "/=" (AstVar "a") (AstVar "b")]
+
+      it "a *= b" $ do
+        parseAST' "a *= b;"
+          `shouldBe` Right [AstBinaryFunc "*=" (AstVar "a") (AstVar "b")]
+
+      it "a **= b" $ do
+        parseAST' "a **= b;"
+          `shouldBe` Right [AstBinaryFunc "**=" (AstVar "a") (AstVar "b")]
+
+    -- context "Math priorities" $ do
+
     context "Function declaration" $ do
       it "int add(int a, int b) { return a + b; }" $ do
         parseAST' "int add(int a, int b) { return a + b; }"
@@ -76,6 +154,10 @@ spec = do
         parseAST' "if (flag) { x = 1; }"
           `shouldBe` Right [AstIf (AstVar "flag") (AstBlock [AstBinaryFunc "=" (AstVar "x") (AstInt 1)]) [] Nothing]
 
+      it "if (!boolean) { x--; }" $ do
+        parseAST' "if (!boolean) { x--; }"
+          `shouldBe` Right [AstIf (AstPrefixFunc "!" (AstVar "boolean")) (AstBlock [AstPostfixFunc "--" (AstVar "x")]) [] Nothing]
+
       it "if (a && b) { return true; } else { return false; }" $ do
         parseAST' "if (a and b) { return true; } else { return false; }"
           `shouldBe` Right [AstIf (AstBinaryFunc "and" (AstVar "a") (AstVar "b")) (AstBlock [AstReturn (AstBool True)]) [] (Just (AstBlock [AstReturn (AstBool False)]))]
@@ -101,10 +183,9 @@ spec = do
         parseAST' "while (flag) { continue; }"
           `shouldBe` Right [AstLoop (AstVar "flag") (AstBlock [AstContinue])]
 
-      -- TO FIX (+=)
-      -- it "while (count < 100) { count += 10; }" $ do
-      --   parseAST' "while (count < 100) { count += 10; }"
-      --     `shouldBe` Right [AstLoop (AstBinaryFunc "<" (AstVar "count") (AstInt 100)) (AstBlock [AstBinaryFunc "+=" (AstVar "count") (AstInt 10)])]
+      it "while (count < 100) { count += 10; }" $ do
+        parseAST' "while (count < 100) { count += 10; }"
+          `shouldBe` Right [AstLoop (AstBinaryFunc "<" (AstVar "count") (AstInt 100)) (AstBlock [AstBinaryFunc "+=" (AstVar "count") (AstInt 10)])]
 
       it "while (n > 0) { n--; }" $ do
         parseAST' "while (n > 0) { n--; }"
@@ -143,10 +224,6 @@ spec = do
       it "(1 + 2) * 3" $ do
         parseAST' "(1 + 2) * 3;"
           `shouldBe` Right [AstBinaryFunc "*" (AstBinaryFunc "+" (AstInt 1) (AstInt 2)) (AstInt 3)]
-
-      it "x = y = 42" $ do
-        parseAST' "x = y = 42;"
-          `shouldBe` Right [AstBinaryFunc "=" (AstBinaryFunc "=" (AstVar "x") (AstVar "y")) (AstInt 42)]
 
       it "1 << 2 | 3" $ do
         parseAST' "1 << 2 | 3;"
@@ -189,3 +266,39 @@ spec = do
 
       it "string greet(string name) { return \"Hello, \" + name; }" $ do
         isLeft (parseAST' "string greet(string name) { return \"Hello, \" + name; }") `shouldBe` True
+
+      it "x = y = 42" $ do
+        isLeft (parseAST' "x = y = 42;") `shouldBe` True
+
+      it "x = y = z" $ do
+        isLeft (parseAST' "x = y = z;") `shouldBe` True
+
+      it "int x, y, z = 1" $ do
+        isLeft (parseAST' "int x, y, z = 1;") `shouldBe` True
+
+      it "ab- - -ba" $ do
+        isLeft (parseAST' "ab- - -ba;") `shouldBe` True
+
+      it "if (!bool) { x = 1; }" $ do
+        isLeft (parseAST' "if (!bool) { x = 1; }") `shouldBe` True
+
+      it "string = char + float" $ do
+        isLeft (parseAST' "string = char + float") `shouldBe` True
+
+      it "true = while" $ do
+        isLeft (parseAST' "true = while") `shouldBe` True
+
+      it "false = if" $ do
+        isLeft (parseAST' "false = if") `shouldBe` True
+
+      it "if = while" $ do
+        isLeft (parseAST' "if = while") `shouldBe` True
+
+      it "while = if" $ do
+        isLeft (parseAST' "while = if") `shouldBe` True
+
+      it "[if, while, string, yes, true]" $ do
+        isLeft (parseAST' "[if, while, string, yes, true]") `shouldBe` True
+
+      it "a += b /= c *= d" $ do
+        isLeft (parseAST' "a += b /= c *= d;") `shouldBe` True
