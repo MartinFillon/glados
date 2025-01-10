@@ -24,6 +24,7 @@ import VirtualMachine.State (
     appendStack,
     copyVm,
     copyVm',
+    dbg,
     eitherS,
     getArgs,
     getElemInMemory,
@@ -72,8 +73,15 @@ execJumpF' :: Either Int String -> Value -> VmState ()
 execJumpF' jd (B False) = execJump jd
 execJumpF' _ _ = pure ()
 
+dropAndGet' :: [Value] -> VmState Value
+dropAndGet' (x : xs) = modifyStack xs >> return x
+dropAndGet' [] = fail "bad jumpf"
+
+dropAndGet :: VmState Value
+dropAndGet = getStack >>= dropAndGet'
+
 execJumpF :: Either Int String -> VmState ()
-execJumpF jd = getStack >>= execJumpF' jd . head
+execJumpF jd = dropAndGet >>= execJumpF' jd
 
 execJump :: Either Int String -> VmState ()
 execJump (Left n)

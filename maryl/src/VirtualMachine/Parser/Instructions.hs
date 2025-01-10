@@ -12,6 +12,7 @@ import Text.Megaparsec.Char (string)
 import VirtualMachine.Instructions (
     Instruction,
     call,
+    dup,
     get,
     jump,
     jumpf,
@@ -20,6 +21,7 @@ import VirtualMachine.Instructions (
     push,
     pushArg,
     ret,
+    void,
  )
 import VirtualMachine.Parser.Label (parseLabel)
 import VirtualMachine.Parser.Utils (Parser, lexeme)
@@ -57,6 +59,12 @@ parsePush = lexeme (parseInstruction push "push" parseVal)
 parseRet :: Parser Instruction
 parseRet = lexeme (parseInstruction' ret "ret")
 
+parseDup :: Parser Instruction
+parseDup = lexeme (parseInstruction' dup "dup")
+
+parseVoid :: Parser Instruction
+parseVoid = lexeme (parseInstruction' void "void")
+
 parseNoop :: Parser Instruction
 parseNoop = lexeme (parseInstruction' noop "noop")
 
@@ -88,7 +96,9 @@ keyWords =
       parsePush,
       parseGet,
       parseLoad,
-      parseNoop
+      parseNoop,
+      parseDup,
+      parseVoid
     ]
 
 parseKeyWords :: Parser Instruction
