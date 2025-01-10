@@ -17,13 +17,13 @@ import VirtualMachine.Instructions (
  )
 import VirtualMachine.Interpreter (exec)
 import VirtualMachine.Operators (operators)
-import VirtualMachine.State (V (..), initialState)
+import VirtualMachine.State (V (..), initialState, initialMemory)
 
 execTest :: [Instruction] -> IO Value
-execTest is = evalStateT exec (initialState is (Map.fromList operators) [])
+execTest is = evalStateT exec (initialState is (initialMemory $ Map.fromList operators) [])
 
 execTest' :: [Instruction] -> Map String V -> IO Value
-execTest' is m = evalStateT exec (initialState is m [])
+execTest' is m = evalStateT exec (initialState is (initialMemory m) [])
 
 constIO :: IOException -> Bool
 constIO = const True
