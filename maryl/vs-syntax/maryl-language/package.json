@@ -1,37 +1,53 @@
 {
-	"name": "maryl-language",
-	"displayName": "Maryl Language",
-	"description": "syntax highliting for maryl language",
-	"version": "0.0.1",
-	"engines": {
-		"vscode": "^1.96.0"
-	},
-	"categories": [
-		"Programming Languages"
-	],
-	"contributes": {
-		"languages": [
-			{
-				"id": "maryl",
-				"aliases": [
-					"Maryl",
-					"maryl"
-				],
-				"extensions": [
-					".mrl"
-				],
-				"configuration": "./language-configuration.json"
-			}
-		],
-		"grammars": [
-			{
-				"language": "maryl",
-				"scopeName": "source.mrl",
-				"path": "./syntaxes/maryl.tmLanguage.json"
-			}
-		]
-	},
-	"__metadata": {
-		"size": 7329
-	}
+  "name": "maryl-language",
+  "displayName": "Maryl Language",
+  "description": "syntax highliting for maryl language",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "maryl",
+        "aliases": [
+          "Maryl",
+          "maryl"
+        ],
+        "extensions": [
+          ".mrl"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "maryl-asm",
+        "aliases": [
+          "Maryl-asm",
+          "maryl-asm"
+        ],
+        "extensions": [
+          ".masm"
+        ],
+        "configuration": "./language-configuration-masm.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "maryl",
+        "scopeName": "source.mrl",
+        "path": "./syntaxes/maryl.tmLanguage.json"
+      },
+      {
+        "language": "maryl-asm",
+        "scopeName": "source.mrl",
+        "path": "./syntaxes/maryl-asm.tmLanguage.json"
+      }
+    ]
+  },
+  "__metadata": {
+    "size": 7329
+  }
 }
