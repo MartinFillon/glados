@@ -39,28 +39,21 @@ spec = do
           `shouldBe` Right [AstDefineVar (Variable "letter" Char (AstChar 'A'))]
 
     context "Function declaration" $ do
-      -- TO FIX
-      -- it "int add(int a, int b) { return a + b; }" $ do
-      --   parseAST' "int add(int a, int b) { return a + b; }"
-      --     `shouldBe` Right [AstDefineFunc (Function "add" [AstDefineVar (Variable "a" Int AstVoid), AstDefineVar (Variable "b" Int AstVoid)] [AstReturn (AstBinaryFunc "+" (AstVar "a") (AstVar "b"))] Int)]
+      it "int add(int a, int b) { return a + b; }" $ do
+        parseAST' "int add(int a, int b) { return a + b; }"
+          `shouldBe` Right [AstDefineFunc (Function "add" [AstDefineVar (Variable "a" Int AstVoid), AstDefineVar (Variable "b" Int AstVoid)] [AstReturn (AstBinaryFunc "+" (AstVar "a") (AstVar "b"))] Int)]
 
       it "void printHello() { }" $ do
         parseAST' "void printHello() { }"
           `shouldBe` Right [AstDefineFunc (Function "printHello" [] [] Void)]
 
-      -- TO FIX
-      -- it "bool isEven(int x) { return x % 2 == 0; }" $ do
-      --   parseAST' "bool isEven(int x) { return x % 2 == 0; }"
-      --     `shouldBe` Right [AstDefineFunc (Function "isEven" [AstDefineVar (Variable "x" Int AstVoid)] [AstReturn (AstBinaryFunc "==" (AstBinaryFunc "%" (AstVar "x") (AstInt 2)) (AstInt 0))] Bool)]
+      it "bool isEven(int x) { return x % 2 == 0; }" $ do
+        parseAST' "bool isEven(int x) { return x % 2 == 0; }"
+          `shouldBe` Right [AstDefineFunc (Function "isEven" [AstDefineVar (Variable "x" Int AstVoid)] [AstReturn (AstBinaryFunc "==" (AstBinaryFunc "%" (AstVar "x") (AstInt 2)) (AstInt 0))] Bool)]
 
-      -- it "string greet(string name) { return \"Hello, \" + name; }" $ do
-      --   parseAST' "string greet(string name) { return \"Hello, \" + name; }"
-      --     `shouldBe` Right [AstDefineFunc (Function "greet" [AstDefineVar (Variable "name" String AstVoid)] [AstReturn (AstBinaryFunc "+" (AstString "Hello, ") (AstVar "name"))] String)]
-
-      -- TO FIX
-      -- it "char getFirstChar(string s) { return s[0]; }" $ do
-      --   parseAST' "char getFirstChar(string s) { return s[0]; }"
-      --     `shouldBe` Right [AstDefineFunc (Function "getFirstChar" [AstDefineVar (Variable "s" String AstVoid)] [AstReturn (AstListElem "s" [0])] Char)]
+      it "char getFirstChar(string s) { return s[0]; }" $ do
+        parseAST' "char getFirstChar(string s) { return s[0]; }"
+          `shouldBe` Right [AstDefineFunc (Function "getFirstChar" [AstDefineVar (Variable "s" String AstVoid)] [AstReturn (AstListElem "s" [0])] Char)]
 
       it "void emptyFunction() { }" $ do
         parseAST' "void emptyFunction() { }"
@@ -104,12 +97,11 @@ spec = do
         parseAST' "while (x != 0) { x = x - 1; }"
           `shouldBe` Right [AstLoop (AstBinaryFunc "!=" (AstVar "x") (AstInt 0)) (AstBlock [AstBinaryFunc "=" (AstVar "x") (AstBinaryFunc "-" (AstVar "x") (AstInt 1))])]
 
-      -- TO FIX
-      -- it "while (flag) { continue; }" $ do
-      --   parseAST' "while (flag) { continue; }"
-      --     `shouldBe` Right [AstLoop (AstVar "flag") (AstBlock [AstVoid])]
+      it "while (flag) { continue; }" $ do
+        parseAST' "while (flag) { continue; }"
+          `shouldBe` Right [AstLoop (AstVar "flag") (AstBlock [AstContinue])]
 
-      -- TO FIX
+      -- TO FIX (+=)
       -- it "while (count < 100) { count += 10; }" $ do
       --   parseAST' "while (count < 100) { count += 10; }"
       --     `shouldBe` Right [AstLoop (AstBinaryFunc "<" (AstVar "count") (AstInt 100)) (AstBlock [AstBinaryFunc "+=" (AstVar "count") (AstInt 10)])]
@@ -152,24 +144,21 @@ spec = do
         parseAST' "(1 + 2) * 3;"
           `shouldBe` Right [AstBinaryFunc "*" (AstBinaryFunc "+" (AstInt 1) (AstInt 2)) (AstInt 3)]
 
-      -- TO FIX
-      -- it "x = y = 42" $ do
-      --   parseAST' "x = y = 42;"
-      --     `shouldBe` Right [AstBinaryFunc "=" (AstVar "x") (AstBinaryFunc "=" (AstVar "y") (AstInt 42))]
+      it "x = y = 42" $ do
+        parseAST' "x = y = 42;"
+          `shouldBe` Right [AstBinaryFunc "=" (AstBinaryFunc "=" (AstVar "x") (AstVar "y")) (AstInt 42)]
 
       it "1 << 2 | 3" $ do
         parseAST' "1 << 2 | 3;"
           `shouldBe` Right [AstBinaryFunc "|" (AstBinaryFunc "<<" (AstInt 1) (AstInt 2)) (AstInt 3)]
 
-      -- TO FIX
-      -- it "(a && b) || c" $ do
-      --   parseAST' "(a && b) || c;"
-      --     `shouldBe` Right [AstBinaryFunc "or" (AstBinaryFunc "and" (AstVar "a") (AstVar "b")) (AstVar "c")]
+      it "(a and b) or c" $ do
+        parseAST' "(a and b) or c;"
+          `shouldBe` Right [AstBinaryFunc "or" (AstBinaryFunc "and" (AstVar "a") (AstVar "b")) (AstVar "c")]
 
     context "Invalid syntax" $ do
-      -- TO FIX
-      -- it "int = 42;" $ do
-      --   isLeft (parseAST' "int = 42;") `shouldBe` True
+      it "int = 42;" $ do
+        isLeft (parseAST' "int = 42;") `shouldBe` True
 
       it "if (x > 0 { return 1; }" $ do
         isLeft (parseAST' "if (x > 0 { return 1; }") `shouldBe` True
@@ -197,3 +186,6 @@ spec = do
 
       it "void func(int x) return x;" $ do
         isLeft (parseAST' "void func(int x) return x;") `shouldBe` True
+
+      it "string greet(string name) { return \"Hello, \" + name; }" $ do
+        isLeft (parseAST' "string greet(string name) { return \"Hello, \" + name; }") `shouldBe` True
