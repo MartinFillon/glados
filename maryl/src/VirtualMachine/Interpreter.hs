@@ -95,11 +95,21 @@ execGet n =
                 Just _ -> fail "cannot access an operator using get"
             )
 
+drop1 :: [a] -> [a]
+drop1 [] = []
+drop1 (_ : xs) = xs
+
+dup1 :: [a] -> [a]
+dup1 (x : xs) = x : x : xs
+dup1 [] = []
+
 execInstruction :: Instruction -> VmState (Maybe Value)
 execInstruction (Instruction _ _ Ret _) =
     getStack >>= eitherS . execRet
 execInstruction (Instruction _ _ (Push x) _) =
     getStack >>= modifyStack . (x :) >> return Nothing
+execInstruction (Instruction _ _ Void _) = getStack >>= (modifyStack . drop1) >> return Nothing
+execInstruction (Instruction _ _ Dup _) = getStack >>= (modifyStack . dup1) >> return Nothing
 execInstruction (Instruction _ _ Noop _) = return Nothing
 execInstruction (Instruction _ _ (PushArg x) _) = execPushArg x >> return Nothing
 execInstruction (Instruction _ _ (Call n) _) = execCall n >> return Nothing

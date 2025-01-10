@@ -20,6 +20,8 @@ module VirtualMachine.Instructions (
     Label,
     load,
     get,
+    void,
+    dup,
 ) where
 
 import Data.Int (Int64)
@@ -85,6 +87,8 @@ data Inst
     | Get String
     | JumpIfFalse (Either Int String)
     | Jump (Either Int String)
+    | Dup
+    | Void
     deriving (Show, Eq)
 
 -- | The 'Noop' instruction constructor. 'Noop' means doing nothing.
@@ -139,11 +143,14 @@ load l n v = Instruction 6 "load" (Load n v) l
 get :: Label -> String -> Instruction
 get l n = Instruction 7 "get" (Get n) l
 
--- vmReadFile :: Label -> String -> Instruction
--- vmReadFile l s = Instruction 0 "readFile" (VmReadFile s) l
+{- | The 'Void' instruction constructor.
+ 'Void' is used to get rid of the value at the top of the stack. It will totally void it.
+-}
+void :: Label -> Instruction
+void = Instruction 8 "void" Void
 
--- vmWriteFile :: Label -> String -> String -> Instruction
--- vmWriteFile l p c = Instruction 0 "writeFile" (VmWriteFile p c) l
-
--- vmAppendFile :: Label -> String -> String -> Instruction
--- vmAppendFile l p c = Instruction 0 "appendFile" (VmAppendFile p c) l
+{- | The 'Dup' instruction constructor.
+ 'Dup' is used to duplicate the value at the top of the stack.
+-}
+dup :: Label -> Instruction
+dup = Instruction 8 "dup" Dup

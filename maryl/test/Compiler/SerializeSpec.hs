@@ -75,7 +75,7 @@ spec = do
             let memory =
                     Map.singleton
                         "foo"
-                        (AstDefineFunc (Function "foo" [] [AstReturn (AstInt 0)] Void))
+                        (AstDefineFunc (Function "foo" [] [AstReturn (AstInt 0)] Parsing.ParserAst.Void))
                 expected = ".foo push 0\nret\n\n"
             serializeMemoryFunctions memory `shouldBe` expected
 
