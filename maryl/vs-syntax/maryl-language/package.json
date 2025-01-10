@@ -42,7 +42,7 @@
       },
       {
         "language": "maryl-asm",
-        "scopeName": "source.mrl",
+        "scopeName": "source.masm",
         "path": "./syntaxes/maryl-asm.tmLanguage.json"
       }
     ]
