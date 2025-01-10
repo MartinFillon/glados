@@ -14,6 +14,7 @@ import Compiler.TranslationSpec (spec)
 import PrinterSpec (spec)
 import VirtualMachine.InterpreterSpec (spec)
 import VirtualMachine.ParserSpec (spec)
+import Parsing.ParsingSpec (spec)
 
 main :: IO ()
 main = hspec $ do
@@ -22,3 +23,4 @@ main = hspec $ do
     describe "VirtualMachine Interpreter spec" VirtualMachine.InterpreterSpec.spec
     describe "Compiler Translation spec" Compiler.TranslationSpec.spec
     describe "Compiler Serializing spec" Compiler.SerializeSpec.spec
+    describe "Parsing spec" Parsing.ParsingSpec.spec

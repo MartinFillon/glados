@@ -48,6 +48,7 @@ data Value
     = N Int64
     | B Bool
     | S String
+    | C Char
     | L [Value]
     | D Double
     | Bi [Instruction]
@@ -57,6 +58,7 @@ instance Show Value where
     show (N n) = show n
     show (B b) = show b
     show (S s) = show s
+    show (C c) = show c
     show (L vs) = show vs
     show (D d) = show d
     show (Bi _) = "<builtin>"
@@ -68,6 +70,7 @@ instance Eq Value where
     (S a) == (S b) = a == b
     (L a) == (L b) = a == b
     (D a) == (D b) = a == b
+    (C a) == (C b) = a == b
     (Bi a) == (Bi b) = a == b
     _ == _ = False
 
@@ -135,3 +138,12 @@ load l n v = Instruction 6 "load" (Load n v) l
 -}
 get :: Label -> String -> Instruction
 get l n = Instruction 7 "get" (Get n) l
+
+-- vmReadFile :: Label -> String -> Instruction
+-- vmReadFile l s = Instruction 0 "readFile" (VmReadFile s) l
+
+-- vmWriteFile :: Label -> String -> String -> Instruction
+-- vmWriteFile l p c = Instruction 0 "writeFile" (VmWriteFile p c) l
+
+-- vmAppendFile :: Label -> String -> String -> Instruction
+-- vmAppendFile l p c = Instruction 0 "appendFile" (VmAppendFile p c) l

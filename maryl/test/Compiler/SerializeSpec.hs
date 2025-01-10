@@ -7,9 +7,20 @@
 
 module Compiler.SerializeSpec (spec) where
 
-import Compiler.WriteASM (serializeFunction, serializeInstArgs, serializeInstruction, serializeInstructions, serializeMemoryFunctions)
+import Compiler.WriteASM (
+    serializeFunction,
+    serializeInstArgs,
+    serializeInstruction,
+    serializeInstructions,
+    serializeMemoryFunctions,
+ )
 import qualified Data.Map as Map
-import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
+import Parsing.ParserAst (
+    Ast (..),
+    Function (..),
+    MarylType (..),
+    Variable (..),
+ )
 import System.IO ()
 import Test.Hspec (Spec, describe, it, shouldBe)
 import VirtualMachine.Instructions (Inst (..), Value (..), call)
@@ -61,21 +72,24 @@ spec = do
 
     describe "serializeMemoryFunctions" $ do
         it "serializes memory with a single function" $ do
-            let memory = Map.singleton "foo" (AstDefineFunc (Function "foo" [] [AstReturn (AstInt 0)] Void))
+            let memory =
+                    Map.singleton
+                        "foo"
+                        (AstDefineFunc (Function "foo" [] [AstReturn (AstInt 0)] Void))
                 expected = ".foo push 0\nret\n\n"
             serializeMemoryFunctions memory `shouldBe` expected
 
         it "serializes memory with multiple functions" $ do
             let memory =
                     Map.fromList
-                        [ ("foo", AstDefineVar (Variable "foo" Integer (AstInt 4))),
+                        [ ("foo", AstDefineVar (Variable "foo" Int (AstInt 4))),
                             ( "add2",
                               AstDefineFunc
                                 ( Function
                                     "add"
                                     [AstVar "x", AstVar "y"]
                                     [AstReturn (AstBinaryFunc "+" (AstVar "x") (AstVar "y"))]
-                                    Integer
+                                    Int
                                 )
                             ),
                             ( "mysucc",
@@ -84,7 +98,7 @@ spec = do
                                     "add"
                                     [AstVar "x"]
                                     [AstReturn (AstBinaryFunc "+" (AstVar "x") (AstInt 1))]
-                                    Integer
+                                    Int
                                 )
                             )
                         ]

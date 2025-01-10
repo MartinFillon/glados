@@ -23,6 +23,7 @@ import Options.Applicative (
     flag,
     help,
     long,
+    many,
     metavar,
     optional,
     strArgument,
@@ -35,7 +36,7 @@ import System.IO (hPutStrLn, stderr)
 data Mode = Vm | Compile deriving (Show)
 
 data Options = Options
-    { filepath :: Maybe FilePath,
+    { filepath :: [FilePath],
       setupColors :: Maybe String,
       mode :: Mode
     }
@@ -44,9 +45,9 @@ data Options = Options
 parseOptions :: Parser Options
 parseOptions =
     Options
-        <$> optional
+        <$> many
             ( strArgument
-                (metavar "FILEPATH" <> help "Optional LISP file to execute")
+                (metavar "FILEPATH" <> help "Maryl files to compile or Maryl asm files to execute")
             )
         <*> optional
             ( strOption

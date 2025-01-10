@@ -1,0 +1,11 @@
+
+packages:
+  - lisp/
+  - maryl/
+
+resolver: lts-20.11
+
+extra-deps:
+  - megaparsec-9.6.1
+  - hlint-3.8
+  - optparse-applicative-0.18.1.0

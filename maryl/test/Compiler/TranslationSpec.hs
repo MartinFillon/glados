@@ -24,20 +24,23 @@ spec = do
             fst (translateAST (AstBool True) initMemory) `shouldBe` [push Nothing (B True)]
 
         it "translates AstString to push instruction" $
-            fst (translateAST (AstString "hello") initMemory) `shouldBe` [push Nothing (S "hello")]
+            fst (translateAST (AstString "hello") initMemory)
+                `shouldBe` [push Nothing (S "hello")]
 
         it "translates AstDouble to push instruction" $
-            fst (translateAST (AstDouble 3.14) initMemory) `shouldBe` [push Nothing (D 3.14)]
+            fst (translateAST (AstDouble 3.14) initMemory)
+                `shouldBe` [push Nothing (D 3.14)]
 
         it "translates AstChar to push instruction" $
             fst (translateAST (AstChar 'a') initMemory) `shouldBe` [push Nothing (S "a")]
 
         it "translates AstDefineVar for integer" $
-            fst (translateAST (AstDefineVar (Variable "x" Integer (AstInt 42))) initMemory) `shouldBe` []
+            fst (translateAST (AstDefineVar (Variable "x" Int (AstInt 42))) initMemory) `shouldBe` []
 
         it "translates AstBinaryFunc for addition" $ do
             let ast = AstBinaryFunc "+" (AstInt 10) (AstInt 20)
-            fst (translateAST ast initMemory) `shouldBe` [push Nothing (N 10), push Nothing (N 20), call Nothing "add"]
+            fst (translateAST ast initMemory)
+                `shouldBe` [push Nothing (N 10), push Nothing (N 20), call Nothing "add"]
 
         it "translates AstReturn" $ do
             let ast = AstReturn (AstInt 42)
@@ -53,7 +56,7 @@ spec = do
                            ]
 
 -- it "translates a function definition" $ do
---   let ast = AstDefineFunc (Function "add" [] [AstBinaryFunc "+" (AstInt 1) (AstInt 2)] Integer)
+--   let ast = AstDefineFunc (Function "add" [] [AstBinaryFunc "+" (AstInt 1) (AstInt 2)] Int)
 --   translateAST ast `shouldBe`
 --     [ pushArg Nothing 0,
 --       pushArg Nothing 1,
