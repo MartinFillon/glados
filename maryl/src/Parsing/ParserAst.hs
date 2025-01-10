@@ -113,6 +113,7 @@ data Ast
     | AstBlock [Ast]
     | AstLoop Ast Ast -- ^ condition (AstBlock to loop in)
     | AstBreak -- ^ break statement
+    | AstContinue -- ^ continue statement
     | AstDefineVar Variable
     | AstDefineFunc Function
     | AstList [Ast]
@@ -156,7 +157,9 @@ rWords = types' ++
       "false",
       "return",
       "null",
-      "const"
+      "const",
+      "break",
+      "continue"
     ]
 
 -- | Variable names must start with a letter or an underscore ([_a-zA-Z]), and can be followed by any alphanumerical character or underscore ([_a-zA-Z0-9])
@@ -401,6 +404,14 @@ pIf = do
 pBreak :: Parser Ast
 pBreak = lexeme $ AstBreak <$ string "break"
 
+{- | Parsing continue statement (just a "continue" keyword).
+
+>>> while (true) {continue;}
+-}
+pContinue :: Parser Ast
+pContinue = lexeme $ AstContinue <$ string "continue"
+
+
 {- |
     Parsing statements
 
@@ -427,6 +438,7 @@ pTerm =
           try pDeclarationFunc,
           try pDeclarationVar <* semi,
           try pBreak <* semi,
+          try pContinue <* semi,
           pExpr <* semi
         ]
 
