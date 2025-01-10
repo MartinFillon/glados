@@ -7,26 +7,13 @@
 
 module VirtualMachine.Operators.LogicSpec (spec) where
 
-import Control.Exception (IOException)
-import Control.Monad.State (evalStateT)
-import Data.Map (Map)
-import qualified Data.Map as Map
 import Test.Hspec (Spec, describe, it, shouldReturn, shouldThrow)
 import VirtualMachine.Instructions (
-    Instruction,
     Value (..),
     call,
-    get,
-    jump,
-    jumpf,
-    load,
     push,
-    pushArg,
     ret,
  )
-import VirtualMachine.Interpreter (exec)
-import VirtualMachine.Operators (operators)
-import VirtualMachine.State (V (..), initialState)
 import VirtualMachine.TestUtils (constIO, execTest)
 
 notEnoughArg :: String -> Spec

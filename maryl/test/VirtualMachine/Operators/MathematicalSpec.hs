@@ -7,27 +7,13 @@
 
 module VirtualMachine.Operators.MathematicalSpec (spec) where
 
-import Control.Exception (IOException)
-import Control.Monad.State (evalStateT)
-import Data.Map (Map)
-import qualified Data.Map as Map
-import System.IO.Error (isDoesNotExistError)
-import Test.Hspec (Spec, describe, it, shouldReturn, shouldThrow)
+import Test.Hspec (Spec, describe, it, shouldReturn)
 import VirtualMachine.Instructions (
-    Instruction,
     Value (..),
     call,
-    get,
-    jump,
-    jumpf,
-    load,
     push,
-    pushArg,
     ret,
  )
-import VirtualMachine.Interpreter (exec)
-import VirtualMachine.Operators (operators)
-import VirtualMachine.State (V (..), initialState)
 import VirtualMachine.TestUtils (execTest)
 
 spec :: Spec
