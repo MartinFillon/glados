@@ -1,0 +1,84 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Maryl-asm",
+  "patterns": [
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#number"
+    },
+    {
+      "include": "#chars"
+    },
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#boolean"
+    },
+    {
+      "include": "#function"
+    },
+    {
+      "include": "#label"
+    }
+  ],
+  "repository": {
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.maryl-asm",
+          "match": "\\b(call|push|void|noop|ret|pushArg|jump|jumpf|load|get|.function_header|.function_footer|dup)\\b"
+        }
+      ]
+    },
+    "number": {
+      "name": "constant.numeric.maryl-asm",
+      "patterns": [
+        {
+          "name": "constant.numeric.maryl-asm",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.maryl-asm",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.maryl-asm",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "chars": {
+      "name": "string.quoted.single.maryl-asm",
+      "begin": "'",
+      "end": "'",
+      "patterns": [
+        {
+          "name": "constant.character.escape.maryl-asm",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "comment": {
+      "name": "comment.line.maryl-asm",
+      "match": ";.*$"
+    },
+    "boolean": {
+      "name": "constant.language.maryl-asm",
+      "match": "\\b(true|false)\\b"
+    },
+    "label": {
+      "name": "entity.name.label.maryl-asm",
+      "match": "\\b.\\w+\\b"
+    }
+  },
+  "scopeName": "source.mrl"
+}

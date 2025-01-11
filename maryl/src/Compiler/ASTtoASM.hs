@@ -19,8 +19,8 @@ translateToASM asts mem = foldl processAST ([], mem) asts
     processAST :: ([Instruction], Memory) -> Ast -> ([Instruction], Memory)
     processAST (instructions, currentMem) ast =
         let (newInstructions, updatedMem) = translateAST ast currentMem
-        in (instructions ++ newInstructions, updatedMem)
-         
+         in (instructions ++ newInstructions, updatedMem)
+
 -- (= assignment operator)
 handleAssignment :: Ast -> Ast -> Memory -> ([Instruction], Memory)
 handleAssignment (AstVar var) right mem =
@@ -151,15 +151,17 @@ translateMultIndexes (x : xs) mem =
 translateMultIndexes [] _ = []
 
 addLoopFunction :: String -> Ast -> Ast -> Memory -> Either String Memory
-addLoopFunction loopName cond block mem = 
+addLoopFunction loopName cond block mem =
     let loopBody =
-            AstIf cond
-                (AstBlock
+            AstIf
+                cond
+                ( AstBlock
                     [ block,
                       AstFunc (Function loopName [AstVoid] [AstVoid] Void)
                     ]
                 )
-                [] Nothing
+                []
+                Nothing
         loopFunc = AstDefineFunc (Function loopName [AstVoid] [loopBody] Void)
      in addMemory mem loopName loopFunc
 
@@ -175,7 +177,7 @@ translateAST (AstFunc (Function funcName funcArgs _ _)) mem =
     ( fst (translateArgs funcArgs mem 0 False) ++ [call Nothing ("." ++ funcName)],
       mem
     )
-translateAST (AstReturn ast) mem = trace ("RETURN (mem: " ++ show mem ++ ")") $ (fst (translateAST ast mem) ++ [ret Nothing], mem)
+translateAST (AstReturn ast) mem = (fst (translateAST ast mem) ++ [ret Nothing], mem)
 translateAST (AstPrefixFunc "++" ast) mem = translateAST (AstBinaryFunc "=" ast (AstBinaryFunc "+" ast (AstInt 1))) mem -- check differences
 translateAST (AstPrefixFunc "--" ast) mem = translateAST (AstBinaryFunc "=" ast (AstBinaryFunc "-" ast (AstInt 1))) mem
 translateAST (AstPostfixFunc "++" ast) mem = translateAST (AstBinaryFunc "=" ast (AstBinaryFunc "+" ast (AstInt 1))) mem
@@ -194,15 +196,15 @@ translateAST (AstIf cond block elseifEles elseEle) mem =
      in (condInstructions ++ elseifInstructions ++ elseInstructions, memAfterElse)
 translateAST (AstLoop cond block) mem =
     trace ("loop: {cond (" ++ show cond ++ ") block (" ++ show block ++ ")") $
-    let loopName = generateUniqueLoopName mem
-        newMemResult = addLoopFunction loopName cond block mem
-     in case newMemResult of
-            Right updatedMem -> trace ("new mem: " ++ show updatedMem) $
-                ([call Nothing loopName], updatedMem)
-            Left err ->
-                trace ("Failed to create loop function: " ++ err) ([], mem)
+        let loopName = generateUniqueLoopName mem
+            newMemResult = addLoopFunction loopName cond block mem
+         in case newMemResult of
+                Right updatedMem ->
+                    ([call Nothing loopName], updatedMem)
+                Left err ->
+                    trace ("Failed to create loop function: " ++ err) ([], mem)
 translateAST (AstBlock block) mem = translateToASM block mem
--- translateAST AstBreak mem = 
+-- translateAST AstBreak mem =
 translateAST AstVoid mem = ([], mem)
 translateAST (AstInt n) mem = ([push Nothing (N (fromIntegral n))], mem)
 translateAST (AstBool b) mem = ([push Nothing (B b)], mem)

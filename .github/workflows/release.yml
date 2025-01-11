@@ -1,4 +1,4 @@
-name: Main
+name: release
 
 on:
   push:
@@ -8,15 +8,24 @@ on:
 jobs:
   build:
     runs-on: self-hosted
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    name: Building stack
+    strategy:
+      matrix:
+        projects:
+          - maryl
+          - lisp
 
-      - name: Build
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build ${{ matrix.projects }}
         run: |
-          make re
-          mv lisp/glados glados-lisp
-          mv maryl/glados glados-maryl
+          cd ${{ matrix.projects }}
+          make
+          mv glados ../glados-${{ matrix.projects }}
 
       - name: Release
         uses: softprops/action-gh-release@v2

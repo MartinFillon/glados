@@ -105,3 +105,14 @@ spec = do
                           [push Nothing $ N 1, pushArg Nothing 0, call Nothing "add", ret Nothing]
                         )
                     ]
+
+        it "should fail on readFile with non-string argument" $ do
+            isLeft (parseAssembly "readFile 42") `shouldBe` True
+
+        it "should fail on writeFile with non-string arguments" $ do
+            isLeft (parseAssembly "writeFile 42 \"Hello\"") `shouldBe` True
+            isLeft (parseAssembly "writeFile \"test.txt\" 42") `shouldBe` True
+
+        it "should fail on appendFile with non-string arguments" $ do
+            isLeft (parseAssembly "appendFile 42 \"World\"") `shouldBe` True
+            isLeft (parseAssembly "appendFile \"test.txt\" 42") `shouldBe` True

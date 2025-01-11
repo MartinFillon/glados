@@ -83,3 +83,13 @@ This command will generate the `hpc_index.html` files at root with coverage on *
 ## Features
 
 For a detailed list of features, please refer to the [FEATURES.md](FEATURES.md) file.
+
+## Syntax Highlighting
+
+In order to have syntax highlighing and colors in a maryl file (.mrl) or maryl-asm file (.masm) you need to manually install the extension.
+Todo that you can use a command like this:
+
+```sh
+cd $HOME/.vscode/extensions
+ln -s maryl-language <path to the repository>/maryl/vs-syntax/maryl-language
+```

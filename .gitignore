@@ -15,3 +15,6 @@ glados
 .hpc
 *.html
 *.asm
+*.masm
+
+test.txt

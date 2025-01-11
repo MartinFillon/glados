@@ -8,8 +8,8 @@
 
 module Memory (Memory, addMemory, initMemory, generateUniqueLoopName, updateMemory, readMemory, freeMemory) where
 
-import qualified Data.Map as Map
 import Data.List (isPrefixOf)
+import qualified Data.Map as Map
 import Debug.Trace (trace)
 import Parsing.ParserAst (Ast (..))
 
@@ -40,7 +40,7 @@ freeMemory :: Memory -> Memory
 freeMemory =
     Map.filter
         ( \case
-            AstDefineFunc _ -> trace "skipped func" $ True
+            AstDefineFunc _ -> True
             _ -> False
         )
 

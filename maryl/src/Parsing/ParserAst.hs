@@ -29,6 +29,7 @@ module Parsing.ParserAst (
     pBreak,
     pList,
     pListElem,
+    pEqual,
     variable,
     pDeclarationVar,
     pFunc,
@@ -67,7 +68,7 @@ import Text.Megaparsec (
     (<?>),
     (<|>),
  )
-import Text.Megaparsec.Char (alphaNumChar, char, letterChar, space1, string)
+import Text.Megaparsec.Char (alphaNumChar, char, letterChar, string)
 import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = Parsec Void String
@@ -113,6 +114,7 @@ data Ast
     | AstBlock [Ast]
     | AstLoop Ast Ast -- ^ condition (AstBlock to loop in)
     | AstBreak -- ^ break statement
+    | AstContinue -- ^ continue statement
     | AstDefineVar Variable
     | AstDefineFunc Function
     | AstList [Ast]
@@ -147,9 +149,30 @@ bonusChar' = "_"
 bonusChar :: Parser Char
 bonusChar = choice $ char <$> bonusChar'
 
+rWords :: [String]
+rWords = types' ++
+    [ "while",
+      "if",
+      "else",
+      "true",
+      "false",
+      "return",
+      "null",
+      "const",
+      "break",
+      "continue"
+    ]
+
 -- | Variable names must start with a letter or an underscore ([_a-zA-Z]), and can be followed by any alphanumerical character or underscore ([_a-zA-Z0-9])
 variable :: Parser String
-variable =
+variable = variable' >>= check
+    where
+        check x = if x `elem` rWords
+            then fail $ show x ++ " is a reserved identifier"
+            else return x
+
+variable' :: Parser String
+variable' =
     (:)
         <$> (try letterChar <|> bonusChar)
         <*> many (alphaNumChar <|> bonusChar)
@@ -239,7 +262,7 @@ listVariables' =
     between
         (symbol "(")
         (symbol ")")
-        ((types >> sc >> convertValue) `sepBy` lexeme ",")
+        (pDeclarationVar `sepBy` lexeme ",")
 
 block :: Parser [Ast]
 block = between (symbol "{") (symbol "}") (many pTerm)
@@ -347,7 +370,7 @@ pVoid' = AstVoid <$ ""
 >>> return;
 -}
 pReturn :: Parser Ast
-pReturn = string "return" >> sc >> (try pFunc <|> try pExpr <|> pVoid)
+pReturn = string "return" >> sc >> (try pExpr <|> pVoid)
 
 -- | Parsing else statement formatted with the "else" keyword followed by a block: else {}
 pElse :: Parser (Maybe Ast)
@@ -382,6 +405,62 @@ pIf = do
 pBreak :: Parser Ast
 pBreak = lexeme $ AstBreak <$ string "break"
 
+{- | Parsing continue statement (just a "continue" keyword).
+
+>>> while (true) {continue;}
+-}
+pContinue :: Parser Ast
+pContinue = lexeme $ AstContinue <$ string "continue"
+
+eqSymbol :: Parser String
+eqSymbol = choice
+    (symbol <$> [ "=",
+      "+=",
+      "-=",
+      "**=",
+      "*=",
+      "/=",
+      "|=",
+      "&=",
+      "^=",
+      ">>=",
+      "<<="
+    ])
+
+{- | Parsing equal symbols for variable value assignation, syntax being: variable = value;
+
+    Assignations handled:
+
+    = -> standard assignation
+
+    += -> addition assignation
+
+    -= -> subtraction assignation
+
+    *= -> multiplication assignation
+
+    /= -> division assignation
+
+    **= -> power assignation
+
+    |= -> bitwise OR assignation
+
+    &= -> bitwise AND assignation
+
+    ^= -> bitwise XOR assignation
+
+    >>= -> bitshift right assignation
+
+    <<= -> bitshift left assignation
+-}
+pEqual :: Parser Ast
+pEqual = do
+    var <- AstVar <$> lexeme variable
+    sc
+    eq <- eqSymbol
+    sc
+    AstBinaryFunc eq var <$> pExpr
+
 {- |
     Parsing statements
 
@@ -403,11 +482,13 @@ pTerm :: Parser Ast
 pTerm =
     choice
         [ AstReturn <$> (pReturn <* semi),
-          try pIf,
-          try pLoop,
+          pIf,
+          pLoop,
           try pDeclarationFunc,
-          try pDeclarationVar <* semi,
-          try pBreak <* semi,
+          pDeclarationVar <* semi,
+          pBreak <* semi,
+          pContinue <* semi,
+          try pEqual <* semi,
           pExpr <* semi
         ]
 
@@ -464,18 +545,7 @@ operatorTable =
         [ binary "or" (AstBinaryFunc "or"),
           binary "and" (AstBinaryFunc "and")
         ],
-      [ternary AstTernary],
-        [ binary "=" (AstBinaryFunc "="),
-          binary "+=" (AstBinaryFunc "+="),
-          binary "-=" (AstBinaryFunc "-="),
-          binary "*=" (AstBinaryFunc "*="),
-          binary "/=" (AstBinaryFunc "/="),
-          binary "|=" (AstBinaryFunc "|="),
-          binary "&=" (AstBinaryFunc "&="),
-          binary "^=" (AstBinaryFunc "^="),
-          binary ">>=" (AstBinaryFunc ">>="),
-          binary "<<=" (AstBinaryFunc "<<=")
-        ]
+        [ ternary AstTernary ]
     ]
 
 -- | Megaparsec Expr parser call with 'convertValue' defining the types to parse and 'operatorTable' containing all operators handled.

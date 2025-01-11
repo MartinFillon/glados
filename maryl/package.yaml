@@ -68,3 +68,4 @@ tests:
       - glados
       - hspec
       - hspec-megaparsec
+      - hspec-expectations

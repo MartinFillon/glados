@@ -4,19 +4,15 @@
 -- File description:
 -- interpreter
 -}
-{-# LANGUAGE InstanceSigs #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-}
 {-# HLINT ignore "Use lambda-case" #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module VirtualMachine.Interpreter (
-    Numeric (..),
     exec,
-    operators,
 ) where
 
 import Control.Monad.State.Lazy (MonadState (get), evalStateT)
-import Data.Int (Int64)
 import VirtualMachine.Instructions (
     Inst (..),
     Instruction (..),
@@ -28,6 +24,7 @@ import VirtualMachine.State (
     appendStack,
     copyVm,
     copyVm',
+    dbg,
     eitherS,
     getArgs,
     getElemInMemory,
@@ -41,157 +38,6 @@ import VirtualMachine.State (
     modifyStack,
     register,
  )
-
-class Numeric a where
-    toDouble :: a -> Double
-    fromDouble :: Double -> Either String a
-
-instance Numeric Int64 where
-    toDouble :: Int64 -> Double
-    toDouble = fromIntegral
-    fromDouble :: Double -> Either String Int64
-    fromDouble d =
-        if (fromIntegral (round d :: Int64) :: Double) == d
-            then Right (round d :: Int64)
-            else Left "Cant convert to Int64 without loss"
-
-instance Numeric Double where
-    toDouble :: Double -> Double
-    toDouble = id
-    fromDouble :: Double -> Either String Double
-    fromDouble = Right
-
--------------------------
--- operator operations --
-
--------------------------
-
-numericOp ::
-    (Double -> Double -> Double) -> Value -> Value -> Either String Value
-numericOp op (N x) (N y) = case fromDouble (op (toDouble x) (toDouble y)) of
-    Right n -> Right $ N n
-    Left _ -> Right $ D (op (toDouble x) (toDouble y))
-numericOp op (N x) (D y) = Right $ D (op (toDouble x) y)
-numericOp op (D x) (N y) = Right $ D (op x (toDouble y))
-numericOp op (D x) (D y) = Right $ D (op x y)
-numericOp _ _ _ = Left "Invalid numeric op"
-
-operatorAdd :: [Value] -> VmState [Value]
-operatorAdd (y : x : xs) = eitherS $ (: xs) <$> numericOp (+) x y
-operatorAdd _ = fail "expects two number"
-
-operatorSub :: [Value] -> VmState [Value]
-operatorSub (y : x : xs) = eitherS $ (: xs) <$> numericOp (-) x y
-operatorSub _ = fail "expects two number"
-
-operatorMul :: [Value] -> VmState [Value]
-operatorMul (y : x : xs) = eitherS $ (: xs) <$> numericOp (*) x y
-operatorMul _ = fail "expects two number"
-
-operatorDiv :: [Value] -> VmState [Value]
-operatorDiv (y : x : xs) =
-    case y of
-        N y' | y' == 0 -> fail "division by zero"
-        D y' | y' == 0.0 -> fail "division by zero"
-        _ -> eitherS $ (: xs) <$> numericOp (/) x y
-operatorDiv _ = fail "expects two number"
-
-operatorMod :: [Value] -> VmState [Value]
-operatorMod (N y : N x : xs)
-    | y == 0 = fail "modulo by zero"
-    | otherwise = return $ N (x `mod` y) : xs
-operatorMod _ = fail "xpects two int"
-
-operatorEq :: [Value] -> VmState [Value]
-operatorEq (x : y : xs) = return $ B (x == y) : xs
-operatorEq _ = fail "expects two value"
-
-operatorNEq :: [Value] -> VmState [Value]
-operatorNEq (x : y : xs) = return $ B (x /= y) : xs
-operatorNEq _ = fail "expects two value"
-
-operatorLt :: [Value] -> VmState [Value]
-operatorLt (y : x : xs) =
-    eitherS $
-        (: xs)
-            <$> case (x, y) of
-                (N a, N b) -> Right $ B (toDouble a < toDouble b)
-                (N a, D b) -> Right $ B (toDouble a < b)
-                (D a, N b) -> Right $ B (a < toDouble b)
-                (D a, D b) -> Right $ B (a < b)
-                _ -> Left "expects two number"
-operatorLt _ = fail "expects two number"
-
-operatorGt :: [Value] -> VmState [Value]
-operatorGt (y : x : xs) =
-    eitherS $
-        (: xs)
-            <$> case (x, y) of
-                (N a, N b) -> Right $ B (toDouble a > toDouble b)
-                (N a, D b) -> Right $ B (toDouble a > b)
-                (D a, N b) -> Right $ B (a > toDouble b)
-                (D a, D b) -> Right $ B (a > b)
-                _ -> Left "expects two number"
-operatorGt _ = fail "expects two number"
-
-operatorAnd :: [Value] -> VmState [Value]
-operatorAnd (B y : B x : xs) = return $ B (x && y) : xs
-operatorAnd _ = fail "And expects two bool"
-
-operatorOr :: [Value] -> VmState [Value]
-operatorOr (B y : B x : xs) = return $ B (x || y) : xs
-operatorOr _ = fail "Or expects two booleans"
-
-operatorPrint :: [Value] -> VmState [Value]
-operatorPrint (S s : xs) = io $ putStr s >> return (N (fromIntegral (length s)) : xs)
-operatorPrint (C c : xs) = io $ putChar c >> return (N 1 : xs)
-operatorPrint (val : xs) =
-    io $ (putStr . show) val >> return (N (fromIntegral (length (show val))) : xs)
-operatorPrint _ = fail "expects one val"
-
-operatorGet :: [Value] -> VmState [Value]
-operatorGet (N idx : L lst : xs)
-    | idx >= 0 && idx < fromIntegral (length lst) =
-        return $ (lst !! fromIntegral idx) : xs
-    | otherwise = fail "Index out of bound"
-operatorGet (N idx : S str : xs)
-    | idx >= 0 && idx < fromIntegral (length str) =
-        return $ C (str !! fromIntegral idx) : xs
-    | otherwise = fail "Index out of bound"
-operatorGet _ = fail "expects a list and an integer index"
-
-operatorSet :: [Value] -> VmState [Value]
-operatorSet (val : N idx : L lst : xs)
-    | idx >= 0 && idx < fromIntegral (length lst) =
-        return $
-            L (take (fromIntegral idx) lst ++ [val] ++ drop (fromIntegral idx + 1) lst)
-                : xs
-    | otherwise = fail "Index out of bound"
-operatorSet ((C ch) : N idx : S str : xs)
-    | idx >= 0 && idx < fromIntegral (length str) =
-        return $
-            S (take (fromIntegral idx) str ++ [ch] ++ drop (fromIntegral idx + 1) str)
-                : xs
-    | otherwise = fail "Index out of bound"
-operatorSet _ = fail "expects a list, an integer index, and a value"
-
-operators :: [(String, V)]
-operators =
-    [ ("add", Op operatorAdd),
-      ("sub", Op operatorSub),
-      ("mul", Op operatorMul),
-      ("div", Op operatorDiv),
-      ("mod", Op operatorMod),
-      ("eq", Op operatorEq),
-      ("neq", Op operatorNEq),
-      ("less", Op operatorLt),
-      ("greater", Op operatorGt),
-      ("and", Op operatorAnd),
-      ("or", Op operatorOr),
-      ("get", Op operatorGet),
-      ("set", Op operatorSet),
-      ("print", Op operatorPrint)
-    ]
 
 execRet :: [Value] -> Either String (Maybe Value)
 execRet [] = Left "No values on stack"
@@ -227,8 +73,15 @@ execJumpF' :: Either Int String -> Value -> VmState ()
 execJumpF' jd (B False) = execJump jd
 execJumpF' _ _ = pure ()
 
+dropAndGet' :: [Value] -> VmState Value
+dropAndGet' (x : xs) = modifyStack xs >> return x
+dropAndGet' [] = fail "bad jumpf"
+
+dropAndGet :: VmState Value
+dropAndGet = getStack >>= dropAndGet'
+
 execJumpF :: Either Int String -> VmState ()
-execJumpF jd = getStack >>= execJumpF' jd . head
+execJumpF jd = dropAndGet >>= execJumpF' jd
 
 execJump :: Either Int String -> VmState ()
 execJump (Left n)
@@ -250,11 +103,21 @@ execGet n =
                 Just _ -> fail "cannot access an operator using get"
             )
 
+drop1 :: [a] -> [a]
+drop1 [] = []
+drop1 (_ : xs) = xs
+
+dup1 :: [a] -> [a]
+dup1 (x : xs) = x : x : xs
+dup1 [] = []
+
 execInstruction :: Instruction -> VmState (Maybe Value)
 execInstruction (Instruction _ _ Ret _) =
     getStack >>= eitherS . execRet
 execInstruction (Instruction _ _ (Push x) _) =
     getStack >>= modifyStack . (x :) >> return Nothing
+execInstruction (Instruction _ _ Void _) = getStack >>= (modifyStack . drop1) >> return Nothing
+execInstruction (Instruction _ _ Dup _) = getStack >>= (modifyStack . dup1) >> return Nothing
 execInstruction (Instruction _ _ Noop _) = return Nothing
 execInstruction (Instruction _ _ (PushArg x) _) = execPushArg x >> return Nothing
 execInstruction (Instruction _ _ (Call n) _) = execCall n >> return Nothing
