@@ -34,6 +34,7 @@ import VirtualMachine.Operators.Binary (
  )
 import VirtualMachine.Operators.IO (
     opCloseHandle,
+    opError,
     opGetLineHandle,
     opOpenFile,
     opReadHandle,
@@ -82,5 +83,6 @@ operators =
       ("close", Op opCloseHandle),
       ("write", Op opWriteHandle),
       ("read", Op opReadHandle),
-      ("getLine", Op opGetLineHandle)
+      ("getLine", Op opGetLineHandle),
+      ("error", Op opError)
     ]

@@ -18,6 +18,7 @@ module VirtualMachine.Operators.IO (
     opWriteHandle,
     opReadHandle,
     opGetLineHandle,
+    opError,
 ) where
 
 import Data.Functor ((<&>))
@@ -25,7 +26,7 @@ import Data.Int (Int64)
 import GHC.IO.Handle (Handle, hGetContents, hGetLine, hPutChar, hPutStr)
 import System.IO (IOMode (AppendMode, ReadMode, ReadWriteMode, WriteMode), hClose, openFile)
 import VirtualMachine.Instructions (Value (..))
-import VirtualMachine.State (VmState, getHandleInMemory, io, ioCatch, registerHandle)
+import VirtualMachine.State (VmState, getError, getHandleInMemory, io, ioCatch, registerHandle, setError)
 
 operatorPrint :: [Value] -> VmState [Value]
 operatorPrint (S s : xs) = io $ putStr s >> return (N (fromIntegral (length s)) : xs)
@@ -56,8 +57,8 @@ opOpenFile' :: String -> IOMode -> VmState (Either Handle Int64)
 opOpenFile' n m = ioCatch (openFile n m) (-1)
 
 opOpenFile'' :: Either Handle Int64 -> VmState Value
-opOpenFile'' (Right n) = pure $ N n
-opOpenFile'' (Left h) = N <$> registerHandle h
+opOpenFile'' (Right n) = setError True >> pure (N n)
+opOpenFile'' (Left h) = setError False >> N <$> registerHandle h
 
 opOpenFile :: [Value] -> VmState [Value]
 opOpenFile (S name : S "r" : xs) = (opOpenFile' name ReadMode >>= opOpenFile'') <&> (: xs)
@@ -67,8 +68,8 @@ opOpenFile (S name : S "a" : xs) = (opOpenFile' name AppendMode >>= opOpenFile''
 opOpenFile xs = pure $ N (-1) : xs
 
 opCloseHandle' :: Either () Int64 -> VmState Value
-opCloseHandle' (Right n) = pure $ N n
-opCloseHandle' (Left _) = pure $ N 0
+opCloseHandle' (Right n) = setError True >> pure (N n)
+opCloseHandle' (Left _) = setError False >> pure (N 0)
 
 opCloseHandle :: [Value] -> VmState [Value]
 opCloseHandle (N hdl : xs) =
@@ -77,11 +78,11 @@ opCloseHandle (N hdl : xs) =
         >>= opCloseHandle'
     )
         <&> (: xs)
-opCloseHandle xs = pure (N (-1) : xs)
+opCloseHandle xs = setError True >> pure (N (-1) : xs)
 
 opWriteHandle' :: Either Int64 Int64 -> VmState Value
-opWriteHandle' (Left n) = pure $ N n
-opWriteHandle' (Right n) = pure $ N n
+opWriteHandle' (Left n) = setError False >> pure (N n)
+opWriteHandle' (Right n) = setError True >> pure (N n)
 
 opWriteHandle :: [Value] -> VmState [Value]
 opWriteHandle (h'@(N hdl) : S str : xs) =
@@ -120,26 +121,29 @@ opWriteHandle (h'@(N hdl) : v : xs) =
         >>= opWriteHandle'
     )
         <&> (: h' : xs)
-opWriteHandle xs = pure $ N (-1) : xs
+opWriteHandle xs = setError True >> pure (N (-1) : xs)
 
-opReadHandle' :: Either String Int64 -> VmState Value
-opReadHandle' (Left s) = pure $ S s
-opReadHandle' (Right n) = pure $ N n
+opReadHandle' :: Either String String -> VmState Value
+opReadHandle' (Left s) = setError False >> pure (S s)
+opReadHandle' (Right n) = setError True >> pure (S n)
 
 opReadHandle :: [Value] -> VmState [Value]
 opReadHandle (N hdl : xs) =
     ( getHandleInMemory hdl
-        >>= (\h -> ioCatch (hGetContents h) (-1))
+        >>= (\h -> ioCatch (hGetContents h) "Could not read")
         >>= opReadHandle'
     )
         <&> (: xs)
-opReadHandle xs = pure (N (-1) : xs)
+opReadHandle xs = setError True >> pure (N (-1) : xs)
 
 opGetLineHandle :: [Value] -> VmState [Value]
 opGetLineHandle (N hdl : xs) =
     ( getHandleInMemory hdl
-        >>= (\h -> ioCatch (hGetLine h) (-1))
+        >>= (\h -> ioCatch (hGetLine h) "Could not read")
         >>= opReadHandle'
     )
         <&> (: xs)
-opGetLineHandle xs = pure (N (-1) : xs)
+opGetLineHandle xs = setError True >> pure (N (-1) : xs)
+
+opError :: [Value] -> VmState [Value]
+opError xs = (: xs) . B <$> getError

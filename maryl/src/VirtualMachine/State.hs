@@ -47,6 +47,8 @@ module VirtualMachine.State (
     registerHandle,
     initialMemory,
     ioCatch,
+    setError,
+    getError,
 ) where
 
 import Control.Exception (catch)
@@ -104,7 +106,9 @@ data Vm = Vm
       -- | The 'pc' field, also known as program counter, is the current index executed in the list of instructions specified in the field 'instructions.
       pc :: Int,
       -- | The 'args' field, is the arguments passed to the program at startup.
-      args :: [Value]
+      args :: [Value],
+      -- | The 'error' field, is used to specify that an error occured during the last syscall it can be access with the operator error,
+      error' :: Bool
     }
     deriving (Show)
 
@@ -122,7 +126,7 @@ This function will always initialise an empty 'stack' and a 'pc' at 0
 >>> initialState [push 10, ret 5] (Map.fromList []) []
 -}
 initialState :: [Instruction] -> VmMemory -> [Value] -> Vm
-initialState i m = Vm [] i m 0
+initialState i m a = Vm [] i m 0 a False
 
 {- | The 'copyVm' function is used to copy a vm state and its memory and change its instructions.
 It also clears the stack and takes the old one as argument in order for it to become the new args.
@@ -145,8 +149,14 @@ Here is an example of a print string from the stack.
 io :: IO a -> VmState a
 io = liftIO
 
+setError :: Bool -> VmState ()
+setError e = modify (\v -> v {error' = e})
+
+getError :: VmState Bool
+getError = gets error'
+
 ioCatch :: IO a -> b -> VmState (Either a b)
-ioCatch v b = io (catch (v <&> Left) (\e -> (const $ pure $ Right b) (e :: IOException)))
+ioCatch v b = io (catch (v <&> Left) (\e -> (const $ return $ Right b) (e :: IOException)))
 
 eitherS' :: Show e => Either e a -> IO a
 eitherS' (Left e') = fail . show $ e'
@@ -192,7 +202,7 @@ dbg :: VmState ()
 dbg = get >>= (io . printVM)
 
 printVM :: Vm -> IO ()
-printVM (Vm s i m p a) =
+printVM (Vm s i m p _ _) =
     putStrLn "==============================\nStack :"
         >> print s
         >> putStrLn "==============================\nHandles :"
