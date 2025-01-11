@@ -10,13 +10,40 @@ module Compiler.TranslationSpec (spec) where
 
 import Compiler.ASTtoASM (translateAST, translateToASM)
 import Memory (initMemory)
-import Parsing.ParserAst (Ast (..), MarylType (..), Variable (..))
+import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
 import Test.Hspec (Spec, describe, it, shouldBe)
 import VirtualMachine.Instructions (Value (..), call, push, ret)
 
 spec :: Spec
 spec = do
     describe "translateAST" $ do
+        it "translates a basic call to print with one arg" $ do
+            fst
+                ( translateAST
+                    ( AstDefineFunc
+                        ( Function
+                            { fName = "start",
+                              fArgs = [],
+                              fBody =
+                                [ AstReturn
+                                    ( AstFunc
+                                        ( Function
+                                            { fName = "print",
+                                              fArgs = [AstString "Hello World"],
+                                              fBody = [],
+                                              fType = Void
+                                            }
+                                        )
+                                    )
+                                ],
+                              fType = Int
+                            }
+                        )
+                    )
+                    initMemory
+                )
+                `shouldBe` [push Nothing (S "Hello World"), call Nothing "print", ret Nothing]
+
         it "translates AstInt to push instruction" $
             fst (translateAST (AstInt 42) initMemory) `shouldBe` [push Nothing (N 42)]
 
