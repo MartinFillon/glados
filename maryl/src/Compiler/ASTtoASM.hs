@@ -7,8 +7,9 @@
 
 module Compiler.ASTtoASM (translateToASM, translateAST) where
 
-import Compiler.Streamline (clarifyAST, updateList)
+import Compiler.Streamline (clarifyAST)
 import Debug.Trace (trace)
+import Eval.Assignment (updateList)
 import Memory (Memory, addMemory, freeMemory, generateUniqueLoopName, readMemory, updateMemory)
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
 import VirtualMachine.Instructions (Instruction (..), Value (..), call, jump, jumpf, noop, push, pushArg, ret)
@@ -24,12 +25,19 @@ translateToASM asts mem = foldl processAST ([], mem) asts
 -- (= assignment operator)
 handleAssignment :: Ast -> Ast -> Memory -> ([Instruction], Memory)
 handleAssignment (AstVar var) right mem =
-    let newMem = updateMemory mem var (clarifyAST right mem)
+    let clarifiedRight = clarifyAST right mem
+        newMem = updateMemory mem var clarifiedRight
      in ([], newMem)
 handleAssignment (AstListElem var (x : xs)) right mem =
-    let (clarified, _) = updateList var (AstListElem var (x : xs)) mem (clarifyAST right mem)
-        newMem = updateMemory mem var clarified
-     in (fst (translateAST (AstVar var) mem) ++ fst (translateAST (AstInt x) mem) ++ fst (translateAST right mem) ++ [call Nothing "set"], newMem)
+    case updateList var (AstListElem var (x : xs)) mem (clarifyAST right mem) of
+        Right (clarified, updatedMem) ->
+            let newMem = updateMemory updatedMem var clarified
+                varInstr = fst (translateAST (AstVar var) mem)
+                idxInstr = fst (translateAST (AstInt x) mem)
+                rightInstr = fst (translateAST right mem)
+                instructions = varInstr ++ idxInstr ++ rightInstr ++ [call Nothing "set"]
+             in (instructions, newMem)
+        _ -> ([], mem)
 handleAssignment _ _ mem = ([], mem)
 
 -- (call defined Vars)

@@ -21,11 +21,11 @@ import VirtualMachine (vm)
 
 handleEvalResult :: Either String ([Ast], Memory) -> IO ()
 handleEvalResult (Right (result, mem)) =
-    let (_, _) = translateToASM result mem
-     in writeInstructionsToFile "out.s" mem
+    let (_, updatedMem) = translateToASM result mem
+     in writeInstructionsToFile "out.s" updatedMem
             >> putStrLn "ASM produced in out.s"
 handleEvalResult (Left err) =
-    pError ("*** ERROR : " ++ err)
+    pError ("*** ERROR *** with\n\t" ++ err)
 
 parseSourceCode :: Memory -> String -> IO Memory
 parseSourceCode mem s =

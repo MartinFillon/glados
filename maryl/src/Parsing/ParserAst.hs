@@ -4,6 +4,7 @@
 -- File description:
 -- Parser
 -}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Parsing.ParserAst (
@@ -12,10 +13,13 @@ module Parsing.ParserAst (
     MarylType (..),
     Function (..),
     Variable (..),
+
     -- * Types
     Parser,
     ParserError,
+
     -- * Functions
+
     -- ** Main parsing functions
     parseAST,
     pAst,
@@ -37,6 +41,7 @@ module Parsing.ParserAst (
     operatorTable,
     convertValue,
     getType,
+
     -- ** Megaparsec functions wrappers
     binary,
     prefix,
@@ -49,7 +54,7 @@ import Control.Monad.Combinators.Expr (
     Operator (..),
     makeExprParser,
  )
-import Data.List (isPrefixOf, stripPrefix)
+import Data.List (intercalate, isPrefixOf, stripPrefix)
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Void (Void)
 import Text.Megaparsec (
@@ -108,18 +113,49 @@ data Ast
     | AstPostfixFunc String Ast
     | AstPrefixFunc String Ast
     | AstFunc Function
-    | AstIf Ast Ast [Ast] (Maybe Ast) -- ^ if condition do [else if] (Maybe else)
-    | AstTernary Ast Ast Ast -- ^ condition ? do : else
+    | -- | if condition do [else if] (Maybe else)
+      AstIf Ast Ast [Ast] (Maybe Ast)
+    | -- |  condition ? do : else
+      AstTernary Ast Ast Ast
     | AstReturn Ast
     | AstBlock [Ast]
-    | AstLoop Ast Ast -- ^ condition (AstBlock to loop in)
-    | AstBreak -- ^ break statement
-    | AstContinue -- ^ continue statement
+    | -- condition (AstBlock to loop in)
+      AstLoop Ast Ast
+    | -- | break statement
+      AstBreak
+    | -- | continue statement
+      AstContinue
     | AstDefineVar Variable
     | AstDefineFunc Function
     | AstList [Ast]
-    | AstListElem String [Int] -- ^ variable indexes
-    deriving (Eq, Ord, Show)
+    | -- | variable indexes
+      AstListElem String [Int]
+    deriving (Eq, Ord)
+
+instance Show Ast where
+    show :: Ast -> String
+    show (AstVar s) = tail (init (show s))
+    show AstVoid = "void"
+    show (AstInt n) = show n
+    show (AstBool b) = show b
+    show (AstString s) = show s
+    show (AstChar c) = show c
+    show (AstDouble d) = show d
+    show (AstBinaryFunc op left right) = show left ++ " " ++ show op ++ " " ++ show right
+    show (AstPostfixFunc f ast) = show ast ++ show f
+    show (AstPrefixFunc f ast) = show f ++ show ast
+    show (AstFunc (Function funcName funcArgs funcBody _)) = "call " ++ show funcName ++ "(" ++ show funcArgs ++ "){" ++ show funcBody ++ "}"
+    show (AstIf cond ifBlock elseIf maybeElse) = "if(" ++ show cond ++ "){" ++ show ifBlock ++ "} " ++ show elseIf ++ " else {" ++ show maybeElse ++ "}"
+    show (AstTernary cond terBlock elseBlock) = show cond ++ " ? " ++ show terBlock ++ " : " ++ show elseBlock
+    show (AstReturn ast) = "return " ++ show ast
+    show (AstBlock blocks) = show blocks
+    show (AstLoop cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
+    show AstBreak = "break"
+    show AstContinue = "continue"
+    show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
+    show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
+    show (AstList asts) = "[]" ++ show asts
+    show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
 
 lineComment :: Parser ()
 lineComment = L.skipLineComment "//"
@@ -150,24 +186,26 @@ bonusChar :: Parser Char
 bonusChar = choice $ char <$> bonusChar'
 
 rWords :: [String]
-rWords = types' ++
-    [ "while",
-      "if",
-      "else",
-      "true",
-      "false",
-      "return",
-      "null",
-      "const",
-      "break",
-      "continue"
-    ]
+rWords =
+    types'
+        ++ [ "while",
+             "if",
+             "else",
+             "true",
+             "false",
+             "return",
+             "null",
+             "const",
+             "break",
+             "continue"
+           ]
 
 -- | Variable names must start with a letter or an underscore ([_a-zA-Z]), and can be followed by any alphanumerical character or underscore ([_a-zA-Z0-9])
 variable :: Parser String
 variable = variable' >>= check
-    where
-        check x = if x `elem` rWords
+  where
+    check x =
+        if x `elem` rWords
             then fail $ show x ++ " is a reserved identifier"
             else return x
 
@@ -413,19 +451,22 @@ pContinue :: Parser Ast
 pContinue = lexeme $ AstContinue <$ string "continue"
 
 eqSymbol :: Parser String
-eqSymbol = choice
-    (symbol <$> [ "=",
-      "+=",
-      "-=",
-      "**=",
-      "*=",
-      "/=",
-      "|=",
-      "&=",
-      "^=",
-      ">>=",
-      "<<="
-    ])
+eqSymbol =
+    choice
+        ( symbol
+            <$> [ "=",
+                  "+=",
+                  "-=",
+                  "**=",
+                  "*=",
+                  "/=",
+                  "|=",
+                  "&=",
+                  "^=",
+                  ">>=",
+                  "<<="
+                ]
+        )
 
 {- | Parsing equal symbols for variable value assignation, syntax being: variable = value;
 
@@ -522,7 +563,7 @@ operatorTable =
         [ postfix "++" (AstPostfixFunc "++"),
           postfix "--" (AstPostfixFunc "--")
         ],
-        [ binary' "**" (AstBinaryFunc "**") ],
+      [binary' "**" (AstBinaryFunc "**")],
         [ binary "*" (AstBinaryFunc "*"),
           binary "/" (AstBinaryFunc "/"),
           binary "%" (AstBinaryFunc "%")
@@ -545,7 +586,7 @@ operatorTable =
         [ binary "or" (AstBinaryFunc "or"),
           binary "and" (AstBinaryFunc "and")
         ],
-        [ ternary AstTernary ]
+      [ternary AstTernary]
     ]
 
 -- | Megaparsec Expr parser call with 'convertValue' defining the types to parse and 'operatorTable' containing all operators handled.
@@ -559,7 +600,8 @@ pExpr' = list' pExpr <|> convertValue
 pAst :: Parser [Ast]
 pAst = many $ try pTerm
 
--- | Main parsing function returning a list of parsed AST, or a Megaparsec formatted error.
--- Takes the string to parse as parameter.
+{-  | Main parsing function returning a list of parsed AST, or a Megaparsec formatted error.
+  Takes the string to parse as parameter.
+-}
 parseAST :: String -> Either ParserError [Ast]
 parseAST = parse (between sc eof pAst) ""

@@ -24,11 +24,9 @@ isNumeric _ = False
 
 evalEq :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
 evalEq mem left right = Right (AstBool (left == right), mem)
-evalEq _ _ _ = Left "Invalid arguments for `==`."
 
 evalNEq :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
 evalNEq mem left right = Right (AstBool (left /= right), mem)
-evalNEq _ _ _ = Left "Invalid arguments for `!=`."
 
 evalLessThan :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
 evalLessThan mem (AstInt i1) (AstInt i2) = Right (AstBool (i1 < i2), mem)
@@ -39,7 +37,6 @@ evalLessThan _ a b
     | isNumeric a =
         Left ("Argument \"" ++ show b ++ "\" invalid for `<`.")
     | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for `<`.")
-evalLessThan _ _ _ = Left "Invalid arguments for `<`."
 
 evalGreaterThan :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
 evalGreaterThan mem (AstInt i1) (AstInt i2) = Right (AstBool (i1 > i2), mem)
@@ -50,53 +47,43 @@ evalGreaterThan _ a b
     | isNumeric a =
         Left ("Argument \"" ++ show b ++ "\" invalid for `>`.")
     | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for `>`.")
-evalGreaterThan _ _ _ = Left "Invalid arguments for `>`."
 
 -- Binary
 
 evalBAnd :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
-evalBAnd mem (AstInt i1) (AstInt i2) =
-    Right (AstInt $ (.&.) (fromIntegral i1) (fromIntegral i2), mem)
+evalBAnd mem (AstInt i1) (AstInt i2) = Right (AstInt $ (.&.) i1 i2, mem)
 evalBAnd _ a b
     | typeOf a == typeOf AstInt =
         Left ("Argument \"" ++ show b ++ "\" invalid for binary `and`.")
     | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for binary `and`.")
-evalBAnd _ _ _ = Left "Invalid arguments for binary `and`."
 
 evalBOr :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
-evalBOr mem (AstInt i1) (AstInt i2) =
-    Right (AstInt $ (.|.) (fromIntegral i1) (fromIntegral i2), mem)
+evalBOr mem (AstInt i1) (AstInt i2) = Right (AstInt $ (.|.) i1 i2, mem)
 evalBOr _ a b
     | typeOf a == typeOf AstInt =
         Left ("Argument \"" ++ show b ++ "\" invalid for binary `or`.")
     | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for binary `or`.")
-evalBOr _ _ _ = Left "Invalid arguments for binary `or`."
 
 evalBXor :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
-evalBXor mem (AstInt i1) (AstInt i2) =
-    Right (AstInt $ xor (fromIntegral i1) (fromIntegral i2), mem)
+evalBXor mem (AstInt i1) (AstInt i2) = Right (AstInt $ xor i1 i2, mem)
 evalBXor _ a b
     | typeOf a == typeOf AstInt =
         Left ("Argument \"" ++ show b ++ "\" invalid for `xor`.")
     | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for `xor`.")
-evalBXor _ _ _ = Left "Invalid arguments for `xor`."
 
 evalShiftR :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
-evalShiftR mem (AstInt i1) (AstInt i2) =
-    Right (AstInt $ shiftR (fromIntegral i1) (fromIntegral i2), mem)
+evalShiftR mem (AstInt i1) (AstInt i2) = Right (AstInt $ shiftR i1 i2, mem)
 evalShiftR _ a b
     | typeOf a == typeOf AstInt =
         Left ("Argument \"" ++ show b ++ "\" invalid for `>>`.")
     | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for `>>`.")
-evalShiftR _ _ _ = Left "Invalid arguments for `>>`."
 
 evalShiftL :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
-evalShiftL mem (AstInt i1) (AstInt i2) = Right (AstInt $ shiftL (fromIntegral i1) (fromIntegral i2), mem)
+evalShiftL mem (AstInt i1) (AstInt i2) = Right (AstInt $ shiftL i1 i2, mem)
 evalShiftL _ a b
     | typeOf a == typeOf AstInt =
         Left ("Argument \"" ++ show b ++ "\" invalid for `<<`.")
     | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for `<<`.")
-evalShiftL _ _ _ = Left "Invalid arguments for `<<`."
 
 -- Booleans
 
@@ -106,7 +93,6 @@ evalAnd _ a b
     | typeOf a == typeOf AstBool =
         Left ("Argument \"" ++ show b ++ "\" invalid for `and`.")
     | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for `and`.")
-evalAnd _ _ _ = Left "Invalid arguments for `and`."
 
 evalOr :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
 evalOr mem (AstBool b1) (AstBool b2) = Right (AstBool (b1 || b2), mem)
@@ -114,7 +100,6 @@ evalOr _ a b
     | typeOf a == typeOf AstBool =
         Left ("Argument \"" ++ show b ++ "\" invalid for `or`.")
     | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for `or`.")
-evalOr _ _ _ = Left "Invalid arguments for `or`."
 
 -- Maths
 
@@ -138,7 +123,6 @@ evalMath opname _ _ a b
         Left ("Argument \"" ++ show b ++ "\" invalid for operation " ++ opname ++ ".")
     | otherwise =
         Left ("Argument \"" ++ show a ++ "\" invalid for operation " ++ opname ++ ".")
-evalMath opname _ _ _ _ = Left ("Invalid arguments for " ++ opname ++ ".")
 
 evalAdd :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
 evalAdd = evalMath "+" (+)
@@ -169,7 +153,6 @@ evalDiv _ a b
     | isNumeric a =
         Left ("Argument \"" ++ show b ++ "\" invalid for division.")
     | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for division.")
-evalDiv _ _ _ = Left "Invalid arguments for division."
 
 evalMod :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
 evalMod mem (AstInt i1) (AstInt i2)
@@ -188,4 +171,3 @@ evalMod _ a b
     | isNumeric a =
         Left ("Argument \"" ++ show b ++ "\" invalid for modulo.")
     | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for modulo.")
-evalMod _ _ _ = Left "Invalid arguments for modulo."

@@ -6,16 +6,29 @@
 --}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
-module Eval.Evaluator (evalAST, evalNode, simplifyOp) where
+module Eval.Evaluator (evalAST, evalNode, applyOp, defaultRegistry) where
 
 import qualified Data.Map as Map
 import Debug.Trace (trace)
+import Eval.Assignment (updateList)
 import Eval.Ops (evalAdd, evalAnd, evalBAnd, evalBOr, evalBXor, evalDiv, evalEq, evalGreaterThan, evalLessThan, evalMod, evalMul, evalNEq, evalOr, evalPower, evalShiftL, evalShiftR, evalSub)
 import Memory (Memory, addMemory, freeMemory, readMemory, updateMemory)
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
 
 type FunctionRegistry =
     Map.Map String (Memory -> Ast -> Ast -> Either String (Ast, Memory))
+
+evalAssign :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
+evalAssign mem (AstVar var) right =
+    evalNode mem right >>= \(evaluatedR, updatedMem) ->
+        let newMem = updateMemory updatedMem var evaluatedR
+         in Right (evaluatedR, newMem)
+evalAssign mem (AstListElem var (x : xs)) right =
+    evalNode mem right >>= \(evaluatedAst, updatedMem) ->
+        updateList var (AstListElem var (x : xs)) updatedMem evaluatedAst >>= \(clarified, newMem) ->
+            let finalMem = updateMemory newMem var clarified
+             in Right (evaluatedAst, finalMem)
+evalAssign _ left right = Left ("Can't assign " ++ show right ++ " to " ++ show right ++ ".")
 
 defaultRegistry :: FunctionRegistry
 defaultRegistry =
@@ -44,8 +57,8 @@ defaultRegistry =
 maybeToEither :: String -> Maybe a -> Either String a
 maybeToEither err = maybe (Left err) Right
 
-simplifyOp :: Memory -> String -> Ast -> Ast -> Either String (Ast, Memory)
-simplifyOp mem op left right =
+applyOp :: Memory -> String -> Ast -> Ast -> Either String (Ast, Memory)
+applyOp mem op left right =
     maybeToEither
         (op ++ " is not a valid operator")
         (Map.lookup op defaultRegistry)
@@ -72,13 +85,14 @@ evalNode mem (AstDefineFunc (Function funcName args body typ)) =
              in case addMemory updatedMem funcName (AstDefineFunc evaluatedFunction) of
                     Right finalMem -> Right (AstVoid, finalMem)
                     Left err -> Left $ "Failed to define function (" ++ err ++ ")"
+evalNode mem (AstBinaryFunc "=" left right) = evalAssign mem left right
 evalNode mem (AstBinaryFunc op left right) = do
     (leftVal, mem') <- evalNode mem left
     (rightVal, mem'') <- evalNode mem' right
-    simplifyOp mem'' op leftVal rightVal
-evalNode mem (AstReturn expr) = do
-    (evaluatedExpr, mem') <- evalNode mem expr
-    Right (AstReturn evaluatedExpr, mem')
+    applyOp mem'' op leftVal rightVal
+evalNode mem (AstReturn expr) =
+    evalNode mem expr >>= \(evaluatedExpr, mem') ->
+        Right (AstReturn evaluatedExpr, mem')
 evalNode mem (AstIf cond trueBranch elseIfBranches elseBranch) = do
     (condResult, mem') <- evalNode mem cond
     case condResult of
@@ -106,8 +120,6 @@ evalNode mem (AstLoop cond body) = do
                 AstBool False -> Right (AstVoid, mem'')
                 _ -> Left "Condition in loop is not a boolean"
     loop mem
-evalNode mem AstBreak = Right (AstBreak, mem)
-evalNode mem AstVoid = Right (AstVoid, mem)
 evalNode mem (AstList elems) = do
     (evaluatedElems, mem') <- evalAST mem elems
     Right (AstList evaluatedElems, mem')
@@ -118,7 +130,7 @@ evalAST :: Memory -> [Ast] -> Either String ([Ast], Memory)
 evalAST mem [] = Right ([], mem)
 evalAST mem (ast : asts) =
     case evalNode mem ast of
-        Left err -> Left (show ast ++ ": " ++ err)
+        Left err -> Left (show ast ++ ":\n\t |- " ++ err)
         Right (transformedAst, updatedMem) ->
             evalAST updatedMem asts >>= \(restAst, finalMem) ->
                 Right (transformedAst : restAst, finalMem)
