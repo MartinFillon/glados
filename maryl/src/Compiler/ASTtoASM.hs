@@ -12,6 +12,7 @@ import Debug.Trace (trace)
 import Memory (Memory, freeMemory, readMemory, updateMemory)
 import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
 import VirtualMachine.Instructions (Instruction (..), Value (..), call, jumpf, noop, push, pushArg, ret)
+import VirtualMachine.Operators (operators)
 
 translateToASM :: [Ast] -> Memory -> [Instruction]
 translateToASM asts mem = fst $ foldl processAST ([], mem) asts
@@ -142,6 +143,15 @@ translateMultIndexes (x : xs) mem =
     fst (translateAST (AstInt x) mem) ++ [call Nothing "get"] ++ translateMultIndexes xs mem
 translateMultIndexes [] _ = []
 
+isBuiltin :: String -> Bool
+isBuiltin s = any (\(n, _) -> n == s) operators
+
+translateBuiltin :: String -> [Ast] -> Memory -> ([Instruction], Memory)
+translateBuiltin n' args mem =
+    ( fst (translateArgs args mem 0 False) ++ [call Nothing n'],
+      mem
+    )
+
 translateAST :: Ast -> Memory -> ([Instruction], Memory)
 translateAST (AstDefineVar (Variable varName _ varValue)) mem =
     ([], updateMemory mem varName varValue)
@@ -149,10 +159,12 @@ translateAST (AstVar varName) mem = (callArgs (AstVar varName) mem, mem)
 translateAST (AstDefineFunc (Function _ funcArgs funcBody _)) mem =
     let newMem = freeMemory mem
      in (fst (translateArgs funcArgs newMem 0 True) ++ translateToASM funcBody newMem, newMem)
-translateAST (AstFunc (Function funcName funcArgs _ _)) mem =
-    ( fst (translateArgs funcArgs mem 0 False) ++ [call Nothing ("." ++ funcName)],
-      mem
-    )
+translateAST (AstFunc (Function funcName funcArgs _ _)) mem
+    | isBuiltin funcName = translateBuiltin funcName funcArgs mem
+    | otherwise =
+        ( fst (translateArgs funcArgs mem 0 False) ++ [call Nothing ('.' : funcName)],
+          mem
+        )
 translateAST (AstReturn ast) mem = (fst (translateAST ast mem) ++ [ret Nothing], mem)
 translateAST (AstPrefixFunc "++" ast) mem = translateAST (AstBinaryFunc "=" ast (AstBinaryFunc "+" ast (AstInt 1))) mem -- check differences
 translateAST (AstPrefixFunc "--" ast) mem = translateAST (AstBinaryFunc "=" ast (AstBinaryFunc "-" ast (AstInt 1))) mem
