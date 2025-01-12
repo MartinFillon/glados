@@ -5,7 +5,28 @@
 -- Maths
 -}
 
-module Eval.Ops (evalAdd, evalAnd, evalBAnd, evalBOr, evalBXor, evalGreaterThan, evalSub, evalMul, evalOr, evalPower, evalDiv, evalEq, evalLessThan, evalMod, evalNEq, evalShiftL, evalShiftR, isNumeric) where
+module Eval.Ops (
+    evalAdd,
+    evalSub,
+    evalMul,
+    evalPower,
+    evalDiv,
+    evalMod,
+    evalAnd, 
+    evalOr,
+    evalBAnd,
+    evalBOr,
+    evalBXor, 
+    evalShiftL,
+    evalShiftR,
+    evalGreaterThan,
+    evalGreatThanEq,
+    evalLessThan,
+    evalLessThanEq,
+    evalEq,
+    evalNEq,
+    isNumeric
+) where
 
 import Data.Bits (Bits (shiftL, shiftR, xor, (.|.)), (.&.))
 import Data.Data (typeOf)
@@ -47,6 +68,26 @@ evalGreaterThan _ a b
     | isNumeric a =
         Left ("Argument \"" ++ show b ++ "\" invalid for `>`.")
     | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for `>`.")
+
+evalGreatThanEq :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
+evalGreatThanEq mem (AstInt i1) (AstInt i2) = Right (AstBool (i1 >= i2), mem)
+evalGreatThanEq mem (AstDouble d1) (AstDouble d2) = Right (AstBool (d1 >= d2), mem)
+evalGreatThanEq mem (AstInt i) (AstDouble d) = Right (AstBool (int2Double i >= d), mem)
+evalGreatThanEq mem (AstDouble d) (AstInt i) = Right (AstBool (d >= int2Double i), mem)
+evalGreatThanEq _ a b
+    | isNumeric a =
+        Left ("Argument \"" ++ show b ++ "\" invalid for `>`.")
+    | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for `>`.")
+
+evalLessThanEq :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
+evalLessThanEq mem (AstInt i1) (AstInt i2) = Right (AstBool (i1 <= i2), mem)
+evalLessThanEq mem (AstDouble d1) (AstDouble d2) = Right (AstBool (d1 <= d2), mem)
+evalLessThanEq mem (AstInt i) (AstDouble d) = Right (AstBool (int2Double i <= d), mem)
+evalLessThanEq mem (AstDouble d) (AstInt i) = Right (AstBool (d <= int2Double i), mem)
+evalLessThanEq _ a b
+    | isNumeric a =
+        Left ("Argument \"" ++ show b ++ "\" invalid for `<`.")
+    | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for `<`.")
 
 -- Binary
 

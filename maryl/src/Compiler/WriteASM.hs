@@ -57,6 +57,10 @@ serializeMemoryFunctions mem =
             let (instructions, updatedMem) = translateAST (AstDefineFunc val) currentMem
                 serializedFunc = serializeFunction key instructions
              in (acc ++ [serializedFunc], updatedMem)
+    extractFunction (acc, currentMem) key (AstDefineLoop loopName cond block) =
+        let (instructions, updatedMem) = translateAST (AstDefineLoop loopName cond block) currentMem
+            serializedLoop = serializeFunction key instructions
+         in (acc ++ [serializedLoop], updatedMem)
     extractFunction accAndMem _ _ = accAndMem -- != AstDefineFunc
 
 serializeMain :: Memory -> (String, Memory)

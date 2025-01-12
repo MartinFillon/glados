@@ -41,6 +41,7 @@ freeMemory =
     Map.filter
         ( \case
             AstDefineFunc _ -> True
+            AstDefineLoop {} -> True
             _ -> False
         )
 

@@ -11,7 +11,7 @@ module Eval.Evaluator (evalAST, evalNode, applyOp, defaultRegistry) where
 import qualified Data.Map as Map
 import Debug.Trace (trace)
 import Eval.Assignment (updateList)
-import Eval.Ops (evalAdd, evalAnd, evalBAnd, evalBOr, evalBXor, evalDiv, evalEq, evalGreaterThan, evalLessThan, evalMod, evalMul, evalNEq, evalOr, evalPower, evalShiftL, evalShiftR, evalSub)
+import Eval.Ops (evalAdd, evalAnd, evalBAnd, evalBOr, evalBXor, evalGreaterThan, evalGreatThanEq, evalSub, evalMul, evalOr, evalPower, evalDiv, evalEq, evalLessThan, evalLessThanEq, evalMod, evalNEq, evalShiftL, evalShiftR)
 import Memory (Memory, addMemory, freeMemory, readMemory, updateMemory)
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
 
@@ -28,7 +28,7 @@ evalAssign mem (AstListElem var (x : xs)) right =
         updateList var (AstListElem var (x : xs)) updatedMem evaluatedAst >>= \(clarified, newMem) ->
             let finalMem = updateMemory newMem var clarified
              in Right (evaluatedAst, finalMem)
-evalAssign _ left right = Left ("Can't assign " ++ show right ++ " to " ++ show right ++ ".")
+evalAssign _ left right = Left ("Can't assign " ++ show right ++ " to " ++ show left ++ ".")
 
 defaultRegistry :: FunctionRegistry
 defaultRegistry =
@@ -47,9 +47,9 @@ defaultRegistry =
           ("==", evalEq),
           ("!=", evalNEq),
           (">", evalGreaterThan),
-          -- (">=", evalGreaterThan),
+          (">=", evalGreatThanEq),
           ("<", evalLessThan),
-          -- ("<=", evalLessThan),
+          ("<=", evalLessThanEq),
           ("or", evalAnd),
           ("and", evalOr)
         ]
@@ -86,6 +86,8 @@ evalNode mem (AstDefineFunc (Function funcName args body typ)) =
                     Right finalMem -> Right (AstVoid, finalMem)
                     Left err -> Left $ "Failed to define function (" ++ err ++ ")"
 evalNode mem (AstBinaryFunc "=" left right) = evalAssign mem left right
+evalNode mem (AstPostfixFunc (op : _) ast) = evalAssign mem ast (AstBinaryFunc [op] ast (AstInt 1))
+evalNode mem (AstPrefixFunc (op : _) ast) = evalAssign mem ast (AstBinaryFunc [op] ast (AstInt 1))
 evalNode mem (AstBinaryFunc op left right) = do
     (leftVal, mem') <- evalNode mem left
     (rightVal, mem'') <- evalNode mem' right
@@ -110,16 +112,16 @@ evalNode mem (AstIf cond trueBranch elseIfBranches elseBranch) = do
                     Nothing -> Right (AstVoid, mem')
                 _ -> Left "Invalid else-if structure"
         _ -> Left "Condition in if statement is not a boolean"
-evalNode mem (AstLoop cond body) = do
-    let loop mem' = do
-            (condResult, mem'') <- evalNode mem' cond
-            case condResult of
-                AstBool True -> do
-                    (_, mem''') <- evalAST mem'' (extractBlock body)
-                    loop mem'''
-                AstBool False -> Right (AstVoid, mem'')
-                _ -> Left "Condition in loop is not a boolean"
-    loop mem
+-- evalNode mem (AstLoop cond body) = do
+--     let loop mem' = do
+--             (condResult, mem'') <- evalNode mem' cond
+--             case condResult of
+--                 AstBool True -> do
+--                     (_, mem''') <- evalAST mem'' (extractBlock body)
+--                     loop mem'''
+--                 AstBool False -> Right (AstVoid, mem'')
+--                 _ -> Left "Condition in loop is not a boolean"
+--     loop mem
 evalNode mem (AstList elems) = do
     (evaluatedElems, mem') <- evalAST mem elems
     Right (AstList evaluatedElems, mem')
