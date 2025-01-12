@@ -13,6 +13,7 @@ import Eval.Assignment (updateList)
 import Memory (Memory, addMemory, freeMemory, generateUniqueLoopName, readMemory, updateMemory)
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
 import VirtualMachine.Instructions (Instruction (..), Value (..), call, jump, jumpf, noop, push, pushArg, ret)
+import VirtualMachine.Operators (operators)
 
 translateToASM :: [Ast] -> Memory -> ([Instruction], Memory)
 translateToASM asts mem = foldl processAST ([], mem) asts
@@ -32,11 +33,13 @@ handleAssignment (AstListElem var (x : xs)) right mem =
     case updateList var (AstListElem var (x : xs)) mem (clarifyAST right mem) of
         Right (clarified, updatedMem) ->
             let newMem = updateMemory updatedMem var clarified
-                instructions = concatMap fst
-                    [ translateAST (AstVar var) mem,
-                      translateAST (AstInt x) mem,
-                      translateAST right mem
-                    ] ++ [call Nothing "set"]
+                instructions =
+                    concatMap
+                        fst
+                        [ translateAST (AstVar var) mem,
+                        translateAST (AstInt x) mem,
+                        translateAST right mem
+                        ] ++ [call Nothing "set"]
              in (instructions, newMem)
         _ -> ([], mem)
 handleAssignment _ _ mem = ([], mem)
@@ -158,18 +161,28 @@ translateLoopArg _ Nothing _ = []
 translateLoopArg ast _ mem = fst $ translateAST ast mem
 translateLoopArg _ _ _ = []
 
+isBuiltin :: String -> Bool
+isBuiltin s = any (\(n, _) -> n == s) operators
+
+translateBuiltin :: String -> [Ast] -> Memory -> ([Instruction], Memory)
+translateBuiltin n' args mem =
+    ( fst (translateArgs args mem 0 False) ++ [call Nothing n'],
+      mem
+    )
+
 translateAST :: Ast -> Memory -> ([Instruction], Memory)
 translateAST (AstDefineVar (Variable varName _ varValue)) mem =
     ([], updateMemory mem varName varValue)
 translateAST (AstVar varName) mem = (callArgs (AstVar varName) mem, mem)
 translateAST (AstDefineFunc (Function _ funcArgs funcBody _)) mem =
     let newMem = freeMemory mem
-        (bodyFunc, updatedMem) = translateToASM funcBody newMem
-     in (fst (translateArgs funcArgs newMem 0 True) ++ bodyFunc, updatedMem)
-translateAST (AstFunc (Function funcName funcArgs _ _)) mem =
-    ( fst (translateArgs funcArgs mem 0 False) ++ [call Nothing ("." ++ funcName)],
-      mem
-    )
+     in (fst (translateArgs funcArgs newMem 0 True) ++ translateToASM funcBody newMem, newMem)
+translateAST (AstFunc (Function funcName funcArgs _ _)) mem
+    | isBuiltin funcName = translateBuiltin funcName funcArgs mem
+    | otherwise =
+        ( fst (translateArgs funcArgs mem 0 False) ++ [call Nothing ('.' : funcName)],
+          mem
+        )
 translateAST (AstReturn ast) mem = (fst (translateAST ast mem) ++ [ret Nothing], mem)
 translateAST (AstPrefixFunc (op : _) ast) mem = handleAssignment ast (AstBinaryFunc [op] ast (AstInt 1)) mem -- check differences
 translateAST (AstPostfixFunc (op : _) ast) mem = handleAssignment ast (AstBinaryFunc [op] ast (AstInt 1)) mem
