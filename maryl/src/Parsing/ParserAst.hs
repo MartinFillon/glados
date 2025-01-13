@@ -139,6 +139,7 @@ data Ast
     | AstList [Ast]
     | -- | variable indexes
       AstListElem String [Int]
+    | AstLabel String Ast -- ^ label-name value
     deriving (Eq, Ord)
 
 instance Show Ast where
@@ -168,6 +169,7 @@ instance Show Ast where
     show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
     show (AstStruct s) = "struct " ++ show s
     show (AstDefineStruct s) = "struct " ++ sName s ++ " " ++ show (sProperties s)
+    show (AstLabel n v) = "label " ++ n ++ ": " ++ show v
 
 -- | Types handled by the program.
 data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
@@ -247,6 +249,14 @@ bool =
               True <$ string "true"
             ]
 
+pLabel :: Parser Ast
+pLabel = do
+    n <- variable
+    sc
+    _ <- symbol ":"
+    sc
+    AstLabel n <$> convertValue
+
 listElem :: Parser Int
 listElem = between (symbol "[") (symbol "]") integer
 
@@ -286,7 +296,8 @@ pListElem = do
 convertValue :: Parser Ast
 convertValue =
     choice
-        [ AstDouble <$> try double,
+        [ try pLabel,
+          AstDouble <$> try double,
           AstInt <$> integer,
           try pListElem,
           AstList <$> try pList,
@@ -606,7 +617,8 @@ ternary f = TernR ((f <$ lexeme (char ':')) <$ lexeme (char '?'))
 -- | Operator table containing every operator handled by the program.
 operatorTable :: [[Operator Parser Ast]]
 operatorTable =
-    [   [ prefix "--" (AstPrefixFunc "--"),
+    [   [ binary "." (AstBinaryFunc ".") ],
+        [ prefix "--" (AstPrefixFunc "--"),
           prefix "-" (AstPrefixFunc "-"),
           prefix "++" (AstPrefixFunc "++"),
           prefix "+" id,
