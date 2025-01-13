@@ -131,7 +131,7 @@ exec' :: Maybe Instruction -> VmState Value
 exec' (Just i) =
     execInstruction i
         >>= maybe (incPc >> getNextInstruction >>= exec') return
-exec' Nothing = return $ N 0
+exec' Nothing = return $ N 84
 
 exec :: VmState Value
 exec = getNextInstruction >>= exec'
