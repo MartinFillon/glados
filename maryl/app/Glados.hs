@@ -8,7 +8,7 @@
 module Glados (glados) where
 
 import ArgsHandling (Mode (..))
-import Compiler.ASTtoASM (translateToASM)
+import Compiler.Translation.ASTtoASM (translateToASM)
 import Compiler.WriteASM (writeInstructionsToFile)
 import qualified Control.Monad as Monad
 import Eval.Evaluator (evalAST)
@@ -19,19 +19,19 @@ import System.IO (hIsTerminalDevice, isEOF, stdin)
 import Utils (handleParseError, pError)
 import VirtualMachine (vm)
 
-handleEvalResult :: Either String ([Ast], Memory) -> IO ()
-handleEvalResult (Right (result, mem)) =
-    let _ = translateToASM result
-     in writeInstructionsToFile "out.masm" mem
+handleEvalResult :: [Ast] -> Either String ([Ast], Memory) -> IO ()
+handleEvalResult originalAst (Right (_, mem)) =
+    let (_, updatedMem) = translateToASM originalAst mem
+     in writeInstructionsToFile "out.masm" updatedMem
             >> putStrLn "Maryl ASM produced in out.masm"
-handleEvalResult (Left err) =
-    pError ("*** ERROR : " ++ err)
+handleEvalResult _ (Left err) =
+    pError ("*** ERROR *** with\n\t" ++ err)
 
 parseSourceCode :: Memory -> String -> IO Memory
 parseSourceCode mem s =
     handleParseError True (parseAST s) >>= \asts ->
         let evalResult = evalAST mem asts
-         in handleEvalResult evalResult
+         in handleEvalResult asts evalResult
                 >> return (either (const mem) snd evalResult)
 
 normalizeTabs :: String -> String

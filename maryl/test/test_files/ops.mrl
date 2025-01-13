@@ -1,0 +1,12 @@
+int start() {
+    int yo = 4;
+    yo++;
+    yo--;
+    yo += 5;
+    yo -= 2;
+    if (yo == 7){
+        return 1;
+    } else {
+        return 0;
+    }
+}

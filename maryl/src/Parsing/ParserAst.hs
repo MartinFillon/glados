@@ -4,6 +4,7 @@
 -- File description:
 -- Parser
 -}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Parsing.ParserAst (
@@ -53,7 +54,7 @@ import Control.Monad.Combinators.Expr (
     Operator (..),
     makeExprParser,
  )
-import Data.List (isPrefixOf, stripPrefix)
+import Data.List (intercalate, isPrefixOf, stripPrefix)
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Void (Void)
 import Text.Megaparsec (
@@ -122,11 +123,40 @@ data Ast
       AstContinue
     | AstDefineVar Variable
     | AstDefineFunc Function
+    | -- | nameLoop condition do
+      AstDefineLoop String Ast Ast
     | AstList [Ast]
     | -- | variable indexes
       AstListElem String [Int]
-    | AstStruct String Ast -- ^ name AstBlock
-    deriving (Eq, Ord, Show)
+    | -- | name AstBlock
+      AstStruct String Ast
+    deriving (Eq, Ord)
+
+instance Show Ast where
+    show :: Ast -> String
+    show (AstVar s) = tail (init (show s))
+    show AstVoid = "void"
+    show (AstInt n) = show n
+    show (AstBool b) = show b
+    show (AstString s) = show s
+    show (AstChar c) = show c
+    show (AstDouble d) = show d
+    show (AstBinaryFunc op left right) = show left ++ " " ++ show op ++ " " ++ show right
+    show (AstPostfixFunc f ast) = show ast ++ tail (init (show f))
+    show (AstPrefixFunc f ast) = tail (init (show f)) ++ show ast
+    show (AstFunc (Function funcName funcArgs funcBody _)) = "call " ++ show funcName ++ "(" ++ show funcArgs ++ "){" ++ show funcBody ++ "}"
+    show (AstIf cond ifBlock elseIf maybeElse) = "if(" ++ show cond ++ "){" ++ show ifBlock ++ "} " ++ show elseIf ++ " else {" ++ show maybeElse ++ "}"
+    show (AstTernary cond terBlock elseBlock) = show cond ++ " ? " ++ show terBlock ++ " : " ++ show elseBlock
+    show (AstReturn ast) = "return " ++ show ast
+    show (AstBlock blocks) = show blocks
+    show (AstLoop cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
+    show AstBreak = "break"
+    show AstContinue = "continue"
+    show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
+    show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
+    show (AstDefineLoop nLoop cond loopBlock) = "defLoop " ++ show nLoop ++ "(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
+    show (AstList asts) = "[]" ++ show asts
+    show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
 
 -- | Types handled by the program.
 data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
@@ -426,20 +456,23 @@ pContinue :: Parser Ast
 pContinue = lexeme $ AstContinue <$ string "continue"
 
 eqSymbol :: Parser String
-eqSymbol = choice
-    (symbol <$> [ "=",
-      "+=",
-      "-=",
-      "**=",
-      "*=",
-      "/=",
-      "%=",
-      "|=",
-      "&=",
-      "^=",
-      ">>=",
-      "<<="
-    ])
+eqSymbol =
+    choice
+        ( symbol
+            <$> [ "=",
+                  "+=",
+                  "-=",
+                  "**=",
+                  "*=",
+                  "/=",
+                  "%=",
+                  "|=",
+                  "&=",
+                  "^=",
+                  ">>=",
+                  "<<="
+                ]
+        )
 
 {- | Parsing equal symbols for variable value assignation, syntax being: variable = value;
 
@@ -575,8 +608,8 @@ pExpr' = list' pExpr <|> convertValue
 pAst :: Parser [Ast]
 pAst = many pTerm
 
-{- | Main parsing function returning a list of parsed AST, or a Megaparsec formatted error.
-Takes the string to parse as parameter.
+{-  | Main parsing function returning a list of parsed AST, or a Megaparsec formatted error.
+  Takes the string to parse as parameter.
 -}
 parseAST :: String -> Either ParserError [Ast]
 parseAST = parse (between sc eof pAst) ""
