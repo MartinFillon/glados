@@ -50,7 +50,7 @@ type Parser = Parsec Void Text
 type ParserError = ParseErrorBundle Text Void
 
 confFilepath :: String
-confFilepath = "lisp-colors.conf"
+confFilepath = "maryl-colors.conf"
 
 confDefaultValues :: String
 confDefaultValues =
