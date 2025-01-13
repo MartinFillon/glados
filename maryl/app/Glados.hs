@@ -22,8 +22,8 @@ import VirtualMachine (vm)
 handleEvalResult :: Either String ([Ast], Memory) -> IO ()
 handleEvalResult (Right (result, mem)) =
     let _ = translateToASM result
-     in writeInstructionsToFile "out.s" mem
-            >> putStrLn "ASM produced in out.s"
+     in writeInstructionsToFile "out.masm" mem
+            >> putStrLn "Maryl ASM produced in out.masm"
 handleEvalResult (Left err) =
     pError ("*** ERROR : " ++ err)
 
