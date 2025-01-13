@@ -14,7 +14,7 @@ module Compiler.WriteASM (
     writeInstructionsToFile,
 ) where
 
-import Compiler.ASTtoASM (translateAST)
+import Compiler.Translation.ASTtoASM (translateAST)
 import qualified Data.Map as Map
 import Debug.Trace (trace)
 import Memory (Memory)
@@ -27,6 +27,7 @@ serializeInstArgs (Push (B b)) = " " ++ show b
 serializeInstArgs (Push (S s)) = " \"" ++ s ++ "\""
 serializeInstArgs (Push (L l)) = " " ++ show l
 serializeInstArgs (Push (D d)) = " " ++ show d
+serializeInstArgs (Push (C c)) = " " ++ show c
 serializeInstArgs (Push (Bi bi)) = " " ++ show bi
 serializeInstArgs (PushArg n) = " " ++ show n
 serializeInstArgs (Call func) = " \"" ++ func ++ "\""
@@ -49,12 +50,18 @@ serializeFunction nameVal func =
 
 serializeMemoryFunctions :: Memory -> String
 serializeMemoryFunctions mem =
-    unlines $ Map.foldrWithKey extractFunction [] mem
+    let (serializedFuncs, _) = Map.foldlWithKey extractFunction ([], mem) mem
+     in unlines serializedFuncs
   where
-    extractFunction key (AstDefineFunc val) acc =
-        serializeFunction key (fst (translateAST (AstDefineFunc val) mem)) : acc
-    extractFunction _ _ acc = acc -- != AstDefineFunc
+    extractFunction (acc, currentMem) key (AstDefineFunc val) =
+        let (instructions, updatedMem) = translateAST (AstDefineFunc val) currentMem
+            serializedFunc = serializeFunction key instructions
+         in (acc ++ [serializedFunc], updatedMem)
+    extractFunction (acc, currentMem) key (AstDefineLoop loopName cond block) =
+        let (instructions, updatedMem) = translateAST (AstDefineLoop loopName cond block) currentMem
+            serializedLoop = serializeFunction key instructions
+         in (acc ++ [serializedLoop], updatedMem)
+    extractFunction accAndMem _ _ = accAndMem -- != AstDefineFunc | AstDefineLoop
 
 writeInstructionsToFile :: FilePath -> Memory -> IO ()
-writeInstructionsToFile filePath mem =
-    writeFile filePath (serializeMemoryFunctions mem)
+writeInstructionsToFile filePath mem = writeFile filePath (serializeMemoryFunctions mem)

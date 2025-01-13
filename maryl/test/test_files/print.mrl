@@ -1,0 +1,13 @@
+int start(){
+    int a = 5;
+    char b = 'a';
+    []char str = ['h', 'e', 'l', 'l', 'o'];
+    print("sooo");
+    print('\n');
+    print(1);
+    print('\n');
+    print(a);
+    print('\n');
+    print(str);
+    return 0;
+}

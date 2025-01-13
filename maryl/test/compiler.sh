@@ -25,7 +25,8 @@ print_red() {
 # add.mrl
 print_bold "Running add.mrl..."
 ./glados test/test_files/add.mrl
-output=$(./glados out.s --vm)
+./glados out.s --vm
+output=$(echo $?)
 if [ "$output" == "8" ]; then
     print_green "✅ add.mrl passed!"
 else
@@ -36,7 +37,8 @@ fi
 # mixupadd.mrl
 print_bold "Running mixupadd.mrl..."
 ./glados test/test_files/mixupadd.mrl
-output=$(./glados out.s --vm)
+./glados out.s --vm
+output=$(echo $?)
 if [ "$output" == "6" ]; then
     print_green "✅ mixupadd.mrl passed!"
 else
@@ -47,7 +49,8 @@ fi
 # ifbasic.mrl
 print_bold "Running ifbasic.mrl..."
 ./glados test/test_files/ifbasic.mrl
-output=$(./glados out.s --vm)
+./glados out.s --vm
+output=$(echo $?)
 if [ "$output" == "2" ]; then
     print_green "✅ ifbasic.mrl passed!"
 else
@@ -58,7 +61,8 @@ fi
 # elseifelse.mrl
 print_bold "Running elseifelse.mrl..."
 ./glados test/test_files/elseifelse.mrl
-output=$(./glados out.s --vm)
+./glados out.s --vm
+output=$(echo $?)
 if [ "$output" == "3" ]; then
     print_green "✅ elseifelse.mrl passed!"
 else
@@ -69,10 +73,47 @@ fi
 # basiclist.mrl
 print_bold "Running basiclist.mrl..."
 ./glados test/test_files/basiclist.mrl
-output=$(./glados out.s --vm)
+./glados out.s --vm
+output=$(echo $?)
 if [ "$output" == "4" ]; then
     print_green "✅ basiclist.mrl passed!"
 else
     print_yellow "got '$output'"
     print_red "❌ basiclist.mrl failed"
+fi
+
+# print.mrl
+print_bold "Running print.mrl..."
+./glados test/test_files/print.mrl
+output=$(./glados out.s --vm | tr -d '\n')
+result=$(echo -e "sooo\n1\n5\n['h','e','l','l','o']" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ print.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ print.mrl failed"
+fi
+
+# ops.mrl
+print_bold "Running ops.mrl..."
+./glados test/test_files/ops.mrl
+./glados out.s --vm
+output=$(echo $?)
+if [ "$output" == '1' ]; then
+    print_green "✅ ops.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ ops.mrl failed"
+fi
+
+# ternary.mrl
+print_bold "Running ternary.mrl..."
+./glados test/test_files/ternary.mrl
+./glados out.s --vm
+output=$(echo $?)
+if [ "$output" == '4' ]; then
+    print_green "✅ ternary.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ ternary.mrl failed"
 fi
