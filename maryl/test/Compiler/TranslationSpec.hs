@@ -59,7 +59,7 @@ spec = do
                 `shouldBe` [push Nothing (D 3.14)]
 
         it "translates AstChar to push instruction" $
-            fst (translateAST (AstChar 'a') initMemory) `shouldBe` [push Nothing (S "a")]
+            fst (translateAST (AstChar 'a') initMemory) `shouldBe` [push Nothing (C 'a')]
 
         it "translates AstDefineVar for integer" $
             fst (translateAST (AstDefineVar (Variable "x" Int (AstInt 42))) initMemory) `shouldBe` []
