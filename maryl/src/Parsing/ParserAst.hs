@@ -425,22 +425,20 @@ pContinue :: Parser Ast
 pContinue = lexeme $ AstContinue <$ string "continue"
 
 eqSymbol :: Parser String
-eqSymbol =
-    choice
-        ( symbol
-            <$> [ "=",
-                  "+=",
-                  "-=",
-                  "**=",
-                  "*=",
-                  "/=",
-                  "|=",
-                  "&=",
-                  "^=",
-                  ">>=",
-                  "<<="
-                ]
-        )
+eqSymbol = choice
+    (symbol <$> [ "=",
+      "+=",
+      "-=",
+      "**=",
+      "*=",
+      "/=",
+      "%=",
+      "|=",
+      "&=",
+      "^=",
+      ">>=",
+      "<<="
+    ])
 
 {- | Parsing equal symbols for variable value assignation, syntax being: variable = value;
 
@@ -457,6 +455,8 @@ eqSymbol =
     /= -> division assignation
 
     **= -> power assignation
+
+    %= -> modulo assignation
 
     |= -> bitwise OR assignation
 
