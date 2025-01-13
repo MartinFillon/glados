@@ -16,5 +16,6 @@ glados
 *.html
 *.asm
 *.masm
+*.mrl
 
 test.txt

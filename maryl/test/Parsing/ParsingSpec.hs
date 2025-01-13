@@ -114,6 +114,10 @@ spec = do
         parseAST' "a **= b;"
           `shouldBe` Right [AstBinaryFunc "**=" (AstVar "a") (AstVar "b")]
 
+      it "foo[0] = 2" $ do
+        parseAST' "foo[0] = 2;"
+          `shouldBe` Right [AstBinaryFunc "=" (AstListElem "foo" [0]) (AstInt 2)]
+
     -- context "Math priorities" $ do
 
     context "Function declaration" $ do

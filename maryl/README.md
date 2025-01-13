@@ -93,3 +93,91 @@ Todo that you can use a command like this:
 cd $HOME/.vscode/extensions
 ln -s maryl-language <path to the repository>/maryl/vs-syntax/maryl-language
 ```
+
+## Maryl Syntax (BNF notation)
+
+```bnf
+<type> ::= "int"
+        | "float"
+        | "string"
+        | "char"
+        | "bool"
+        | "void"
+        | <list-type>
+        | <const-type>
+
+<list-type> ::= "[]" <type>
+<const-type> ::= "const" <type>
+<expression> ::= <variable>
+             | <literal>
+             | <function-call>
+             | <binary-expr>
+             | <prefix-expr>
+             | <postfix-expr>
+             | <ternary-expr>
+             | <grouped-expr>
+             | <assignment>
+
+<variable> ::= <identifier>
+<identifier> ::= <letter> <alphanumeric>*
+             | "_" <alphanumeric>+
+
+<literal> ::= <integer>
+          | <double>
+          | <bool>
+          | <string>
+          | <char>
+          | <list>
+
+<integer> ::= <digit>+
+<double> ::= <digit>* "." <digit>+
+<bool> ::= "true" | "false"
+<string> ::= '"' <char>* '"'
+<char> ::= "'" <char> "'"
+<list> ::= "[" <expression> ("," <expression>)* "]"
+
+<function-call> ::= <identifier> "(" <expression-list>? ")"
+<expression-list> ::= <expression> ("," <expression>)*
+
+<binary-expr> ::= <expression> <binary-operator> <expression>
+<binary-operator> ::= "+" | "-" | "|" | "&" | ">>" | "<<" | "^" | "*" | "**" | "/" | "%" | "==" | "!=" | ">" | ">=" | "<" | "<=" | "and" | "or"
+
+<prefix-expr> ::= <prefix-operator> <expression>
+<prefix-operator> ::= "!" | "-" | "++" | "--" | "~"
+
+<postfix-expr> ::= <expression> <postfix-operator>
+<postfix-operator> ::= "++" | "--"
+
+<ternary-expr> ::= <expression> "?" <expression> ":" <expression>
+
+<grouped-expr> ::= "(" <expression> ")"
+<assignment> ::= <variable> <assign-operator> <expression>
+<assign-operator> ::= "=" | "+=" | "-=" | "**=" | "*=" | "/=" | "%=" | "|=" | "&=" | "^=" | ">>=" | "<<="
+<statement> ::= <declaration>
+            | <expression-statement>
+            | <if-statement>
+            | <while-statement>
+            | <return-statement>
+            | <break-statement>
+            | <continue-statement>
+
+<declaration> ::= <variable-declaration> | <function-declaration>
+<variable-declaration> ::= <type> <identifier> ("=" <expression>)? ";"
+<function-declaration> ::= <type> <identifier> "(" <parameter-list>? ")" <block>
+<parameter-list> ::= <type> <identifier> ("," <type> <identifier>)*
+<function-body> ::= <block>
+<block> ::= "{" <statement>* "}"
+
+<expression-statement> ::= <expression> ";"
+
+<if-statement> ::= "if" "(" <expression> ")" <block> <else-if>* <else>?
+<else-if> ::= "else if" "(" <expression> ")" <block>
+<else> ::= "else" <block>
+
+<while-statement> ::= "while" "(" <expression> ")" <block>
+
+<return-statement> ::= "return" <expression>? ";"
+
+<break-statement> ::= "break" ";"
+<continue-statement> ::= "continue" ";"
+```

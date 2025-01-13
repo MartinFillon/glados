@@ -292,7 +292,7 @@ Evaluates one of the branches depending on **foo**
     ```
 
 ### Bonus
-There is a configuration file called `list-colors.conf` containing informations on colors used for Megaparsec parsing errors.</br>
+There is a configuration file called `maryl-colors.conf` containing informations on colors used for Megaparsec parsing errors.</br>
 If the file doesn't exist, it is created with default colors:
 ```conf
 warnings="255;0;255" ; Magenta
@@ -304,5 +304,5 @@ For accessibility purposes, these colors can be changed directly inside the file
 $> ./glados --setup-colors "warnings:R;G;B errors:R;G;B infos:R;G;B"
 ```
 The order of the `warnings`, `errors` and `infos` parts doesn't matter, as long as all 3 parts are present.</br>
-The program will execute as if the flag wasn't present and update the colors inside the file `list-colors.conf`.</br>
+The program will execute as if the flag wasn't present and update the colors inside the file `maryl-colors.conf`.</br>
 Functions returning or getting a `(Color, Color, Color)`, are expecting `(warnings, errors, infos)` in this order.

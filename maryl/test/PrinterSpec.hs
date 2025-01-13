@@ -108,7 +108,7 @@ spec = do
 
         context "conf-file-path-const" $ do
             it "should be the conf file path" $ do
-                confFilepath `shouldBe` "lisp-colors.conf"
+                confFilepath `shouldBe` "maryl-colors.conf"
 
         context "conf-default-values-const" $ do
             it "should be the default values" $ do

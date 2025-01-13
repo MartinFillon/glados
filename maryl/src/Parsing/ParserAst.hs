@@ -4,8 +4,9 @@
 -- File description:
 -- Parser
 -}
-{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE OverloadedStrings #-}
+
+-- {-# LANGUAGE InstanceSigs #-}
 
 module Parsing.ParserAst (
     -- * Classes
@@ -79,10 +80,6 @@ import qualified Text.Megaparsec.Char.Lexer as L
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
 
--- | Types handled by the program.
-data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Undefined
-    deriving (Eq, Ord, Show)
-
 -- | Function structure containing the name of the function, its arguments, the content of the function, and the return value of the function.
 data Function = Function
     { fName :: String,
@@ -115,11 +112,11 @@ data Ast
     | AstFunc Function
     | -- | if condition do [else if] (Maybe else)
       AstIf Ast Ast [Ast] (Maybe Ast)
-    | -- |  condition ? do : else
+    | -- | condition ? do : else
       AstTernary Ast Ast Ast
     | AstReturn Ast
     | AstBlock [Ast]
-    | -- condition (AstBlock to loop in)
+    | -- | condition (AstBlock to loop in)
       AstLoop Ast Ast
     | -- | break statement
       AstBreak
@@ -132,33 +129,41 @@ data Ast
     | AstList [Ast]
     | -- | variable indexes
       AstListElem String [Int]
-    deriving (Eq, Ord)
+    | -- | name AstBlock
+      AstStruct String Ast
+    deriving (Eq, Ord, Show)
 
-instance Show Ast where
-    show :: Ast -> String
-    show (AstVar s) = tail (init (show s))
-    show AstVoid = "void"
-    show (AstInt n) = show n
-    show (AstBool b) = show b
-    show (AstString s) = show s
-    show (AstChar c) = show c
-    show (AstDouble d) = show d
-    show (AstBinaryFunc op left right) = show left ++ " " ++ show op ++ " " ++ show right
-    show (AstPostfixFunc f ast) = show ast ++ tail (init (show f))
-    show (AstPrefixFunc f ast) = tail (init (show f)) ++ show ast
-    show (AstFunc (Function funcName funcArgs funcBody _)) = "call " ++ show funcName ++ "(" ++ show funcArgs ++ "){" ++ show funcBody ++ "}"
-    show (AstIf cond ifBlock elseIf maybeElse) = "if(" ++ show cond ++ "){" ++ show ifBlock ++ "} " ++ show elseIf ++ " else {" ++ show maybeElse ++ "}"
-    show (AstTernary cond terBlock elseBlock) = show cond ++ " ? " ++ show terBlock ++ " : " ++ show elseBlock
-    show (AstReturn ast) = "return " ++ show ast
-    show (AstBlock blocks) = "block : "++ show blocks
-    show (AstLoop cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
-    show AstBreak = "break"
-    show AstContinue = "continue"
-    show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
-    show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
-    show (AstDefineLoop nLoop cond loopBlock) = "defLoop " ++ show nLoop ++ "(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
-    show (AstList asts) = "[]" ++ show asts
-    show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
+-- deriving (Eq, Ord)
+
+-- instance Show Ast where
+--     show :: Ast -> String
+--     show (AstVar s) = tail (init (show s))
+--     show AstVoid = "void"
+--     show (AstInt n) = show n
+--     show (AstBool b) = show b
+--     show (AstString s) = show s
+--     show (AstChar c) = show c
+--     show (AstDouble d) = show d
+--     show (AstBinaryFunc op left right) = show left ++ " " ++ show op ++ " " ++ show right
+--     show (AstPostfixFunc f ast) = show ast ++ tail (init (show f))
+--     show (AstPrefixFunc f ast) = tail (init (show f)) ++ show ast
+--     show (AstFunc (Function funcName funcArgs funcBody _)) = "call " ++ show funcName ++ "(" ++ show funcArgs ++ "){" ++ show funcBody ++ "}"
+--     show (AstIf cond ifBlock elseIf maybeElse) = "if(" ++ show cond ++ "){" ++ show ifBlock ++ "} " ++ show elseIf ++ " else {" ++ show maybeElse ++ "}"
+--     show (AstTernary cond terBlock elseBlock) = show cond ++ " ? " ++ show terBlock ++ " : " ++ show elseBlock
+--     show (AstReturn ast) = "return " ++ show ast
+--     show (AstBlock blocks) = "block : "++ show blocks
+--     show (AstLoop cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
+--     show AstBreak = "break"
+--     show AstContinue = "continue"
+--     show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
+--     show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
+--     show (AstDefineLoop nLoop cond loopBlock) = "defLoop " ++ show nLoop ++ "(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
+--     show (AstList asts) = "[]" ++ show asts
+--     show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
+
+-- | Types handled by the program.
+data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
+    deriving (Eq, Ord, Show)
 
 lineComment :: Parser ()
 lineComment = L.skipLineComment "//"
@@ -463,6 +468,7 @@ eqSymbol =
                   "**=",
                   "*=",
                   "/=",
+                  "%=",
                   "|=",
                   "&=",
                   "^=",
@@ -487,6 +493,8 @@ eqSymbol =
 
     **= -> power assignation
 
+    %= -> modulo assignation
+
     |= -> bitwise OR assignation
 
     &= -> bitwise AND assignation
@@ -499,7 +507,7 @@ eqSymbol =
 -}
 pEqual :: Parser Ast
 pEqual = do
-    var <- AstVar <$> lexeme variable
+    var <- try pListElem <|> (AstVar <$> lexeme variable)
     sc
     eq <- eqSymbol
     sc
@@ -601,7 +609,7 @@ pExpr' = list' pExpr <|> convertValue
 
 -- | 'parseAST' entry function parsing multiple AST as defined by 'pTerm'
 pAst :: Parser [Ast]
-pAst = many $ try pTerm
+pAst = many pTerm
 
 {-  | Main parsing function returning a list of parsed AST, or a Megaparsec formatted error.
   Takes the string to parse as parameter.
