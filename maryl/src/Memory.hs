@@ -20,7 +20,8 @@ updateMemory mem var value =
     Map.insert var value mem
 
 addMemory :: Memory -> String -> Ast -> Either String Memory
-addMemory mem var value = trace ("adding " ++ show var ++ " to mem (" ++ show value ++ ")") $
+addMemory mem var value =
+    -- trace ("adding " ++ show var ++ " to mem (" ++ show value ++ ")") $
     case readMemory mem var of
         Just _ -> Left ("multiple definition of \"" ++ var ++ "\"")
         Nothing -> Right (updateMemory mem var value)

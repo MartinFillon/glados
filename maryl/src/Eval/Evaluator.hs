@@ -18,6 +18,9 @@ import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
 type FunctionRegistry =
     Map.Map String (Memory -> Ast -> Ast -> Either String (Ast, Memory))
 
+----- Operators
+
+-- (=)
 evalAssign :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
 evalAssign mem (AstVar var) right =
     evalNode mem right >>= \(evaluatedR, updatedMem) ->
@@ -44,14 +47,14 @@ defaultRegistry =
           (">>", evalShiftR),
           ("<<", evalShiftL),
           ("^", evalBXor),
-          ("==", evalEq),
-          ("!=", evalNEq),
+          --   ("==", evalEq),
+          --   ("!=", evalNEq),
           (">", evalGreaterThan),
           (">=", evalGreatThanEq),
           ("<", evalLessThan),
           ("<=", evalLessThanEq),
-          ("or", evalAnd),
-          ("and", evalOr)
+          ("or", evalOr),
+          ("and", evalAnd)
         ]
 
 maybeToEither :: String -> Maybe a -> Either String a
@@ -64,11 +67,28 @@ applyOp mem op left right =
         (Map.lookup op defaultRegistry)
         >>= (\f -> f mem left right)
 
+-----
+
+evalList :: String -> [Int] -> Memory -> Either String (Ast, Memory)
+evalList var idxs mem = case readMemory mem var of
+    Just (AstList elems) -> Right (AstListElem var idxs, mem)
+    Just val -> Left ("Index call of variable \"" ++ show var ++ "\" isn't available; only supported by type list.")
+    Nothing -> Left ("Variable \"" ++ show var ++ "\" is out of scope; not defined.")
+evalList ast _ _ = Left ("Invalid index call with \"" ++ show ast ++ "\", expected a variable.")
+
+-----
+
 evalNode :: Memory -> Ast -> Either String (Ast, Memory)
 evalNode mem (AstBinaryFunc "=" left right) = evalAssign mem left right
 evalNode mem (AstPrefixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
 evalNode mem (AstPostfixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
-evalNode mem (AstBinaryFunc (x : "=") left right) = evalAssign mem left (AstBinaryFunc [x] left right)
+evalNode mem (AstBinaryFunc (x : "=") left right)
+    | x /= '=' && x /= '!' = evalAssign mem left (AstBinaryFunc [x] left right)
+    | otherwise = evalNode mem (AstBinaryFunc (x : "=") left right)
+evalNode mem (AstBinaryFunc op left right) = do
+    (leftVal, mem') <- evalNode mem left
+    (rightVal, mem'') <- evalNode mem' right
+    applyOp mem'' op leftVal rightVal
 evalNode mem (AstVar name) =
     case readMemory mem name of
         Just value -> Right (value, mem)
@@ -89,32 +109,26 @@ evalNode mem (AstDefineFunc (Function funcName args body typ)) =
              in case addMemory updatedMem funcName (AstDefineFunc evaluatedFunction) of
                     Right finalMem -> Right (AstVoid, finalMem)
                     Left err -> Left $ "Failed to define function (" ++ err ++ ")"
-evalNode mem (AstPostfixFunc (op : _) ast) = evalAssign mem ast (AstBinaryFunc [op] ast (AstInt 1))
-evalNode mem (AstPrefixFunc (op : _) ast) = evalAssign mem ast (AstBinaryFunc [op] ast (AstInt 1))
-evalNode mem (AstBinaryFunc op left right) = do
-    (leftVal, mem') <- evalNode mem left
-    (rightVal, mem'') <- evalNode mem' right
-    applyOp mem'' op leftVal rightVal
 evalNode mem (AstReturn expr) =
     evalNode mem expr >>= \(evaluatedExpr, mem') ->
         Right (AstReturn evaluatedExpr, mem')
-evalNode mem (AstIf cond trueBranch elseIfBranches elseBranch) = do
-    (condResult, mem') <- evalNode mem cond
-    case condResult of
-        AstBool True -> do
-            (evaluatedBlock, mem'') <- evalAST mem' (extractBlock trueBranch)
-            Right (AstBlock evaluatedBlock, mem'')
-        AstBool False ->
-            case elseIfBranches of
-                (AstIf elifCond elifTrue [] Nothing : rest) ->
-                    evalNode mem' (AstIf elifCond elifTrue rest elseBranch)
-                [] -> case elseBranch of
-                    Just block -> do
-                        (evaluatedBlock, mem'') <- evalAST mem' (extractBlock block)
-                        Right (AstBlock evaluatedBlock, mem'')
-                    Nothing -> Right (AstVoid, mem')
-                _ -> Left "Invalid else-if structure"
-        _ -> Left "Condition in if statement is not a boolean"
+-- evalNode mem (AstIf cond trueBranch elseIfBranches elseBranch) = do
+--     (condResult, mem') <- evalNode mem cond
+--     case condResult of
+--         AstBool True -> do
+--             (evaluatedBlock, mem'') <- evalAST mem' (extractBlock trueBranch)
+--             Right (AstBlock evaluatedBlock, mem'')
+--         AstBool False ->
+--             case elseIfBranches of
+--                 (AstIf elifCond elifTrue [] Nothing : rest) ->
+--                     evalNode mem' (AstIf elifCond elifTrue rest elseBranch)
+--                 [] -> case elseBranch of
+--                     Just block -> do
+--                         (evaluatedBlock, mem'') <- evalAST mem' (extractBlock block)
+--                         Right (AstBlock evaluatedBlock, mem'')
+--                     Nothing -> Right (AstVoid, mem')
+--                 _ -> Left "Invalid else-if structure"
+--         _ -> Left "Condition in if statement is not a boolean"
 -- evalNode mem (AstLoop cond body) = do
 --     let loop mem' = do
 --             (condResult, mem'') <- evalNode mem' cond
@@ -125,9 +139,7 @@ evalNode mem (AstIf cond trueBranch elseIfBranches elseBranch) = do
 --                 AstBool False -> Right (AstVoid, mem'')
 --                 _ -> Left "Condition in loop is not a boolean"
 --     loop mem
-evalNode mem (AstList elems) = do
-    (evaluatedElems, mem') <- evalAST mem elems
-    Right (AstList evaluatedElems, mem')
+evalNode mem (AstListElem var idxs) = evalList var idxs mem
 evalNode mem node = Right (node, mem)
 
 -- Evaluate a list of AST nodes

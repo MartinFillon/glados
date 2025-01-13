@@ -53,32 +53,15 @@ serializeMemoryFunctions mem =
     let (serializedFuncs, _) = Map.foldlWithKey extractFunction ([], mem) mem
      in unlines serializedFuncs
   where
-    extractFunction (acc, currentMem) key (AstDefineFunc val)
-        | key /= "start" =
-            let (instructions, updatedMem) = translateAST (AstDefineFunc val) currentMem
-                serializedFunc = serializeFunction key instructions
-             in (acc ++ [serializedFunc], updatedMem)
+    extractFunction (acc, currentMem) key (AstDefineFunc val) =
+        let (instructions, updatedMem) = translateAST (AstDefineFunc val) currentMem
+            serializedFunc = serializeFunction key instructions
+         in (acc ++ [serializedFunc], updatedMem)
     extractFunction (acc, currentMem) key (AstDefineLoop loopName cond block) =
         let (instructions, updatedMem) = translateAST (AstDefineLoop loopName cond block) currentMem
             serializedLoop = serializeFunction key instructions
          in (acc ++ [serializedLoop], updatedMem)
     extractFunction accAndMem _ _ = accAndMem -- != AstDefineFunc | AstDefineLoop
 
-serializeMain :: Memory -> (String, Memory)
-serializeMain mem =
-    let extractFunction (acc, currentMem) "start" ast =
-            let (instructions, updatedMem) = translateAST ast currentMem
-                serializedFunc = serializeFunction "start" instructions
-             in (acc ++ [serializedFunc], updatedMem)
-        extractFunction accAndMem _ _ = accAndMem
-        (serializedMain, latestMem) = Map.foldlWithKey extractFunction ([], mem) mem
-     in (unlines serializedMain, latestMem)
-
 writeInstructionsToFile :: FilePath -> Memory -> IO ()
-writeInstructionsToFile filePath mem =
-    -- trace ("==> " ++ show mem) $
-    case serializeMain mem of
-        (mainInstructions, updatedMem) -> writeFile filePath (mainInstructions ++ serializeMemoryFunctions updatedMem)
-
--- let (mainInstructions, updatedMem) = serializeMain mem
---  in writeFile filePath (mainInstructions ++ serializeMemoryFunctions updatedMem)
+writeInstructionsToFile filePath mem = writeFile filePath (serializeMemoryFunctions mem)
