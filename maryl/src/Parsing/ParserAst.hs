@@ -78,10 +78,6 @@ import qualified Text.Megaparsec.Char.Lexer as L
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
 
--- | Types handled by the program.
-data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Undefined
-    deriving (Eq, Ord, Show)
-
 -- | Function structure containing the name of the function, its arguments, the content of the function, and the return value of the function.
 data Function = Function
     { fName :: String,
@@ -129,6 +125,11 @@ data Ast
     | AstList [Ast]
     | -- | variable indexes
       AstListElem String [Int]
+    | AstStruct String Ast -- ^ name AstBlock
+    deriving (Eq, Ord, Show)
+
+-- | Types handled by the program.
+data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
     deriving (Eq, Ord, Show)
 
 lineComment :: Parser ()
@@ -470,7 +471,7 @@ eqSymbol = choice
 -}
 pEqual :: Parser Ast
 pEqual = do
-    var <- AstVar <$> lexeme variable
+    var <- try pListElem <|> (AstVar <$> lexeme variable)
     sc
     eq <- eqSymbol
     sc
