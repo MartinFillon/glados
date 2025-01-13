@@ -25,7 +25,7 @@ print_red() {
 # add.mrl
 print_bold "Running add.mrl..."
 ./glados test/test_files/add.mrl
-./glados out.s --vm
+./glados out.masm --vm
 output=$(echo $?)
 if [ "$output" == "8" ]; then
     print_green "✅ add.mrl passed!"
@@ -37,7 +37,7 @@ fi
 # mixupadd.mrl
 print_bold "Running mixupadd.mrl..."
 ./glados test/test_files/mixupadd.mrl
-./glados out.s --vm
+./glados out.masm --vm
 output=$(echo $?)
 if [ "$output" == "6" ]; then
     print_green "✅ mixupadd.mrl passed!"
@@ -49,7 +49,7 @@ fi
 # ifbasic.mrl
 print_bold "Running ifbasic.mrl..."
 ./glados test/test_files/ifbasic.mrl
-./glados out.s --vm
+./glados out.masm --vm
 output=$(echo $?)
 if [ "$output" == "2" ]; then
     print_green "✅ ifbasic.mrl passed!"
@@ -61,7 +61,7 @@ fi
 # elseifelse.mrl
 print_bold "Running elseifelse.mrl..."
 ./glados test/test_files/elseifelse.mrl
-./glados out.s --vm
+./glados out.masm --vm
 output=$(echo $?)
 if [ "$output" == "3" ]; then
     print_green "✅ elseifelse.mrl passed!"
@@ -73,7 +73,7 @@ fi
 # basiclist.mrl
 print_bold "Running basiclist.mrl..."
 ./glados test/test_files/basiclist.mrl
-./glados out.s --vm
+./glados out.masm --vm
 output=$(echo $?)
 if [ "$output" == "4" ]; then
     print_green "✅ basiclist.mrl passed!"
@@ -85,7 +85,7 @@ fi
 # print.mrl
 print_bold "Running print.mrl..."
 ./glados test/test_files/print.mrl
-output=$(./glados out.s --vm | tr -d '\n')
+output=$(./glados out.masm --vm | tr -d '\n')
 result=$(echo -e "sooo\n1\n5\n['h','e','l','l','o']" | tr -d '\n')
 if [ "$output" == "$result" ]; then
     print_green "✅ print.mrl passed!"
@@ -97,7 +97,7 @@ fi
 # ops.mrl
 print_bold "Running ops.mrl..."
 ./glados test/test_files/ops.mrl
-./glados out.s --vm
+./glados out.masm --vm
 output=$(echo $?)
 if [ "$output" == '1' ]; then
     print_green "✅ ops.mrl passed!"
@@ -109,7 +109,7 @@ fi
 # ternary.mrl
 print_bold "Running ternary.mrl..."
 ./glados test/test_files/ternary.mrl
-./glados out.s --vm
+./glados out.masm --vm
 output=$(echo $?)
 if [ "$output" == '4' ]; then
     print_green "✅ ternary.mrl passed!"

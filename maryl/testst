@@ -1,0 +1,12 @@
+int boo(){
+    return 69;
+}
+
+int start(){
+    int a = 4;
+    //while (a == 0){
+    //    a--;
+    //}
+    int b = 1;
+    return boo();
+}

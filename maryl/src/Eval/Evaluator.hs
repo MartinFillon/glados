@@ -30,7 +30,7 @@ evalAssign mem (AstListElem var (x : xs)) right =
     evalNode mem right >>= \(evaluatedAst, updatedMem) ->
         updateList var (AstListElem var (x : xs)) updatedMem evaluatedAst >>= \(clarified, newMem) ->
             let finalMem = updateMemory newMem var clarified
-             in Right (AstVoid, finalMem)
+             in Right (AstVar var, finalMem)
 evalAssign _ left right = Left ("Can't assign " ++ show right ++ " to " ++ show left ++ ".")
 
 defaultRegistry :: FunctionRegistry

@@ -148,7 +148,7 @@ instance Show Ast where
     show (AstIf cond ifBlock elseIf maybeElse) = "if(" ++ show cond ++ "){" ++ show ifBlock ++ "} " ++ show elseIf ++ " else {" ++ show maybeElse ++ "}"
     show (AstTernary cond terBlock elseBlock) = show cond ++ " ? " ++ show terBlock ++ " : " ++ show elseBlock
     show (AstReturn ast) = "return " ++ show ast
-    show (AstBlock blocks) = "block : "++ show blocks
+    show (AstBlock blocks) = show blocks
     show (AstLoop cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
     show AstBreak = "break"
     show AstContinue = "continue"
