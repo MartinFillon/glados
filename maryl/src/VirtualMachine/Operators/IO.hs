@@ -128,7 +128,7 @@ opReadHandle' (Left s) = setError False >> pure (S s)
 opReadHandle' (Right n) = setError True >> pure (S n)
 
 opReadHandle :: [Value] -> VmState [Value]
-opReadHandle (N hdl : xs) =
+opReadHandle xs@(N hdl : _) =
     ( getHandleInMemory hdl
         >>= (\h -> ioCatch (hGetContents h) "Could not read")
         >>= opReadHandle'
@@ -137,7 +137,7 @@ opReadHandle (N hdl : xs) =
 opReadHandle xs = setError True >> pure (N (-1) : xs)
 
 opGetLineHandle :: [Value] -> VmState [Value]
-opGetLineHandle (N hdl : xs) =
+opGetLineHandle xs@(N hdl : _) =
     ( getHandleInMemory hdl
         >>= (\h -> ioCatch (hGetLine h) "Could not read")
         >>= opReadHandle'
