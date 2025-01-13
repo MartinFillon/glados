@@ -7,6 +7,7 @@
 
 module VirtualMachine.Operators.LogicSpec (spec) where
 
+import Control.Exception (IOException)
 import Test.Hspec (Spec, describe, it, shouldReturn, shouldThrow)
 import VirtualMachine.Instructions (
     Value (..),
@@ -14,13 +15,13 @@ import VirtualMachine.Instructions (
     push,
     ret,
  )
-import VirtualMachine.TestUtils (constIO, execTest)
+import VirtualMachine.TestUtils (execTest, userError')
 
-notEnoughArg :: String -> Spec
-notEnoughArg s = it ("should fail on " ++ s ++ " cause not enough arguments") $ do
+notEnoughArg :: String -> (IOException -> Bool) -> Spec
+notEnoughArg s f = it ("should fail on " ++ s ++ " cause not enough arguments") $ do
     execTest
         [push Nothing (N 3), call Nothing s, ret Nothing]
-        `shouldThrow` constIO
+        `shouldThrow` f
 
 spec :: Spec
 spec = do
@@ -145,6 +146,16 @@ spec = do
                     ]
                 `shouldReturn` B True
 
+        it "should execute logical or false || true" $
+            do
+                execTest
+                    [ push Nothing (B False),
+                      push Nothing (B True),
+                      call Nothing "or",
+                      ret Nothing
+                    ]
+                `shouldReturn` B True
+
         it "should execute logical not" $
             do
                 execTest
@@ -154,11 +165,13 @@ spec = do
                     ]
                 `shouldReturn` B False
 
-        notEnoughArg "and"
-        notEnoughArg "greater"
-        notEnoughArg "or"
-        notEnoughArg "less"
-        notEnoughArg "not"
+        notEnoughArg "and" (userError' "And expects two booleans")
+        notEnoughArg "greater" (userError' "Greater expects two number")
+        notEnoughArg "less" (userError' "Lesser expects two number")
+        notEnoughArg "or" (userError' "Or expects two booleans")
+        notEnoughArg "not" (userError' "Not expects two booleans")
+        notEnoughArg "eq" (userError' "Eq expects two value")
+        notEnoughArg "neq" (userError' "Neq expects two value")
 
         it "should execute mixed comparison 3.14 > 3" $
             do

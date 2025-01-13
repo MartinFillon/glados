@@ -175,12 +175,29 @@ spec = describe "testing io functions" $ do
         [ push Nothing $ N 84,
           call Nothing "write",
           call Nothing "print",
-          void Nothing,
-          call Nothing "error",
-          call Nothing "print"
+          void Nothing
         ]
         "test/VirtualMachine/Operators/IOFiles/test3.txt"
         "a"
+
+    testIOFileOperation
+        "shoudl open in read write mode, write a Int and close a file"
+        [ push Nothing $ N 84,
+          call Nothing "write",
+          call Nothing "print",
+          void Nothing
+        ]
+        "test/VirtualMachine/Operators/IOFiles/test4.txt"
+        "rw"
+
+    testIOFileOperation
+        "shoudl open in read mode, getLine, print the line and close a file"
+        [ call Nothing "getLine",
+          call Nothing "print",
+          void Nothing
+        ]
+        "test/VirtualMachine/Operators/IOFiles/test4.txt"
+        "r"
 
     testIOFileOperationError
         "shoudl fail on unwkown file"

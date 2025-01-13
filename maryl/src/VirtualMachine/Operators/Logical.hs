@@ -21,39 +21,29 @@ import VirtualMachine.State (VmState, eitherS)
 
 operatorEq :: [Value] -> VmState [Value]
 operatorEq (x : y : xs) = return $ B (x == y) : xs
-operatorEq _ = fail "expects two value"
+operatorEq _ = fail "Eq expects two value"
 
 operatorNEq :: [Value] -> VmState [Value]
 operatorNEq (x : y : xs) = return $ B (x /= y) : xs
-operatorNEq _ = fail "expects two value"
+operatorNEq _ = fail "Neq expects two value"
 
 operatorLt :: [Value] -> VmState [Value]
-operatorLt (y : x : xs) =
-    eitherS $
-        (: xs)
-            <$> case (x, y) of
-                (N a, N b) -> Right $ B (toDouble a < toDouble b)
-                (N a, D b) -> Right $ B (toDouble a < b)
-                (D a, N b) -> Right $ B (a < toDouble b)
-                (D a, D b) -> Right $ B (a < b)
-                _ -> Left "expects two number"
-operatorLt _ = fail "expects two number"
+operatorLt (N y : N x : xs) = pure ((: xs) (B (toDouble x < toDouble y)))
+operatorLt (D y : N x : xs) = pure ((: xs) (B (toDouble x < toDouble y)))
+operatorLt (N y : D x : xs) = pure ((: xs) (B (toDouble x < toDouble y)))
+operatorLt (D y : D x : xs) = pure ((: xs) (B (toDouble x < toDouble y)))
+operatorLt _ = fail "Lesser expects two number"
 
 operatorGt :: [Value] -> VmState [Value]
-operatorGt (y : x : xs) =
-    eitherS $
-        (: xs)
-            <$> case (x, y) of
-                (N a, N b) -> Right $ B (toDouble a > toDouble b)
-                (N a, D b) -> Right $ B (toDouble a > b)
-                (D a, N b) -> Right $ B (a > toDouble b)
-                (D a, D b) -> Right $ B (a > b)
-                _ -> Left "expects two number"
-operatorGt _ = fail "expects two number"
+operatorGt (N y : N x : xs) = pure ((: xs) (B (toDouble x > toDouble y)))
+operatorGt (D y : N x : xs) = pure ((: xs) (B (toDouble x > toDouble y)))
+operatorGt (N y : D x : xs) = pure ((: xs) (B (toDouble x > toDouble y)))
+operatorGt (D y : D x : xs) = pure ((: xs) (B (toDouble x > toDouble y)))
+operatorGt _ = fail "Greater expects two number"
 
 operatorAnd :: [Value] -> VmState [Value]
 operatorAnd (B y : B x : xs) = return $ B (x && y) : xs
-operatorAnd _ = fail "And expects two bool"
+operatorAnd _ = fail "And expects two booleans"
 
 operatorOr :: [Value] -> VmState [Value]
 operatorOr (B y : B x : xs) = return $ B (x || y) : xs
@@ -61,4 +51,4 @@ operatorOr _ = fail "Or expects two booleans"
 
 logicalNot :: [Value] -> VmState [Value]
 logicalNot (B y : xs) = return $ B (not y) : xs
-logicalNot _ = fail "Or expects two booleans"
+logicalNot _ = fail "Not expects two booleans"
