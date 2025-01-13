@@ -14,7 +14,7 @@ module Compiler.WriteASM (
     writeInstructionsToFile,
 ) where
 
-import Compiler.ASTtoASM (translateAST)
+import Compiler.Translation.ASTtoASM (translateAST)
 import qualified Data.Map as Map
 import Debug.Trace (trace)
 import Memory (Memory)
@@ -27,6 +27,7 @@ serializeInstArgs (Push (B b)) = " " ++ show b
 serializeInstArgs (Push (S s)) = " \"" ++ s ++ "\""
 serializeInstArgs (Push (L l)) = " " ++ show l
 serializeInstArgs (Push (D d)) = " " ++ show d
+serializeInstArgs (Push (C c)) = " " ++ show c
 serializeInstArgs (Push (Bi bi)) = " " ++ show bi
 serializeInstArgs (PushArg n) = " " ++ show n
 serializeInstArgs (Call func) = " \"" ++ func ++ "\""
@@ -61,7 +62,7 @@ serializeMemoryFunctions mem =
         let (instructions, updatedMem) = translateAST (AstDefineLoop loopName cond block) currentMem
             serializedLoop = serializeFunction key instructions
          in (acc ++ [serializedLoop], updatedMem)
-    extractFunction accAndMem _ _ = accAndMem -- != AstDefineFunc
+    extractFunction accAndMem _ _ = accAndMem -- != AstDefineFunc | AstDefineLoop
 
 serializeMain :: Memory -> (String, Memory)
 serializeMain mem =
@@ -72,8 +73,12 @@ serializeMain mem =
         extractFunction accAndMem _ _ = accAndMem
         (serializedMain, latestMem) = Map.foldlWithKey extractFunction ([], mem) mem
      in (unlines serializedMain, latestMem)
-     
+
 writeInstructionsToFile :: FilePath -> Memory -> IO ()
 writeInstructionsToFile filePath mem =
-    let (mainInstructions, updatedMem) = serializeMain mem
-     in writeFile filePath (mainInstructions ++ serializeMemoryFunctions updatedMem)
+    -- trace ("==> " ++ show mem) $
+    case serializeMain mem of
+        (mainInstructions, updatedMem) -> writeFile filePath (mainInstructions ++ serializeMemoryFunctions updatedMem)
+
+-- let (mainInstructions, updatedMem) = serializeMain mem
+--  in writeFile filePath (mainInstructions ++ serializeMemoryFunctions updatedMem)

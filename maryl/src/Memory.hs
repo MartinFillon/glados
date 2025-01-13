@@ -6,7 +6,7 @@
 -}
 {-# LANGUAGE LambdaCase #-}
 
-module Memory (Memory, addMemory, initMemory, generateUniqueLoopName, updateMemory, readMemory, freeMemory) where
+module Memory (Memory, addMemory, initMemory, generateUniqueElseName, generateUniqueLoopName, updateMemory, readMemory, freeMemory) where
 
 import Data.List (isPrefixOf)
 import qualified Data.Map as Map
@@ -20,7 +20,7 @@ updateMemory mem var value =
     Map.insert var value mem
 
 addMemory :: Memory -> String -> Ast -> Either String Memory
-addMemory mem var value =
+addMemory mem var value = trace ("adding " ++ show var ++ " to mem (" ++ show value ++ ")") $
     case readMemory mem var of
         Just _ -> Left ("multiple definition of \"" ++ var ++ "\"")
         Nothing -> Right (updateMemory mem var value)
@@ -34,7 +34,14 @@ generateUniqueLoopName mem =
     let existingNames = Map.keys mem
         loopNames = filter ("loop" `isPrefixOf`) existingNames
         maxIndex = maximum (0 : map (read . drop 4) loopNames)
-     in "loop" ++ show (maxIndex + 1)
+     in "loop" ++ show (maxIndex + 1 :: Integer)
+
+generateUniqueElseName :: Memory -> String
+generateUniqueElseName mem =
+    let existingNames = Map.keys mem
+        elseNames = filter ("else" `isPrefixOf`) existingNames
+        maxIndex = maximum (0 : map (read . drop 4) elseNames)
+     in "else" ++ show (maxIndex + 1 :: Integer)
 
 freeMemory :: Memory -> Memory
 freeMemory =
@@ -42,6 +49,7 @@ freeMemory =
         ( \case
             AstDefineFunc _ -> True
             AstDefineLoop {} -> True
+            AstIf {} -> True
             _ -> False
         )
 

@@ -8,7 +8,7 @@
 
 module Compiler.TranslationSpec (spec) where
 
-import Compiler.ASTtoASM (translateAST, translateToASM)
+import Compiler.Translation.ASTtoASM (translateAST, translateToASM)
 import Memory (initMemory)
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
 import Test.Hspec (Spec, describe, it, shouldBe)
@@ -77,10 +77,12 @@ spec = do
         it "translates a list of Ast nodes" $ do
             let asts = [AstInt 10, AstBool False, AstString "test"]
             translateToASM asts initMemory
-                `shouldBe` ([ push Nothing (N 10),
-                             push Nothing (B False),
-                             push Nothing (S "test")
-                           ], initMemory)
+                `shouldBe` (   [ push Nothing (N 10),
+                                 push Nothing (B False),
+                                 push Nothing (S "test")
+                               ],
+                             initMemory
+                           )
 
 -- it "translates a function definition" $ do
 --   let ast = AstDefineFunc (Function "add" [] [AstBinaryFunc "+" (AstInt 1) (AstInt 2)] Int)
