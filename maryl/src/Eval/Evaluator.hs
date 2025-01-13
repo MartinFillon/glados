@@ -111,8 +111,7 @@ evalBinary op _ _ _ = Left $ "Unsupported binary operator: " ++ op
 -- Evaluate a list of AST nodes
 evalAST :: Memory -> [Ast] -> Either String ([Ast], Memory)
 evalAST mem [] = Right ([], mem)
-evalAST mem (ast : asts) =
-  case evalNode mem ast of
+evalAST mem (ast : asts) = case evalNode mem ast of
     Left err -> Left err
     Right (transformedAst, updatedMem) ->
       evalAST updatedMem asts >>= \(restAst, finalMem) ->

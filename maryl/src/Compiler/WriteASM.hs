@@ -51,19 +51,10 @@ serializeMemoryFunctions :: Memory -> String
 serializeMemoryFunctions mem =
     unlines $ Map.foldrWithKey extractFunction [] mem
   where
-    extractFunction key (AstDefineFunc val) acc
-        | key /= "start" =
-            serializeFunction key (fst (translateAST (AstDefineFunc val) mem)) : acc
-        | otherwise = acc
+    extractFunction key (AstDefineFunc val) acc =
+        serializeFunction key (fst (translateAST (AstDefineFunc val) mem)) : acc
     extractFunction _ _ acc = acc -- != AstDefineFunc
-
-serializeMain :: Memory -> String
-serializeMain mem =
-    unlines $ Map.foldrWithKey extractFunction [] mem
-  where
-    extractFunction "start" ast acc = serializeFunction "start" (fst (translateAST ast mem)) : acc
-    extractFunction _ _ acc = acc -- != entrypoint
 
 writeInstructionsToFile :: FilePath -> Memory -> IO ()
 writeInstructionsToFile filePath mem =
-    writeFile filePath (serializeMain mem ++ serializeMemoryFunctions mem)
+    writeFile filePath (serializeMemoryFunctions mem)
