@@ -24,7 +24,6 @@ import VirtualMachine.State (
     appendStack,
     copyVm,
     copyVm',
-    dbg,
     eitherS,
     getArgs,
     getElemInMemory,
