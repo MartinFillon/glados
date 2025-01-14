@@ -8,6 +8,7 @@
 module Eval.Assignment (updateList) where
 
 import Data.List (intercalate)
+import Debug.Trace (trace)
 import Memory (Memory, readMemory)
 import Parsing.ParserAst (Ast (..))
 
@@ -28,5 +29,5 @@ updateList :: String -> Ast -> Memory -> Ast -> Either String (Ast, Memory)
 updateList listName (AstListElem _ idxs) mem newVal =
     case readMemory mem listName of
         Just (AstList elements) -> Right (changeAtIdx (AstList elements) idxs newVal, mem)
-        _ -> Left ("Unable to update " ++ show listName ++ "[" ++ intercalate "][" (map show idxs) ++ "] with " ++ show newVal ++ ".")
+        _ -> Left ("Unable to update " ++ show (AstListElem listName idxs) ++ " with " ++ show newVal ++ ".")
 updateList _ ast mem _ = Right (ast, mem)

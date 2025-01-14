@@ -173,31 +173,31 @@ spec = do
     context "While loop" $ do
       it "while (i < 10) { i = i + 1; }" $ do
         parseAST' "while (i < 10) { i = i + 1; }"
-          `shouldBe` Right [AstLoop (AstBinaryFunc "<" (AstVar "i") (AstInt 10)) (AstBlock [AstBinaryFunc "=" (AstVar "i") (AstBinaryFunc "+" (AstVar "i") (AstInt 1))])]
+          `shouldBe` Right [AstLoop Nothing (AstBinaryFunc "<" (AstVar "i") (AstInt 10)) (AstBlock [AstBinaryFunc "=" (AstVar "i") (AstBinaryFunc "+" (AstVar "i") (AstInt 1))])]
 
       it "while (true) { break; }" $ do
         parseAST' "while (true) { break; }"
-          `shouldBe` Right [AstLoop (AstBool True) (AstBlock [AstBreak])]
+          `shouldBe` Right [AstLoop Nothing (AstBool True) (AstBlock [AstBreak])]
 
       it "while (x != 0) { x = x - 1; }" $ do
         parseAST' "while (x != 0) { x = x - 1; }"
-          `shouldBe` Right [AstLoop (AstBinaryFunc "!=" (AstVar "x") (AstInt 0)) (AstBlock [AstBinaryFunc "=" (AstVar "x") (AstBinaryFunc "-" (AstVar "x") (AstInt 1))])]
+          `shouldBe` Right [AstLoop Nothing (AstBinaryFunc "!=" (AstVar "x") (AstInt 0)) (AstBlock [AstBinaryFunc "=" (AstVar "x") (AstBinaryFunc "-" (AstVar "x") (AstInt 1))])]
 
       it "while (flag) { continue; }" $ do
         parseAST' "while (flag) { continue; }"
-          `shouldBe` Right [AstLoop (AstVar "flag") (AstBlock [AstContinue])]
+          `shouldBe` Right [AstLoop Nothing (AstVar "flag") (AstBlock [AstContinue])]
 
       it "while (count < 100) { count += 10; }" $ do
         parseAST' "while (count < 100) { count += 10; }"
-          `shouldBe` Right [AstLoop (AstBinaryFunc "<" (AstVar "count") (AstInt 100)) (AstBlock [AstBinaryFunc "+=" (AstVar "count") (AstInt 10)])]
+          `shouldBe` Right [AstLoop Nothing (AstBinaryFunc "<" (AstVar "count") (AstInt 100)) (AstBlock [AstBinaryFunc "+=" (AstVar "count") (AstInt 10)])]
 
       it "while (n > 0) { n--; }" $ do
         parseAST' "while (n > 0) { n--; }"
-          `shouldBe` Right [AstLoop (AstBinaryFunc ">" (AstVar "n") (AstInt 0)) (AstBlock [AstPostfixFunc "--" (AstVar "n")])]
+          `shouldBe` Right [AstLoop Nothing (AstBinaryFunc ">" (AstVar "n") (AstInt 0)) (AstBlock [AstPostfixFunc "--" (AstVar "n")])]
 
       it "while (flag) { x = x * 2; }" $ do
         parseAST' "while (flag) { x = x * 2; }"
-          `shouldBe` Right [AstLoop (AstVar "flag") (AstBlock [AstBinaryFunc "=" (AstVar "x") (AstBinaryFunc "*" (AstVar "x") (AstInt 2))])]
+          `shouldBe` Right [AstLoop Nothing (AstVar "flag") (AstBlock [AstBinaryFunc "=" (AstVar "x") (AstBinaryFunc "*" (AstVar "x") (AstInt 2))])]
 
     context "List parsing" $ do
       it "[1, 2, 3]" $ do

@@ -8,12 +8,13 @@
 
 module Eval.Evaluator (evalAST, evalNode, applyOp, defaultRegistry) where
 
+import Compiler.Translation.Functions (isBuiltin)
 import qualified Data.Map as Map
 import Debug.Trace (trace)
 import Eval.Assignment (updateList)
 import Eval.Ops (evalAdd, evalAnd, evalBAnd, evalBOr, evalBXor, evalDiv, evalEq, evalGreatThanEq, evalGreaterThan, evalLessThan, evalLessThanEq, evalMod, evalMul, evalNEq, evalOr, evalPower, evalShiftL, evalShiftR, evalSub)
-import Memory (Memory, addMemory, freeMemory, readMemory, updateMemory)
-import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
+import Memory (Memory, addMemory, freeMemory, generateUniqueLoopName, readMemory, updateMemory)
+import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
 
 type FunctionRegistry =
     Map.Map String (Memory -> Ast -> Ast -> Either String (Ast, Memory))
@@ -26,9 +27,9 @@ evalAssign mem (AstVar var) right =
     evalNode mem right >>= \(evaluatedR, updatedMem) ->
         let newMem = updateMemory updatedMem var evaluatedR
          in Right (AstBinaryFunc "=" (AstVar var) evaluatedR, newMem)
-evalAssign mem (AstListElem var (x : xs)) right =
-    evalNode mem right >>= \(evaluatedAst, updatedMem) ->
-        updateList var (AstListElem var (x : xs)) updatedMem evaluatedAst >>= \(clarified, newMem) ->
+evalAssign mem (AstListElem var idxs) right =
+    evalNode mem right >>= \(evaluatedAst, updatedMem) -> trace ("-->" ++ show var ++ show idxs ++ " - " ++ show evaluatedAst) $
+        updateList var (AstListElem var idxs) updatedMem evaluatedAst >>= \(clarified, newMem) -> trace (show clarified) $
             let finalMem = updateMemory newMem var clarified
              in Right (AstVar var, finalMem)
 evalAssign _ left right = Left ("Can't assign " ++ show right ++ " to " ++ show left ++ ".")
@@ -67,6 +68,31 @@ applyOp mem op left right =
         (Map.lookup op defaultRegistry)
         >>= (\f -> f mem left right)
 
+evalBinaryFunc :: Memory -> String -> Ast -> Ast -> Either String (Ast, Memory)
+evalBinaryFunc mem op left right = case evalNode mem left of
+    Right (leftVal, mem') -> case evalNode mem' right of
+        Right (rightVal, mem'') -> applyOp mem'' op leftVal rightVal
+        Left err -> Left err
+        _ -> Left ("Argument " ++ show right ++ " invalid for operation " ++ op ++ ".")
+    Left err -> Left err
+    _ -> Left ("Argument " ++ show left ++ " invalid for operation " ++ op ++ ".")
+
+-----
+
+addLoopFunction :: String -> Ast -> Ast -> Memory -> Either String Memory
+addLoopFunction loopName cond block mem =
+    addMemory mem loopName (AstDefineLoop loopName cond block)
+
+updatedArgs :: [Ast] -> Memory -> Memory
+updatedArgs ((AstDefineVar (Variable varName varType varValue)): xs) mem =
+    updatedArgs xs (updateMemory mem varName (AstArg (AstDefineVar (Variable varName varType varValue)) Nothing))
+updatedArgs [] mem = mem
+
+checkBuiltins :: String -> Ast -> Memory -> Either String (Ast, Memory)
+checkBuiltins func ast mem
+    | isBuiltin func = Right (ast, mem)
+    | otherwise = Left ("Function \"" ++ show func ++ " isn't defined.")
+
 -----
 
 evalList :: String -> [Int] -> Memory -> Either String (Ast, Memory)
@@ -80,19 +106,16 @@ evalList ast _ _ = Left ("Invalid index call with \"" ++ show ast ++ "\", expect
 
 evalNode :: Memory -> Ast -> Either String (Ast, Memory)
 evalNode mem (AstBinaryFunc "=" left right) = evalAssign mem left right
-evalNode mem (AstPrefixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
-evalNode mem (AstPostfixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
 evalNode mem (AstBinaryFunc (x : "=") left right)
     | x /= '=' && x /= '!' = evalAssign mem left (AstBinaryFunc [x] left right)
     | otherwise = evalNode mem (AstBinaryFunc (x : "=") left right)
-evalNode mem (AstBinaryFunc op left right) = do
-    (leftVal, mem') <- evalNode mem left
-    (rightVal, mem'') <- evalNode mem' right
-    applyOp mem'' op leftVal rightVal
+evalNode mem (AstBinaryFunc op left right) = evalBinaryFunc mem op left right
+evalNode mem (AstPrefixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
+evalNode mem (AstPostfixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
 evalNode mem (AstVar name) =
     case readMemory mem name of
         Just value -> Right (value, mem)
-        Nothing -> Left $ "Undefined variable: " ++ name
+        Nothing -> Left $ "Undefined variable: " ++ name ++ "."
 evalNode mem (AstDefineVar (Variable varName varType vVal)) =
     evalNode mem vVal >>= \(evaluatedExpr, updatedMem) ->
         case addMemory updatedMem varName evaluatedExpr of
@@ -101,14 +124,19 @@ evalNode mem (AstDefineVar (Variable varName varType vVal)) =
                     ( AstDefineVar (Variable varName varType vVal),
                       finalMem
                     )
-            Left err -> Left $ "Failed to define var (" ++ err ++ ")"
+            Left err -> Left $ "Failed to define var (" ++ err ++ ")."
 evalNode mem (AstDefineFunc (Function funcName args body typ)) =
-    let clearedMem = freeMemory mem
-     in evalAST clearedMem body >>= \(evaluatedBody, updatedMem) ->
-            let evaluatedFunction = Function funcName args evaluatedBody typ
-             in case addMemory updatedMem funcName (AstDefineFunc evaluatedFunction) of
-                    Right finalMem -> Right (AstVoid, finalMem)
-                    Left err -> Left $ "Failed to define function (" ++ err ++ ")"
+    case addMemory mem funcName (AstDefineFunc (Function funcName args body typ)) of
+        Right newMem ->
+            let editedMem = updatedArgs args (freeMemory newMem)
+             in evalAST editedMem body >>= \(evaluatedBody, updatedMem) ->
+                    let evaluatedFunction = Function funcName args evaluatedBody typ
+                     in Right (AstVoid, updateMemory updatedMem funcName (AstDefineFunc evaluatedFunction))
+        Left err -> Left $ "Failed to define function (" ++ err ++ ")."
+evalNode mem (AstFunc (Function funcName funcArgs funcBody funcType)) =
+    case readMemory mem funcName of
+        Just (AstDefineFunc (Function _ _ _ newFuncType)) -> Right (AstFunc (Function funcName funcArgs funcBody newFuncType), mem)
+        _ -> checkBuiltins funcName (AstFunc (Function funcName funcArgs funcBody funcType)) mem
 evalNode mem (AstReturn expr) =
     evalNode mem expr >>= \(evaluatedExpr, mem') ->
         Right (AstReturn evaluatedExpr, mem')
@@ -139,13 +167,17 @@ evalNode mem (AstReturn expr) =
 --                 AstBool False -> Right (AstVoid, mem'')
 --                 _ -> Left "Condition in loop is not a boolean"
 --     loop mem
+evalNode mem (AstLoop Nothing cond block) =
+    let loopName = generateUniqueLoopName mem
+     in case addLoopFunction loopName cond block mem of
+        Right updatedMem -> Right (AstLoop (Just (AstString loopName)) cond block, updatedMem)
 evalNode mem (AstListElem var idxs) = evalList var idxs mem
 evalNode mem node = Right (node, mem)
 
 -- Evaluate a list of AST nodes
 evalAST :: Memory -> [Ast] -> Either String ([Ast], Memory)
 evalAST mem [] = Right ([], mem)
-evalAST mem (ast : asts) =
+evalAST mem (ast : asts) = trace ("[[ "++ show ast ++" ]]")$
     case evalNode mem ast of
         Left err -> Left (show ast ++ ":\n\t |- " ++ err)
         Right (transformedAst, updatedMem) ->
