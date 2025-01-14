@@ -52,11 +52,12 @@ import VirtualMachine.Operators.Lists (
  )
 import VirtualMachine.Operators.String (
     strcat,
+    strcmp,
     strlen,
     substr,
-    strcmp
  )
 
+import VirtualMachine.Operators.Structs (getStructValue, setStructValue)
 import VirtualMachine.State (V (Op))
 
 operators :: [(String, V)]
@@ -95,6 +96,7 @@ operators =
       ("strcat", Op strcat),
       ("strlen", Op strlen),
       ("substr", Op substr),
-      ("strcmp", Op strcmp)
+      ("strcmp", Op strcmp),
+      ("setField", Op setStructValue),
+      ("getField", Op getStructValue)
     ]
-
