@@ -19,7 +19,7 @@ import VirtualMachine.Instructions (Instruction (..), Value (..), call, jump, ju
 
 -- (= assignment operator)
 handleAssignment :: Ast -> Ast -> Memory -> ([Instruction], Memory)
-handleAssignment (AstVar var) right mem = trace ("hqnelint " ++ show var)$
+handleAssignment (AstVar var) right mem =
     let clarifiedRight = clarifyAST right mem
         newMem = updateMemory mem var clarifiedRight
      in translateAST (AstVar var) newMem
@@ -81,7 +81,7 @@ handlePriority left right mem =
 
 translateBinaryFunc :: String -> Ast -> Ast -> Memory -> ([Instruction], Memory)
 translateBinaryFunc op left right mem
-    | isSingleOp op = trace ("[" ++ op ++ " " ++ show left ++ " & " ++ show right ++ "]") $ (fst (handlePriority left right mem) ++ [translateOpInst op], mem)
+    | isSingleOp op = (fst (handlePriority left right mem) ++ [translateOpInst op], mem)
     | otherwise = updateAssignment op left right mem
 
 ------- AstBlock
@@ -172,14 +172,14 @@ translateAST :: Ast -> Memory -> ([Instruction], Memory)
 translateAST (AstArg _ (Just n)) mem = ([pushArg Nothing n], mem)
 translateAST (AstArg (AstDefineVar (Variable varName _ _)) Nothing) mem =
     case readMemory mem varName of
-        Just val -> trace ("translating " ++ varName ++ " as arg") $  translateAST val mem
+        Just val -> translateAST val mem
         Nothing -> ([], mem)
 translateAST (AstDefineVar (Variable varName _ varValue)) mem =
     ([], updateMemory mem varName varValue)
 translateAST (AstVar varName) mem = (callArgs (AstVar varName) mem, mem)
 translateAST (AstDefineFunc (Function _ funcArgs funcBody _)) mem =
     let newMem = pushArgs funcArgs (freeMemory mem) 0
-     in (fst (translateArgs funcArgs newMem 0 True) ++ fst (translateToASM funcBody newMem), newMem)
+     in (fst (translateToASM funcBody newMem), newMem)
 translateAST (AstFunc (Function funcName funcArgs _ _)) mem
     | isBuiltin funcName = translateBuiltin funcName funcArgs mem
     | otherwise =
