@@ -19,9 +19,7 @@ pub struct State {
 
 impl State {
     pub fn new(parsed_insts: Vec<Instructions>, args: Vec<Value>) -> Self {
-        let mut insts = Vec::new();
-
-        insts.push(jump(JumpValue::Label(String::from(".start")), None));
+        let mut insts = vec![jump(JumpValue::Label(String::from(".start")), None)];
 
         insts = [insts, parsed_insts].concat();
 
@@ -93,7 +91,7 @@ impl State {
 
         last_result
             .ok_or("Last instruction didnt yield a value.")
-            .map(|x| Some(x))
+            .map(Some)
     }
 
     fn exec_jump(&mut self, jv: JumpValue) -> Result<Option<Value>, &'static str> {

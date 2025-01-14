@@ -34,8 +34,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse<'b>(&mut self) -> Result<Vec<Instructions>, ParseError> {
-        while let Some(_) = self.current.peek() {
+    pub fn parse(&mut self) -> Result<Vec<Instructions>, ParseError> {
+        while self.current.peek().is_some() {
             self.skip_whitespace();
             let label = self.parse_label()?;
             self.skip_whitespace();
@@ -63,11 +63,10 @@ impl<'a> Parser<'a> {
         Ok(self.instructions.clone())
     }
 
-    fn skip(&mut self, n: usize) -> () {
+    fn skip(&mut self, n: usize) {
         for _ in 0..n {
             self.current.next();
         }
-        ()
     }
 
     fn consume(&mut self, to_match: &'static str) -> Result<(), ParseError> {
@@ -207,7 +206,7 @@ impl<'a> Parser<'a> {
         Ok(true)
     }
 
-    fn skip_whitespace(&mut self) -> () {
+    fn skip_whitespace(&mut self) {
         while let Some(&c) = self.current.peek() {
             if c.is_whitespace() {
                 self.current.next();
@@ -215,8 +214,6 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
-
-        ()
     }
 
     fn parse_ret(&mut self, label: Option<String>) -> Result<(), ParseError> {
@@ -282,7 +279,7 @@ impl<'a> Parser<'a> {
                 }
             }
         }
-        Ok(number.parse().map_err(|_| ParseError::NotANumber(number))?)
+        number.parse().map_err(|_| ParseError::NotANumber(number))
     }
 
     fn parse_push_arg(&mut self, label: Option<String>) -> Result<(), ParseError> {
