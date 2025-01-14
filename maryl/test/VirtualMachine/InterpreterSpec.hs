@@ -7,33 +7,27 @@
 
 module VirtualMachine.InterpreterSpec (spec) where
 
-import Control.Exception (IOException)
-import Control.Monad.State (evalStateT)
-import Data.Map (Map)
 import qualified Data.Map as Map
-import System.IO.Error (isDoesNotExistError)
-import Test.Hspec (Spec, describe, it, shouldReturn, shouldThrow, anyException)
+import Test.Hspec (Spec, anyException, describe, it, shouldReturn, shouldThrow)
 import VirtualMachine.Instructions (
     Instruction,
     Value (..),
     call,
-    get,
     jump,
     jumpf,
-    load,
     push,
     pushArg,
     ret,
  )
-import VirtualMachine.Interpreter (exec)
 import VirtualMachine.Operators (operators)
-import VirtualMachine.State (V (..), initialState)
+import VirtualMachine.State (V (..))
 
+import qualified VirtualMachine.Operators.StructsSpec as StructsSpec
 import qualified VirtualMachine.Operators.IOSpec as IOSpec
 import qualified VirtualMachine.Operators.LogicSpec as LogicSpec
 import qualified VirtualMachine.Operators.MathematicalSpec as MathematicalSpec
 import qualified VirtualMachine.Operators.StringSpec as StringSpec
-import VirtualMachine.TestUtils (constIO, execTest, execTest')
+import VirtualMachine.TestUtils (execTest, execTest')
 
 factCode :: [Instruction]
 factCode =
@@ -76,6 +70,7 @@ spec = do
         MathematicalSpec.spec
         IOSpec.spec
         StringSpec.spec
+        StructsSpec.spec
 
         it "should execute factorial" $ do
             let mem = Map.insert "fact" (V $ Bi factCode) (Map.fromList operators)
@@ -192,4 +187,3 @@ spec = do
                       ret Nothing
                     ]
                     `shouldReturn` N (-1)
-
