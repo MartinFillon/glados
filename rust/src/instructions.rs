@@ -36,8 +36,8 @@ pub enum Insts {
 
 #[derive(Debug, Clone)]
 pub struct Instructions {
-    inst: Insts,
-    label: Option<String>,
+    pub inst: Insts,
+    pub label: Option<String>,
 }
 
 pub fn push(value: Value, label: Option<String>) -> Instructions {
