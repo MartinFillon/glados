@@ -7,7 +7,7 @@
 
 use std::{iter::Peekable, str::Chars};
 
-use crate::instructions::{push, Instructions, Value};
+use crate::instructions::{dup, push, ret, void, Instructions, Value};
 
 #[derive(Debug)]
 pub struct Parser<'a> {
@@ -35,9 +35,18 @@ impl<'a> Parser<'a> {
     pub fn parse(&mut self) -> Result<Vec<Instructions>, ParseError> {
         while let Some(_) = self.current.peek() {
             self.skip_whitespace();
+            let label = self.parse_label()?;
+            self.skip_whitespace();
             if self.r#match("push")? {
-                dbg!("push");
-                self.parse_push()?;
+                self.parse_push(label)?;
+            } else if self.r#match("ret")? {
+                self.parse_ret(label)?;
+            } else if self.r#match("dup")? {
+                self.parse_dup(label)?;
+            } else if self.r#match("void")? {
+                self.parse_void(label)?;
+            } else {
+                return Err(ParseError::UnexpectedChar(self.current.next()));
             }
             self.current.next();
         }
@@ -60,10 +69,10 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse_push(&mut self) -> Result<(), ParseError> {
+    pub fn parse_push(&mut self, label: Option<String>) -> Result<(), ParseError> {
         self.consume("push")?;
         let v = self.parse_value()?;
-        self.instructions.push(push(v, None));
+        self.instructions.push(push(v, label));
         Ok(())
     }
 
@@ -176,5 +185,40 @@ impl<'a> Parser<'a> {
         }
 
         ()
+    }
+
+    pub fn parse_ret(&mut self, label: Option<String>) -> Result<(), ParseError> {
+        self.consume("ret")?;
+        self.instructions.push(ret(label));
+        Ok(())
+    }
+
+    pub fn parse_dup(&mut self, label: Option<String>) -> Result<(), ParseError> {
+        self.consume("dup")?;
+        self.instructions.push(dup(label));
+        Ok(())
+    }
+
+    pub fn parse_void(&mut self, label: Option<String>) -> Result<(), ParseError> {
+        self.consume("void")?;
+        self.instructions.push(void(label));
+        Ok(())
+    }
+
+    pub fn parse_label(&mut self) -> Result<Option<String>, ParseError> {
+        if self.current.peek() == Some(&'.') {
+            self.skip_whitespace();
+            let mut label = String::new();
+            while let Some(&c) = self.current.peek() {
+                if c.is_whitespace() {
+                    break;
+                }
+                label.push(c);
+                self.current.next();
+            }
+            Ok(Some(label))
+        } else {
+            Ok(None)
+        }
     }
 }
