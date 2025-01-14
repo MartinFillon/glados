@@ -143,9 +143,9 @@ data Ast
       AstListElem String [Int]
     | AstLabel String Ast -- ^ label-name value
     | AstImport String -- ^ file to import, must be .mrl extension
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord)
 
-{-instance Show Ast where
+instance Show Ast where
     show :: Ast -> String
     show (AstVar s) = tail (init (show s))
     show AstVoid = "void"
@@ -174,7 +174,7 @@ data Ast
     show (AstDefineStruct s) = "struct " ++ sName s ++ " " ++ show (sProperties s)
     show (AstLabel n v) = "label " ++ n ++ ": " ++ show v
     show (AstImport f) = "import " ++ f
--}
+
 -- | Types handled by the program.
 data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
     deriving (Eq, Ord, Show)
