@@ -22,6 +22,7 @@ module Parsing.ParserAst (
 
     -- ** Main parsing functions
     parseAST,
+    types,
     pAst,
     pTerm,
     pExpr,
@@ -38,6 +39,7 @@ module Parsing.ParserAst (
     pDeclarationVar,
     pFunc,
     pDeclarationFunc,
+    pDeclarationStruct,
     operatorTable,
     convertValue,
     getType,
@@ -96,6 +98,13 @@ data Variable = Variable
     }
     deriving (Eq, Ord, Show)
 
+-- | Structure structure containing the name of the structure, its type and its values in a block.
+data Structure = Structure
+    { sName :: String,
+      sProperties :: [Ast]
+    }
+    deriving (Eq, Ord, Show)
+
 -- | AST values parsed by the program.
 data Ast
     = AstVar String
@@ -115,6 +124,7 @@ data Ast
       AstTernary Ast Ast Ast
     | AstReturn Ast
     | AstBlock [Ast]
+    | AstStruct [Ast]
     | -- | condition (AstBlock to loop in)
       AstLoop (Maybe Ast) Ast Ast
     | -- | break statement
@@ -127,11 +137,11 @@ data Ast
     | AstArg Ast (Maybe Int)
     | -- | nameLoop condition do
       AstDefineLoop String Ast Ast
+    | AstDefineStruct Structure
     | AstList [Ast]
     | -- | variable indexes
       AstListElem String [Int]
-    | -- | name AstBlock
-      AstStruct String Ast
+    | AstLabel String Ast -- ^ label-name value
     deriving (Eq, Ord)
 
 instance Show Ast where
@@ -161,7 +171,9 @@ instance Show Ast where
     show (AstDefineLoop nLoop cond loopBlock) = "DefLoop " ++ show nLoop ++ "(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
     show (AstList asts) = "List" ++ show asts
     show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
-    show (AstStruct name ast) = show name ++ " " ++ show ast
+    show (AstStruct s) = "struct " ++ show s
+    show (AstDefineStruct s) = "struct " ++ sName s ++ " " ++ show (sProperties s)
+    show (AstLabel n v) = "label " ++ n ++ ": " ++ show v
 
 -- | Types handled by the program.
 data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
@@ -206,6 +218,7 @@ rWords =
              "return",
              "null",
              "const",
+             "struct",
              "break",
              "continue"
            ]
@@ -239,6 +252,14 @@ bool =
             [ False <$ string "false",
               True <$ string "true"
             ]
+
+pLabel :: Parser Ast
+pLabel = do
+    n <- variable
+    sc
+    _ <- symbol ":"
+    sc
+    AstLabel n <$> convertValue
 
 listElem :: Parser Int
 listElem = between (symbol "[") (symbol "]") integer
@@ -279,13 +300,15 @@ pListElem = do
 convertValue :: Parser Ast
 convertValue =
     choice
-        [ AstDouble <$> try double,
+        [ try pLabel,
+          AstDouble <$> try double,
           AstInt <$> integer,
           try pListElem,
           AstList <$> try pList,
           AstBool <$> bool,
           AstChar <$> charLiteral,
           AstString <$> stringLiteral,
+          AstStruct <$> try struct,
           AstBlock <$> block,
           try pFunc,
           AstVoid <$ try (lexeme $ string "null"),
@@ -315,6 +338,9 @@ listVariables' =
 block :: Parser [Ast]
 block = between (symbol "{") (symbol "}") (many pTerm)
 
+struct :: Parser [Ast]
+struct = between (symbol "{") (symbol "}") (convertValue `sepBy` lexeme ",")
+
 types' :: [String]
 types' =
     [ "int",
@@ -325,8 +351,23 @@ types' =
       "void"
     ]
 
+pStruct :: Parser String
+pStruct = lexeme $ do
+    s <- string "struct"
+    sc
+    n <- variable
+    return $ s ++ " " ++ n
+
 types :: Parser String
-types = choice (map string (("[]" ++) <$> types')) <|> choice (map string types')
+types = choice
+    [ choice (map string $ ("[]" ++) <$> types')
+    , choice (map string $ ("const " ++) <$> types')
+    , choice (map string types')
+    , pStruct
+    ]
+
+trimFront :: String -> String -> String
+trimFront toTrim str = dropWhile (\x -> x == ' ' || x == '\t') (fromJust $ stripPrefix toTrim str)
 
 -- | Returns a 'MarylType' based on string given as parameter. If the string is not supported, returns 'Undefined'.
 getType :: String -> MarylType
@@ -338,7 +379,8 @@ getType "bool" = Bool
 getType "void" = Void
 getType str
     | "[]" `isPrefixOf` str = List $ getType (fromJust $ stripPrefix "[]" str)
-    | "const" `isPrefixOf` str = Const $ getType (dropWhile (\x -> x == ' ' || x == '\t') (fromJust $ stripPrefix "const" str))
+    | "const" `isPrefixOf` str = Const $ getType $ trimFront "const" str
+    | "struct" `isPrefixOf` str = Struct $ takeWhile (\x -> x /= ' ' && x /= '\t') $ trimFront "struct" str
     | otherwise = Undefined
 
 optionalValue :: Parser (Maybe Ast)
@@ -377,6 +419,18 @@ pDeclarationFunc = do
     b <- block
     return $
         AstDefineFunc (Function {fName = n, fArgs = a, fBody = b, fType = getType t})
+
+{- | Parsing 'pStruct' declaration, formatted: struct name {}
+
+>>> struct vector {int x; int y;}
+-}
+pDeclarationStruct :: Parser Ast
+pDeclarationStruct = do
+    symbol "struct" >> sc
+    n <- variable
+    sc
+    b <- block
+    return $ AstDefineStruct (Structure {sName = n, sProperties = b})
 
 {- | Function names must be formatted like a 'variable', followed by parenthesis: foo()
 
@@ -539,6 +593,7 @@ pTerm =
           pIf,
           pLoop,
           try pDeclarationFunc,
+          try pDeclarationStruct,
           pDeclarationVar <* semi,
           pBreak <* semi,
           pContinue <* semi,
@@ -566,7 +621,8 @@ ternary f = TernR ((f <$ lexeme (char ':')) <$ lexeme (char '?'))
 -- | Operator table containing every operator handled by the program.
 operatorTable :: [[Operator Parser Ast]]
 operatorTable =
-    [   [ prefix "--" (AstPrefixFunc "--"),
+    [   [ binary "." (AstBinaryFunc ".") ],
+        [ prefix "--" (AstPrefixFunc "--"),
           prefix "-" (AstPrefixFunc "-"),
           prefix "++" (AstPrefixFunc "++"),
           prefix "+" id,

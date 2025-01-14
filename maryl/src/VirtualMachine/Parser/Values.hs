@@ -20,6 +20,8 @@ module VirtualMachine.Parser.Values (
     parseList,
 ) where
 
+import Control.Monad (void)
+import qualified Data.Map as Map
 import Text.Megaparsec (
     between,
     choice,
@@ -108,6 +110,12 @@ parseList =
     L
         <$> between (char '[') (char ']') (parseVal `sepBy` lexeme ",")
 
+parseStruct' :: Parser (String, Value)
+parseStruct' = (,) <$> parseString' <*> (void (char '=') >> parseVal)
+
+parseStruct :: Parser Value
+parseStruct = St . Map.fromList <$> between (char '{') (char '}') (many parseStruct') <?> "Structure"
+
 parseVal :: Parser Value
 parseVal =
     lexeme $
@@ -117,5 +125,6 @@ parseVal =
               try parseBool,
               try parseDigit,
               try parseChar,
-              try parseString
+              try parseString,
+              try parseStruct
             ]

@@ -25,6 +25,8 @@ module VirtualMachine.Instructions (
 ) where
 
 import Data.Int (Int64)
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Word (Word8)
 
 -- | 'Label' is used for jump purposes it can be empty as not every instructions need one.
@@ -54,6 +56,7 @@ data Value
     | L [Value]
     | D Double
     | Bi [Instruction]
+    | St (Map String Value)
 
 instance Show Value where
     show :: Value -> String
@@ -64,6 +67,14 @@ instance Show Value where
     show (L vs) = show vs
     show (D d) = show d
     show (Bi _) = "<builtin>"
+    show (St s) = showStruct $ Map.toList s
+
+showField :: (String, Value) -> String
+showField (n, v) = '"' : n ++ "\" = " ++ show v
+
+showStruct :: [(String, Value)] -> String
+showStruct [] = ""
+showStruct xs = '{' : foldr1 (\a b -> a ++ ',' : b) (map showField xs) ++ "}"
 
 instance Eq Value where
     (==) :: Value -> Value -> Bool
@@ -74,6 +85,7 @@ instance Eq Value where
     (D a) == (D b) = a == b
     (C a) == (C b) = a == b
     (Bi a) == (Bi b) = a == b
+    (St a) == (St b) = a == b
     _ == _ = False
 
 -- | 'Inst' are the different instructions used in 'Instruction' (should not be used it is better to use Instruction)

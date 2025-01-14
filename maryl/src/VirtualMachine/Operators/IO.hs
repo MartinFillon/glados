@@ -65,7 +65,7 @@ opOpenFile (S name : S "r" : xs) = (opOpenFile' name ReadMode >>= opOpenFile'') 
 opOpenFile (S name : S "w" : xs) = (opOpenFile' name WriteMode >>= opOpenFile'') <&> (: xs)
 opOpenFile (S name : S "rw" : xs) = (opOpenFile' name ReadWriteMode >>= opOpenFile'') <&> (: xs)
 opOpenFile (S name : S "a" : xs) = (opOpenFile' name AppendMode >>= opOpenFile'') <&> (: xs)
-opOpenFile xs = pure $ N (-1) : xs
+opOpenFile xs = setError True >> pure (N (-1) : xs)
 
 opCloseHandle' :: Either () Int64 -> VmState Value
 opCloseHandle' (Right n) = setError True >> pure (N n)
@@ -85,7 +85,7 @@ opWriteHandle' (Left n) = setError False >> pure (N n)
 opWriteHandle' (Right n) = setError True >> pure (N n)
 
 opWriteHandle :: [Value] -> VmState [Value]
-opWriteHandle (h'@(N hdl) : S str : xs) =
+opWriteHandle (S str : h'@(N hdl) : xs) =
     ( getHandleInMemory hdl
         >>= ( \h ->
                 ioCatch
@@ -97,7 +97,7 @@ opWriteHandle (h'@(N hdl) : S str : xs) =
         >>= opWriteHandle'
     )
         <&> (: h' : xs)
-opWriteHandle (h'@(N hdl) : C ch : xs) =
+opWriteHandle (C ch : h'@(N hdl) : xs) =
     ( getHandleInMemory hdl
         >>= ( \h ->
                 ioCatch
@@ -109,7 +109,7 @@ opWriteHandle (h'@(N hdl) : C ch : xs) =
         >>= opWriteHandle'
     )
         <&> (: h' : xs)
-opWriteHandle (h'@(N hdl) : v : xs) =
+opWriteHandle (v : h'@(N hdl) : xs) =
     ( getHandleInMemory hdl
         >>= ( \h ->
                 ioCatch

@@ -50,6 +50,14 @@ import VirtualMachine.Operators.Lists (
     operatorGet,
     operatorSet,
  )
+import VirtualMachine.Operators.String (
+    strcat,
+    strcmp,
+    strlen,
+    substr,
+ )
+
+import VirtualMachine.Operators.Structs (getStructValue, setStructValue)
 import VirtualMachine.State (V (Op))
 
 operators :: [(String, V)]
@@ -84,5 +92,11 @@ operators =
       ("write", Op opWriteHandle),
       ("read", Op opReadHandle),
       ("getLine", Op opGetLineHandle),
-      ("error", Op opError)
+      ("error", Op opError),
+      ("strcat", Op strcat),
+      ("strlen", Op strlen),
+      ("substr", Op substr),
+      ("strcmp", Op strcmp),
+      ("setField", Op setStructValue),
+      ("getField", Op getStructValue)
     ]
