@@ -5,22 +5,24 @@
 // instructions
 //
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Int(i32),
     Double(f64),
     String(String),
     Array(Vec<Value>),
+    Char(char),
+    Bool(bool),
     Object(Vec<(String, Value)>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum JumpValue {
     Index(i32),
     Label(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Insts {
     Push(Value),
     Ret,
@@ -32,7 +34,7 @@ pub enum Insts {
     Void,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Instructions {
     inst: Insts,
     label: Option<String>,
