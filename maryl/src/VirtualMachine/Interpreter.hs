@@ -61,7 +61,7 @@ execCall s =
                     getInstructionIdxAtLabel s
                         >>= ( \r -> case r of
                                 Just idx ->
-                                    (copyVm' idx <$> getStack <*> get >>= (io . evalStateT exec))
+                                    (copyVm' idx <$> (reverse <$> getStack) <*> get >>= (io . evalStateT exec))
                                         >>= appendStack
                                 Nothing -> fail $ "could not find an element with label: " ++ s
                             )
