@@ -7,7 +7,9 @@
 
 use std::{iter::Peekable, str::Chars};
 
-use crate::instructions::{dup, push, ret, void, Instructions, Value};
+use crate::instructions::{
+    call, dup, jump, jump_if_false, push, push_arg, ret, void, Instructions, JumpValue, Value,
+};
 
 #[derive(Debug)]
 pub struct Parser<'a> {
@@ -32,35 +34,43 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Vec<Instructions>, ParseError> {
+    pub fn parse<'b>(&mut self) -> Result<Vec<Instructions>, ParseError> {
         while let Some(_) = self.current.peek() {
             self.skip_whitespace();
             let label = self.parse_label()?;
             self.skip_whitespace();
-            if self.r#match("push")? {
-                self.parse_push(label)?;
+            if self.r#match("pushArg")? {
+                self.parse_push_arg(label)
+            } else if self.r#match("push")? {
+                self.parse_push(label)
             } else if self.r#match("ret")? {
-                self.parse_ret(label)?;
+                self.parse_ret(label)
             } else if self.r#match("dup")? {
-                self.parse_dup(label)?;
+                self.parse_dup(label)
             } else if self.r#match("void")? {
-                self.parse_void(label)?;
+                self.parse_void(label)
+            } else if self.r#match("call")? {
+                self.parse_call(label)
+            } else if self.r#match("jumpf")? {
+                self.parse_jumpf(label)
+            } else if self.r#match("jump")? {
+                self.parse_jump(label)
             } else {
-                return Err(ParseError::UnexpectedChar(self.current.next()));
-            }
+                Err(ParseError::UnexpectedChar(self.current.next()))
+            }?;
             self.current.next();
         }
         Ok(self.instructions.clone())
     }
 
-    pub fn skip(&mut self, n: usize) -> () {
+    fn skip(&mut self, n: usize) -> () {
         for _ in 0..n {
             self.current.next();
         }
         ()
     }
 
-    pub fn consume(&mut self, to_match: &'static str) -> Result<(), ParseError> {
+    fn consume(&mut self, to_match: &'static str) -> Result<(), ParseError> {
         if self.r#match(to_match)? {
             self.skip(to_match.len());
             Ok(())
@@ -69,14 +79,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse_push(&mut self, label: Option<String>) -> Result<(), ParseError> {
+    fn parse_push(&mut self, label: Option<String>) -> Result<(), ParseError> {
         self.consume("push")?;
         let v = self.parse_value()?;
         self.instructions.push(push(v, label));
         Ok(())
     }
 
-    pub fn parse_value(&mut self) -> Result<Value, ParseError> {
+    fn parse_value(&mut self) -> Result<Value, ParseError> {
         self.skip_whitespace();
         match self.current.peek() {
             Some('0'..='9') => self.parse_number(),
@@ -86,7 +96,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse_string(&mut self) -> Result<Value, ParseError> {
+    fn parse_str(&mut self) -> Result<String, ParseError> {
         self.consume("\"")?;
         let mut buf = String::new();
 
@@ -115,23 +125,45 @@ impl<'a> Parser<'a> {
                 }
             }
         }
-
-        Ok(Value::String(buf))
+        Ok(buf)
     }
 
-    pub fn parse_char(&mut self) -> Result<Value, ParseError> {
+    fn parse_string(&mut self) -> Result<Value, ParseError> {
+        Ok(Value::String(self.parse_str()?))
+    }
+
+    fn parse_char(&mut self) -> Result<Value, ParseError> {
         self.consume("\'")?;
-        let c = self.current.next().ok_or(ParseError::UnexpectedEnd)?;
+        let c = match self.current.next().ok_or(ParseError::UnexpectedEnd)? {
+            '\\' => {
+                self.current.next();
+                match self.current.next() {
+                    Some('n') => '\n',
+                    Some('t') => '\t',
+                    Some('r') => '\r',
+                    Some('\\') => '\\',
+                    Some('\'') => '\'',
+                    Some('\"') => '\"',
+                    Some(c) => return Err(ParseError::UnexpectedChar(Some(c))),
+                    None => return Err(ParseError::UnexpectedEnd),
+                }
+            }
+            c => c,
+        };
         self.consume("\'")?;
         Ok(Value::Char(c))
     }
 
-    pub fn parse_number(&mut self) -> Result<Value, ParseError> {
+    fn parse_number(&mut self) -> Result<Value, ParseError> {
         let mut number = String::new();
         let mut decimal = false;
 
         while let Some(&c) = self.current.peek() {
             match c {
+                '-' if number.is_empty() => {
+                    number.push(c);
+                    self.current.next();
+                }
                 '0'..='9' => {
                     number.push(c);
                     self.current.next();
@@ -162,7 +194,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn r#match(&mut self, to_match: &'static str) -> Result<bool, ParseError> {
+    fn r#match(&mut self, to_match: &'static str) -> Result<bool, ParseError> {
         let mut copy = self.current.clone();
 
         for c in to_match.chars() {
@@ -175,7 +207,7 @@ impl<'a> Parser<'a> {
         Ok(true)
     }
 
-    pub fn skip_whitespace(&mut self) -> () {
+    fn skip_whitespace(&mut self) -> () {
         while let Some(&c) = self.current.peek() {
             if c.is_whitespace() {
                 self.current.next();
@@ -187,25 +219,25 @@ impl<'a> Parser<'a> {
         ()
     }
 
-    pub fn parse_ret(&mut self, label: Option<String>) -> Result<(), ParseError> {
+    fn parse_ret(&mut self, label: Option<String>) -> Result<(), ParseError> {
         self.consume("ret")?;
         self.instructions.push(ret(label));
         Ok(())
     }
 
-    pub fn parse_dup(&mut self, label: Option<String>) -> Result<(), ParseError> {
+    fn parse_dup(&mut self, label: Option<String>) -> Result<(), ParseError> {
         self.consume("dup")?;
         self.instructions.push(dup(label));
         Ok(())
     }
 
-    pub fn parse_void(&mut self, label: Option<String>) -> Result<(), ParseError> {
+    fn parse_void(&mut self, label: Option<String>) -> Result<(), ParseError> {
         self.consume("void")?;
         self.instructions.push(void(label));
         Ok(())
     }
 
-    pub fn parse_label(&mut self) -> Result<Option<String>, ParseError> {
+    fn parse_label(&mut self) -> Result<Option<String>, ParseError> {
         if self.current.peek() == Some(&'.') {
             self.skip_whitespace();
             let mut label = String::new();
@@ -220,5 +252,68 @@ impl<'a> Parser<'a> {
         } else {
             Ok(None)
         }
+    }
+
+    fn parse_call(&mut self, label: Option<String>) -> Result<(), ParseError> {
+        self.consume("call")?;
+        self.skip_whitespace();
+        let arg = self.parse_str()?;
+        self.instructions.push(call(arg, label));
+        Ok(())
+    }
+
+    fn parse_int(&mut self) -> Result<i32, ParseError> {
+        let mut number = String::new();
+
+        while let Some(&c) = self.current.peek() {
+            match c {
+                '-' if number.is_empty() => {
+                    number.push(c);
+                    self.current.next();
+                }
+                '0'..='9' => {
+                    number.push(c);
+                    self.current.next();
+                }
+                ca if ca.is_whitespace() => break,
+                ca => {
+                    number.push(ca);
+                    return Err(ParseError::NotANumber(number));
+                }
+            }
+        }
+        Ok(number.parse().map_err(|_| ParseError::NotANumber(number))?)
+    }
+
+    fn parse_push_arg(&mut self, label: Option<String>) -> Result<(), ParseError> {
+        self.consume("pushArg")?;
+        self.skip_whitespace();
+        let arg = self.parse_int()?;
+        self.instructions.push(push_arg(arg, label));
+        Ok(())
+    }
+
+    fn parse_jump_val(&mut self) -> Result<JumpValue, ParseError> {
+        match self.current.peek() {
+            Some('0'..='9') => Ok(JumpValue::Index(self.parse_int()?)),
+            Some('\"') => Ok(JumpValue::Label(self.parse_str()?)),
+            _ => Err(ParseError::UnexpectedChar(self.current.next())),
+        }
+    }
+
+    fn parse_jump(&mut self, label: Option<String>) -> Result<(), ParseError> {
+        self.consume("jump")?;
+        self.skip_whitespace();
+        let arg = self.parse_jump_val()?;
+        self.instructions.push(jump(arg, label));
+        Ok(())
+    }
+
+    fn parse_jumpf(&mut self, label: Option<String>) -> Result<(), ParseError> {
+        self.consume("jumpf")?;
+        self.skip_whitespace();
+        let arg = self.parse_jump_val()?;
+        self.instructions.push(jump_if_false(arg, label));
+        Ok(())
     }
 }
