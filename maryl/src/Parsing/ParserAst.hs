@@ -20,6 +20,9 @@ module Parsing.ParserAst (
 
     -- * Functions
 
+    -- ** Utility
+    isSameType,
+
     -- ** Main parsing functions
     parseAST,
     types,
@@ -168,7 +171,7 @@ instance Show Ast where
     show AstBreak = "break"
     show AstContinue = "continue"
     show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
-    -- show AstBuiltin 
+    -- show AstBuiltin
     show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
     show (AstArg arg idx) = "(Arg " ++ show arg ++ " (" ++ show idx ++ "))"
     show (AstDefineLoop nLoop cond loopBlock) = "DefLoop " ++ show nLoop ++ "(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
@@ -182,6 +185,38 @@ instance Show Ast where
 -- | Types handled by the program.
 data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
     deriving (Eq, Ord, Show)
+
+-- | Checks if both Ast are the same without comparing their value if they have one
+isSameType :: Ast -> Ast -> Bool
+isSameType (AstBool {}) (AstBool {}) = True
+isSameType (AstVar {}) (AstVar {}) = True
+isSameType AstVoid AstVoid = True
+isSameType (AstInt {}) (AstInt {}) = True
+isSameType (AstString {}) (AstString {}) = True
+isSameType (AstChar {}) (AstChar {}) = True
+isSameType (AstDouble {}) (AstDouble {}) = True
+isSameType (AstBinaryFunc {}) (AstBinaryFunc {}) = True
+isSameType (AstPostfixFunc {}) (AstPostfixFunc {}) = True
+isSameType (AstPrefixFunc {}) (AstPrefixFunc {}) = True
+isSameType (AstFunc {}) (AstFunc {}) = True
+isSameType (AstIf {}) (AstIf {}) = True
+isSameType (AstTernary {}) (AstTernary {}) = True
+isSameType (AstReturn {}) (AstReturn {}) = True
+isSameType (AstBlock {}) (AstBlock {}) = True
+isSameType (AstStruct {}) (AstStruct {}) = True
+isSameType (AstLoop {}) (AstLoop {}) = True
+isSameType AstBreak AstBreak = True
+isSameType AstContinue AstContinue = True
+isSameType (AstArg {}) (AstArg {}) = True
+isSameType (AstDefineVar {}) (AstDefineVar {}) = True
+isSameType (AstDefineFunc {}) (AstDefineFunc {}) = True
+isSameType (AstDefineLoop {}) (AstDefineLoop {}) = True
+isSameType (AstDefineStruct {}) (AstDefineStruct {}) = True
+isSameType (AstList {}) (AstList {}) = True
+isSameType (AstListElem {}) (AstListElem {}) = True
+isSameType (AstLabel {}) (AstLabel {}) = True
+isSameType (AstImport {}) (AstImport {}) = True
+isSameType _ _ = False
 
 lineComment :: Parser ()
 lineComment = L.skipLineComment "//"
