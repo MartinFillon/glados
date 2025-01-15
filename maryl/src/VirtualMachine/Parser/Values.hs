@@ -61,10 +61,10 @@ parseDigit :: Parser Value
 parseDigit = lexeme $ N <$> L.signed sce L.decimal
 
 parseTrue :: Parser Value
-parseTrue = lexeme $ string "true" >> return (B True)
+parseTrue = lexeme $ string "True" >> return (B True)
 
 parseFalse :: Parser Value
-parseFalse = lexeme $ string "false" >> return (B False)
+parseFalse = lexeme $ string "False" >> return (B False)
 
 parseString' :: Parser String
 parseString' =
@@ -114,7 +114,10 @@ parseStruct' :: Parser (String, Value)
 parseStruct' = (,) <$> parseString' <*> (void (char '=') >> parseVal)
 
 parseStruct :: Parser Value
-parseStruct = St . Map.fromList <$> between (char '{') (char '}') (many parseStruct') <?> "Structure"
+parseStruct =
+    St . Map.fromList
+        <$> between (char '{') (char '}') (many parseStruct')
+        <?> "Structure"
 
 parseVal :: Parser Value
 parseVal =

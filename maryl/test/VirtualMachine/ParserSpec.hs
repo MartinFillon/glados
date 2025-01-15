@@ -27,10 +27,10 @@ spec = do
     describe "VirtualMachine Parser Spec" $ do
         it "should parse push with arg Int" $ do
             parseAssembly "push 1" `shouldBe` Right [Left $ push Nothing $ N 1]
-        it "should parse push with arg Bool true" $ do
-            parseAssembly "push true" `shouldBe` Right [Left $ push Nothing $ B True]
-        it "should parse push with arg Bool false" $ do
-            parseAssembly "push false" `shouldBe` Right [Left $ push Nothing $ B False]
+        it "should parse push with arg Bool True" $ do
+            parseAssembly "push True" `shouldBe` Right [Left $ push Nothing $ B True]
+        it "should parse push with arg Bool False" $ do
+            parseAssembly "push False" `shouldBe` Right [Left $ push Nothing $ B False]
         it "should parse ret" $ do
             parseAssembly "ret" `shouldBe` Right [Left $ ret Nothing]
         it "should parse jumpf with arg int" $ do
@@ -72,7 +72,7 @@ spec = do
         it "should parse a push list with no elem" $ do
             parseAssembly "push []" `shouldBe` Right [Left $ push Nothing $ L []]
         it "should parse a push list bool" $ do
-            parseAssembly "push [true, false]"
+            parseAssembly "push [True, False]"
                 `shouldBe` Right [Left $ push Nothing $ L [B True, B False]]
         it "shoudl parse a get" $ do
             parseAssembly "get \"hello\"" `shouldBe` Right [Left $ get Nothing "hello"]
