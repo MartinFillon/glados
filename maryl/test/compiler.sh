@@ -117,3 +117,15 @@ else
     print_yellow "got '$output'"
     print_red "❌ ternary.mrl failed"
 fi
+
+# fact.mrl
+print_bold "Running fact.mrl..."
+./glados test/test_files/fact.mrl
+./glados out.masm --vm
+output=$(echo $?)
+if [ "$output" == '120' ]; then
+    print_green "✅ fact.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ fact.mrl failed"
+fi

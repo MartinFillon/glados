@@ -91,7 +91,7 @@ spec = do
                               AstDefineFunc
                                 ( Function
                                     "add"
-                                    [AstVar "x", AstVar "y"]
+                                    [AstDefineVar (Variable "x" Int AstVoid), AstDefineVar (Variable "y" Int AstVoid)]
                                     [AstReturn (AstBinaryFunc "+" (AstVar "x") (AstVar "y"))]
                                     Int
                                 )
@@ -100,7 +100,7 @@ spec = do
                               AstDefineFunc
                                 ( Function
                                     "add"
-                                    [AstVar "x"]
+                                    [AstDefineVar (Variable "x" Int AstVoid)]
                                     [AstReturn (AstBinaryFunc "+" (AstVar "x") (AstInt 1))]
                                     Int
                                 )

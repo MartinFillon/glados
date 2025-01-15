@@ -17,6 +17,7 @@ type Memory = Map.Map String Ast
 
 updateMemory :: Memory -> String -> Ast -> Memory
 updateMemory mem var value =
+    trace ("updating mem with " ++ show var ++ " = " ++ show value) $
     Map.insert var value mem
 
 addMemory :: Memory -> String -> Ast -> Either String Memory

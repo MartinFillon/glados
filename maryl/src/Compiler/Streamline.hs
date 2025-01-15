@@ -19,7 +19,7 @@ clarifyAST (AstBinaryFunc op left right) mem =
         Right (result, _) -> result
         _ -> AstVoid
 clarifyAST (AstVar var) mem = fromMaybe AstVoid (readMemory mem var)
--- clarifyAST (AstFunc (Function funcName funcArgs _ _)) mem =
 clarifyAST ast _ = ast
 
+-- clarifyAST (AstFunc (Function funcName funcArgs _ _)) mem =
 -- terner

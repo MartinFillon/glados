@@ -64,4 +64,6 @@ serializeMemoryFunctions mem =
     extractFunction accAndMem _ _ = accAndMem -- != AstDefineFunc | AstDefineLoop
 
 writeInstructionsToFile :: FilePath -> Memory -> IO ()
-writeInstructionsToFile filePath mem = writeFile filePath (serializeMemoryFunctions mem)
+writeInstructionsToFile filePath mem =
+    let serializedData = serializeMemoryFunctions mem
+    in writeFile filePath serializedData

@@ -186,7 +186,7 @@ spec = do
                     `shouldBe` Right (AstBool False, initMemory)
             it "error handling" $ do
                 evalNode initMemory (AstBinaryFunc "and" (AstBool True) (AstInt 4))
-                    `shouldBe` Left "Argument \"True\" invalid for `and`."
+                    `shouldBe` Left "Argument \"True\" invalid for \"and\"."
 
         context "evaluates Boolean OR" $ do
             it "true or false" $ do
@@ -200,4 +200,4 @@ spec = do
                     `shouldBe` Right (AstBool False, initMemory)
             it "error handling" $ do
                 evalNode initMemory (AstBinaryFunc "or" (AstBool False) (AstInt (-4)))
-                    `shouldBe` Left "Argument \"False\" invalid for `or`."
+                    `shouldBe` Left "Argument \"False\" invalid for \"or\"."

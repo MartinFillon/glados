@@ -127,14 +127,16 @@ data Ast
     | AstReturn Ast
     | AstBlock [Ast]
     | AstStruct [Ast]
-    | -- | condition (AstBlock to loop in)
-      AstLoop Ast Ast
+    | -- | loopName condition (AstBlock to loop in)
+      AstLoop (Maybe String) Ast Ast
     | -- | break statement
       AstBreak
     | -- | continue statement
       AstContinue
     | AstDefineVar Variable
+    -- | AstBuiltin Function -- to do
     | AstDefineFunc Function
+    | AstArg Ast (Maybe Int)
     | -- | nameLoop condition do
       AstDefineLoop String Ast Ast
     | AstDefineStruct Structure
@@ -148,7 +150,7 @@ data Ast
 instance Show Ast where
     show :: Ast -> String
     show (AstVar s) = tail (init (show s))
-    show AstVoid = "void"
+    show AstVoid = "Void"
     show (AstInt n) = show n
     show (AstBool b) = show b
     show (AstString s) = show s
@@ -158,17 +160,19 @@ instance Show Ast where
     show (AstPostfixFunc f ast) = show ast ++ tail (init (show f))
     show (AstPrefixFunc f ast) = tail (init (show f)) ++ show ast
     show (AstFunc (Function funcName funcArgs funcBody _)) = "call " ++ show funcName ++ "(" ++ show funcArgs ++ "){" ++ show funcBody ++ "}"
-    show (AstIf cond ifBlock elseIf maybeElse) = "if(" ++ show cond ++ "){" ++ show ifBlock ++ "} " ++ show elseIf ++ " else {" ++ show maybeElse ++ "}"
+    show (AstIf cond ifBlock elseIf maybeElse) = "if (" ++ show cond ++ "){" ++ show ifBlock ++ "} " ++ show elseIf ++ " else {" ++ show maybeElse ++ "}"
     show (AstTernary cond terBlock elseBlock) = show cond ++ " ? " ++ show terBlock ++ " : " ++ show elseBlock
     show (AstReturn ast) = "return " ++ show ast
     show (AstBlock blocks) = show blocks
-    show (AstLoop cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
+    show (AstLoop loopName cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "} --> [" ++ maybe "" show loopName ++ "]"
     show AstBreak = "break"
     show AstContinue = "continue"
     show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
+    -- show AstBuiltin 
     show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
-    show (AstDefineLoop nLoop cond loopBlock) = "defLoop " ++ show nLoop ++ "(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
-    show (AstList asts) = "[]" ++ show asts
+    show (AstArg arg idx) = "(Arg " ++ show arg ++ " (" ++ show idx ++ "))"
+    show (AstDefineLoop nLoop cond loopBlock) = "DefLoop " ++ show nLoop ++ "(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
+    show (AstList asts) = "List" ++ show asts
     show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
     show (AstStruct s) = "struct " ++ show s
     show (AstDefineStruct s) = "struct " ++ sName s ++ " " ++ show (sProperties s)
@@ -337,7 +341,7 @@ list' :: Parser Ast -> Parser Ast
 list' = between (symbol "(") (symbol ")")
 
 listVariables :: Parser [Ast]
-listVariables = between (symbol "(") (symbol ")") (convertValue `sepBy` lexeme ",")
+listVariables = between (symbol "(") (symbol ")") (pExpr `sepBy` lexeme ",")
 
 listVariables' :: Parser [Ast]
 listVariables' =
@@ -466,7 +470,7 @@ pLoop = do
     string "while" >> sc
     cond <- list
     toDo <- AstBlock <$> block
-    return $ AstLoop cond toDo
+    return $ AstLoop Nothing cond toDo
 
 pVoid :: Parser Ast
 pVoid = list' pVoid' <|> pVoid'
