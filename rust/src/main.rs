@@ -14,6 +14,7 @@ use execute::State;
 mod execute;
 mod instructions;
 mod parser;
+mod operators;
 
 fn main() {
     let args = std::env::args().collect::<Vec<String>>();
