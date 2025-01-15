@@ -18,6 +18,9 @@ import Parsing.ParserAst (Ast (..), parseAST)
 import System.IO (hIsTerminalDevice, isEOF, stdin)
 import Utils (handleParseError, pError)
 import VirtualMachine (vm)
+import Data.Functor ((<&>))
+import Debug.Trace (trace)
+import Control.Monad ((>=>))
 
 handleEvalResult :: [Ast] -> Either String ([Ast], Memory) -> IO ()
 handleEvalResult originalAst (Right (_, mem)) =
@@ -27,12 +30,38 @@ handleEvalResult originalAst (Right (_, mem)) =
 handleEvalResult _ (Left err) =
     pError ("*** ERROR *** with\n\t" ++ err)
 
-parseSourceCode :: Memory -> String -> IO Memory
-parseSourceCode mem s =
-    handleParseError True (parseAST s) >>= \asts ->
-        let evalResult = evalAST mem asts
+parseAstCode :: Memory -> [Ast] -> IO Memory
+parseAstCode mem asts = trace (show asts) $ let evalResult = evalAST mem asts
          in handleEvalResult asts evalResult
                 >> return (either (const mem) snd evalResult)
+
+isImport :: Ast -> Bool
+isImport (AstImport _) = True
+isImport _ = False
+
+handleImports' :: [String] -> IO [Ast]
+handleImports' [] = return []
+handleImports' (x:xs) = do
+    content <- readFile x
+    case parseAST content of
+        Left err -> handleParseError True (Left err)
+        Right asts -> do
+            handled <- handleImports asts
+            next <- handleImports' xs
+            return $ handled ++ next
+
+handleImports :: [Ast] -> IO [Ast]
+handleImports asts = case filter isImport asts of
+    [] -> return $ filter (not . isImport) asts
+    imports -> handleImports' (getImportFile <$> imports) <&> (\imported -> filter (not . isImport) imported ++ asts)
+
+getImportFile :: Ast -> String
+getImportFile (AstImport file) = file
+getImportFile _ = ""
+
+parseSourceCode :: Memory -> String -> IO Memory
+parseSourceCode mem s =
+    handleParseError True (parseAST s) >>= (handleImports >=> parseAstCode mem)
 
 normalizeTabs :: String -> String
 normalizeTabs [] = []

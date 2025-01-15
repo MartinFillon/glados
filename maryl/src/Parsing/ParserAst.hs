@@ -26,6 +26,7 @@ module Parsing.ParserAst (
     pAst,
     pTerm,
     pExpr,
+    pImport,
     pIf,
     pElseIf,
     pElse,
@@ -35,6 +36,7 @@ module Parsing.ParserAst (
     pList,
     pListElem,
     pEqual,
+    pLabel,
     variable,
     pDeclarationVar,
     pFunc,
@@ -140,6 +142,7 @@ data Ast
     | -- | variable indexes
       AstListElem String [Int]
     | AstLabel String Ast -- ^ label-name value
+    | AstImport String -- ^ file to import, must be .mrl extension
     deriving (Eq, Ord)
 
 instance Show Ast where
@@ -170,6 +173,7 @@ instance Show Ast where
     show (AstStruct s) = "struct " ++ show s
     show (AstDefineStruct s) = "struct " ++ sName s ++ " " ++ show (sProperties s)
     show (AstLabel n v) = "label " ++ n ++ ": " ++ show v
+    show (AstImport f) = "import " ++ f
 
 -- | Types handled by the program.
 data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
@@ -249,6 +253,10 @@ bool =
               True <$ string "true"
             ]
 
+{- | Parsing labels like so: name:
+
+>>> struct vector vect = {x: 42, y:1};
+-}
 pLabel :: Parser Ast
 pLabel = do
     n <- variable
@@ -256,6 +264,13 @@ pLabel = do
     _ <- symbol ":"
     sc
     AstLabel n <$> convertValue
+
+{- | Parsing import statement to import another Maryl file content, must be formatted: import "filepath";
+
+>>> import "toto.mrl";
+-}
+pImport :: Parser Ast
+pImport = lexeme $ string "import" >> sc >> AstImport <$> stringLiteral
 
 listElem :: Parser Int
 listElem = between (symbol "[") (symbol "]") integer
@@ -586,6 +601,7 @@ pTerm :: Parser Ast
 pTerm =
     choice
         [ AstReturn <$> (pReturn <* semi),
+          pImport <* semi,
           pIf,
           pLoop,
           try pDeclarationFunc,

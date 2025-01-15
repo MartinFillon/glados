@@ -105,9 +105,11 @@ ln -s maryl-language <path to the repository>/maryl/vs-syntax/maryl-language
         | "void"
         | <list-type>
         | <const-type>
+        | <struct-type>
 
 <list-type> ::= "[]" <type>
 <const-type> ::= "const" <type>
+<struct-type> ::= "struct" <identifier> <block>
 <expression> ::= <variable>
              | <literal>
              | <function-call>
@@ -117,7 +119,9 @@ ln -s maryl-language <path to the repository>/maryl/vs-syntax/maryl-language
              | <ternary-expr>
              | <grouped-expr>
              | <assignment>
+             | <label>
 
+<label> ::= <identifier> ":"
 <variable> ::= <identifier>
 <identifier> ::= <letter> <alphanumeric>*
              | "_" <alphanumeric>+
@@ -135,6 +139,7 @@ ln -s maryl-language <path to the repository>/maryl/vs-syntax/maryl-language
 <string> ::= '"' <char>* '"'
 <char> ::= "'" <char> "'"
 <list> ::= "[" <expression> ("," <expression>)* "]"
+<struct> ::= "{" <expression> ("," <expression>)* "}"
 
 <function-call> ::= <identifier> "(" <expression-list>? ")"
 <expression-list> ::= <expression> ("," <expression>)*
@@ -180,4 +185,6 @@ ln -s maryl-language <path to the repository>/maryl/vs-syntax/maryl-language
 
 <break-statement> ::= "break" ";"
 <continue-statement> ::= "continue" ";"
+
+<import-statement> ::= "import" <string> ";"
 ```
