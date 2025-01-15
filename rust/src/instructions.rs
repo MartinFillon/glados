@@ -5,6 +5,8 @@
 // instructions
 //
 
+use std::fmt::Display;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Int(i32),
@@ -14,6 +16,38 @@ pub enum Value {
     Char(char),
     Bool(bool),
     Object(Vec<(String, Value)>),
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Int(n) => write!(f, "{}", n),
+            Value::Double(n) => write!(f, "{}", n),
+            Value::String(s) => write!(f, "\"{}\"", s),
+            Value::Array(a) => {
+                write!(f, "[")?;
+                for (i, v) in a.iter().enumerate() {
+                    write!(f, "{}", v)?;
+                    if i < a.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, "]")
+            }
+            Value::Char(c) => write!(f, "'{}'", c),
+            Value::Bool(b) => write!(f, "{}", b),
+            Value::Object(o) => {
+                write!(f, "{{")?;
+                for (i, (k, v)) in o.iter().enumerate() {
+                    write!(f, "{} = {}", k, v)?;
+                    if i < o.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, "}}")
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
