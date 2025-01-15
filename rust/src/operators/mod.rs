@@ -8,7 +8,7 @@
 use std::collections::VecDeque;
 
 use binary::{op_band, op_bor, op_shiftl, op_shiftr, op_xor};
-use list::{op_get, op_set};
+use list::{op_get, op_pop, op_push, op_set};
 use logical::{op_and, op_eq, op_gt, op_lt, op_neq, op_not, op_or};
 use mathematical::{op_add, op_div, op_mod, op_mul, op_sub};
 
@@ -40,6 +40,8 @@ pub enum Operators {
     ShiftL,
     Set,
     Get,
+    Push,
+    Pop,
 }
 
 impl Operators {
@@ -64,6 +66,8 @@ impl Operators {
             Operators::ShiftR => op_shiftr(stack),
             Operators::Get => op_get(stack),
             Operators::Set => op_set(stack),
+            Operators::Pop => op_pop(stack),
+            Operators::Push => op_push(stack),
         }
     }
 }
@@ -92,6 +96,8 @@ impl TryFrom<String> for Operators {
             "less" => Ok(Operators::Lt),
             "set" => Ok(Operators::Set),
             "get" => Ok(Operators::Get),
+            "push" => Ok(Operators::Push),
+            "pop" => Ok(Operators::Pop),
             _ => Err(format!("Unknown operator")),
         }
     }

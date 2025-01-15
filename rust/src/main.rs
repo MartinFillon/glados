@@ -25,8 +25,8 @@ fn main() {
         let content = std::fs::read_to_string(arg).unwrap();
         let mut parser = parser::Parser::new(&content);
         let instructions = parser.parse().unwrap();
-
         for inst in instructions {
+            dbg!(&inst);
             insts.push(inst);
         }
     }
