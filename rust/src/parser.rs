@@ -55,7 +55,10 @@ impl<'a> Parser<'a> {
                 self.parse_jumpf(label)
             } else if self.r#match("jump")? {
                 self.parse_jump(label)
+            } else if self.r#match("noop")? {
+                self.consume("noop")
             } else {
+                dbg!("a");
                 Err(ParseError::UnexpectedChar(self.current.next()))
             }?;
             self.current.next();
@@ -293,7 +296,7 @@ impl<'a> Parser<'a> {
     fn parse_jump_val(&mut self) -> Result<JumpValue, ParseError> {
         match self.current.peek() {
             Some('0'..='9') => Ok(JumpValue::Index(self.parse_int()?)),
-            Some('\"') => Ok(JumpValue::Label(self.parse_str()?)),
+            Some('.') => Ok(JumpValue::Label(self.parse_label()?.unwrap())),
             _ => Err(ParseError::UnexpectedChar(self.current.next())),
         }
     }

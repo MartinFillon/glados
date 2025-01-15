@@ -7,7 +7,10 @@
 
 use std::collections::VecDeque;
 
-use crate::instructions::{jump, Instructions, Insts, JumpValue, Value};
+use crate::{
+    instructions::{jump, Instructions, Insts, JumpValue, Value},
+    operators::Operators,
+};
 
 #[derive(Debug)]
 pub struct State {
@@ -31,18 +34,18 @@ impl State {
         }
     }
 
-    pub fn run(&mut self) -> Result<Option<Value>, &'static str> {
+    pub fn run(&mut self) -> Result<Option<Value>, String> {
         let mut last_result = None;
 
         while (self.pc as usize) < self.insts.len() && self.pc >= 0 {
             last_result = match self.insts.get(self.pc as usize) {
-                None => Err("No instructions at pc"),
+                None => Err(format!("No instructions at pc")),
                 Some(Instructions {
                     inst: Insts::Ret,
                     label: _,
                 }) => match self.stack.pop_front() {
                     Some(v) => Ok(Some(v)),
-                    None => Err("err"),
+                    None => Err(format!("err")),
                 },
 
                 Some(Instructions {
@@ -90,11 +93,11 @@ impl State {
         }
 
         last_result
-            .ok_or("Last instruction didnt yield a value.")
+            .ok_or(format!("Last instruction didnt yield a value."))
             .map(Some)
     }
 
-    fn exec_jump(&mut self, jv: JumpValue) -> Result<Option<Value>, &'static str> {
+    fn exec_jump(&mut self, jv: JumpValue) -> Result<Option<Value>, String> {
         match jv {
             JumpValue::Index(n) if n > 0 => self.pc += n - 1,
             JumpValue::Index(n) => self.pc += n,
@@ -108,24 +111,24 @@ impl State {
         Ok(None)
     }
 
-    fn top(&mut self) -> Result<Value, &'static str> {
-        self.stack.pop_front().ok_or("No values on stack")
+    fn top(&mut self) -> Result<Value, String> {
+        self.stack.pop_front().ok_or(format!("No values on stack"))
     }
 
-    fn exec_jumpf(&mut self, jv: JumpValue) -> Result<Option<Value>, &'static str> {
+    fn exec_jumpf(&mut self, jv: JumpValue) -> Result<Option<Value>, String> {
         let top = self.top()?;
         match top {
             Value::Bool(false) => (),
             Value::Bool(true) => return Ok(None),
-            _ => return Err("Top of the stack is not a boolean"),
+            _ => return Err(format!("Top of the stack is not a boolean")),
         };
         match jv {
             JumpValue::Index(n) if n > 0 => self.pc += n - 1,
             JumpValue::Index(n) => self.pc += n,
             JumpValue::Label(s) => {
                 self.pc = self
-                    .get_instruction_idx_at_label(s)
-                    .ok_or("label not found")? as i32
+                    .get_instruction_idx_at_label(s.clone())
+                    .ok_or(format!("Label {s} not found"))? as i32
                     - 1
             }
         }
@@ -138,7 +141,7 @@ impl State {
             .position(|ins| ins.label == Some(label.clone()))
     }
 
-    fn exec_dup(&mut self) -> Result<Option<Value>, &'static str> {
+    fn exec_dup(&mut self) -> Result<Option<Value>, String> {
         let v = self.top()?;
 
         self.stack.push_front(v.clone());
@@ -147,14 +150,32 @@ impl State {
         Ok(None)
     }
 
-    fn exec_pusharg(&mut self, n: i32) -> Result<Option<Value>, &'static str> {
-        self.stack
-            .push_front(self.args.get(n as usize).ok_or("No arg at index")?.clone());
+    fn exec_pusharg(&mut self, n: i32) -> Result<Option<Value>, String> {
+        self.stack.push_front(
+            self.args
+                .get(n as usize)
+                .ok_or(format!("No arg at index {n}"))?
+                .clone(),
+        );
 
         Ok(None)
     }
 
-    fn exec_call(&mut self, f: String) -> Result<Option<Value>, &'static str> {
-        todo!("Exec {f}");
+    fn exec_call(&mut self, f: String) -> Result<Option<Value>, String> {
+        if let Ok(o) = f.clone().try_into() {
+            self.stack = Operators::exec(o, self.stack.clone())?;
+            Ok(None)
+        } else if let Some(lbl) = self.get_instruction_idx_at_label(f.clone()) {
+            let mut nv = Self {
+                stack: VecDeque::new(),
+                args: self.stack.iter().rev().cloned().collect(),
+                pc: lbl as i32,
+                insts: self.insts.clone(),
+            };
+
+            nv.run()
+        } else {
+            Err(format!("Function {f} Not Found"))
+        }
     }
 }
