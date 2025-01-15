@@ -8,15 +8,18 @@
 use std::collections::VecDeque;
 
 use binary::{op_band, op_bor, op_shiftl, op_shiftr, op_xor};
+use list::{op_get, op_set};
 use logical::{op_and, op_eq, op_gt, op_lt, op_neq, op_not, op_or};
 use mathematical::{op_add, op_div, op_mod, op_mul, op_sub};
 
 use crate::instructions::Value;
 
 mod binary;
+mod list;
 mod logical;
 mod mathematical;
 
+#[derive(Debug, Clone, Copy)]
 pub enum Operators {
     Add,
     Sub,
@@ -35,6 +38,8 @@ pub enum Operators {
     Xor,
     ShiftR,
     ShiftL,
+    Set,
+    Get,
 }
 
 impl Operators {
@@ -57,6 +62,8 @@ impl Operators {
             Operators::Xor => op_xor(stack),
             Operators::ShiftL => op_shiftl(stack),
             Operators::ShiftR => op_shiftr(stack),
+            Operators::Get => op_get(stack),
+            Operators::Set => op_set(stack),
         }
     }
 }
@@ -83,6 +90,8 @@ impl TryFrom<String> for Operators {
             "and" => Ok(Operators::And),
             "greater" => Ok(Operators::Gt),
             "less" => Ok(Operators::Lt),
+            "set" => Ok(Operators::Set),
+            "get" => Ok(Operators::Get),
             _ => Err(format!("Unknown operator")),
         }
     }
