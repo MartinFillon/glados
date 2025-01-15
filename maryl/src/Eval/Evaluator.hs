@@ -77,6 +77,18 @@ evalBinaryFunc mem op left right = case evalNode mem left of
 
 ----- Declarations (Functions, Variables, Loop)
 
+-- evalStructDecla :: [Ast] -> Memory -> Either (Ast, Memory)
+-- evalStructDecla (AstVar str : xs) mem = case readMemory mem str of
+--     Just value -> evalStructDecla value mem
+--     Nothing -> Left "Variable " ++ str ++ " out of scope."
+-- -- evalStructDecla (AstListElem var idx) mem =
+-- -- evalStructDecla (AstList)
+-- -- evalStructDecla (AstStruct)
+-- evalStructDecla (AstDefineVar var@(Variable varName varType varValue) : xs) mem
+--     | isValidType varValue varType = evalStructDecla xs mem
+--     | otherwise = Left ("Value " ++ varName ++ " isn't typed correctly, expected " ++ show varType ++ ".")
+-- evalStructDecla [] mem = mem
+
 evalArgs :: [Ast] -> Memory -> Memory
 evalArgs [] mem = mem
 evalArgs ((AstDefineVar (Variable varName varType varValue)): xs) mem =
@@ -170,6 +182,15 @@ evalNode mem (AstLoop Nothing cond block) =
 --                 _ -> Left "Invalid else-if structure"
 --         _ -> Left "Condition in if statement is not a boolean"
 evalNode mem (AstListElem var idxs) = evalList var idxs mem
+translateAST (AstDefineStruct struct@(Structure name properties)) mem =
+    case addMemory mem name (AstDefineStruct struct) of
+        Right newMem -> case evalStructDecla properties of
+            evalAST newMem body >>= \(evaluatedBody, updatedMem) ->
+                    let updatedFunc = func {fBody = evaluatedBody}
+                        in Right (AstVoid, updateMemory updatedMem funcName (AstDefineFunc updatedFunc))
+        Left err -> Left $ "Failed to define structure (" ++ err ++ ")."
+
+-- translateAST (AstStruct eles) mem =
 evalNode mem (AstReturn expr) =
     evalNode mem expr >>= \(evaluatedExpr, mem') ->
         Right (AstReturn evaluatedExpr, mem')

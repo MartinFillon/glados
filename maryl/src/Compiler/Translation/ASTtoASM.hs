@@ -230,6 +230,8 @@ translateAST (AstList list) mem = ([push Nothing (L (translateList list mem))], 
 translateAST (AstListElem var idxs) mem =
     (fst (translateAST (AstVar var) mem) ++ translateMultIndexes idxs mem, mem)
 translateAST _ mem = ([], mem)
+-- translateAST (AstDefineStruct (Structure name properties)) mem =
+-- translateAST (AstStruct eles) mem =
 
 translateToASM :: [Ast] -> Memory -> ([Instruction], Memory)
 translateToASM asts mem = foldl processAST ([], mem) asts

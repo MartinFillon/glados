@@ -145,43 +145,55 @@ data Ast
       AstListElem String [Int]
     | AstLabel String Ast -- ^ label-name value
     | AstImport String -- ^ file to import, must be .mrl extension
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
 
-instance Show Ast where
-    show :: Ast -> String
-    show (AstVar s) = tail (init (show s))
-    show AstVoid = "Void"
-    show (AstInt n) = show n
-    show (AstBool b) = show b
-    show (AstString s) = show s
-    show (AstChar c) = show c
-    show (AstDouble d) = show d
-    show (AstBinaryFunc op left right) = show left ++ " " ++ show op ++ " " ++ show right
-    show (AstPostfixFunc f ast) = show ast ++ tail (init (show f))
-    show (AstPrefixFunc f ast) = tail (init (show f)) ++ show ast
-    show (AstFunc (Function funcName funcArgs funcBody _)) = "call " ++ show funcName ++ "(" ++ show funcArgs ++ "){" ++ show funcBody ++ "}"
-    show (AstIf cond ifBlock elseIf maybeElse) = "if (" ++ show cond ++ "){" ++ show ifBlock ++ "} " ++ show elseIf ++ " else {" ++ show maybeElse ++ "}"
-    show (AstTernary cond terBlock elseBlock) = show cond ++ " ? " ++ show terBlock ++ " : " ++ show elseBlock
-    show (AstReturn ast) = "return " ++ show ast
-    show (AstBlock blocks) = show blocks
-    show (AstLoop loopName cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "} --> [" ++ maybe "" show loopName ++ "]"
-    show (AstBreak loopName) = "break(" ++ show loopName ++ ")"
-    show (AstContinue loopName) = "continue(" ++ show loopName ++ ")"
-    show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
-    -- show AstBuiltin 
-    show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
-    show (AstArg arg idx) = "(Arg " ++ show arg ++ " (" ++ show idx ++ "))"
-    show (AstDefineLoop nLoop cond loopBlock) = "DefLoop " ++ show nLoop ++ "(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
-    show (AstList asts) = "List" ++ show asts
-    show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
-    show (AstStruct s) = "struct " ++ show s
-    show (AstDefineStruct s) = "struct " ++ sName s ++ " " ++ show (sProperties s)
-    show (AstLabel n v) = "label " ++ n ++ ": " ++ show v
-    show (AstImport f) = "import " ++ f
+-- instance Show Ast where
+--     show :: Ast -> String
+--     show (AstVar s) = s
+--     show AstVoid = "Void"
+--     show (AstInt n) = show n
+--     show (AstBool b) = show b
+--     show (AstString s) = show s
+--     show (AstChar c) = show c
+--     show (AstDouble d) = show d
+--     show (AstBinaryFunc op left right) = show left ++ " " ++ show op ++ " " ++ show right
+--     show (AstPostfixFunc f ast) = show ast ++ tail (init (show f))
+--     show (AstPrefixFunc f ast) = tail (init (show f)) ++ show ast
+--     show (AstFunc (Function funcName funcArgs funcBody _)) = "call " ++ show funcName ++ "(" ++ show funcArgs ++ "){" ++ show funcBody ++ "}"
+--     show (AstIf cond ifBlock elseIf maybeElse) = "if (" ++ show cond ++ "){" ++ show ifBlock ++ "} " ++ show elseIf ++ " else {" ++ show maybeElse ++ "}"
+--     show (AstTernary cond terBlock elseBlock) = show cond ++ " ? " ++ show terBlock ++ " : " ++ show elseBlock
+--     show (AstReturn ast) = "return " ++ show ast
+--     show (AstBlock blocks) = show blocks
+--     show (AstLoop loopName cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "} --> [" ++ maybe "" show loopName ++ "]"
+--     show (AstBreak loopName) = "break(" ++ show loopName ++ ")"
+--     show (AstContinue loopName) = "continue(" ++ show loopName ++ ")"
+--     show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
+--     show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
+--     show (AstArg arg idx) = "(Arg " ++ show arg ++ " (" ++ show idx ++ "))"
+--     show (AstDefineLoop nLoop cond loopBlock) = "DefLoop " ++ show nLoop ++ "(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
+--     show (AstList asts) = "List" ++ show asts
+--     show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
+--     show (AstStruct s) = "Struct " ++ show s
+--     show (AstDefineStruct s) = "DefStruct " ++ sName s ++ " " ++ show (sProperties s)
+--     show (AstLabel n v) = "Label " ++ n ++ ": " ++ show v
+--     show (AstImport f) = "Import " ++ f
 
 -- | Types handled by the program.
 data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
     deriving (Eq, Ord, Show)
+
+isValidType :: Ast -> MarylType -> Bool
+isValidType AstVoid Void = True
+isValidType (AstInt _) Int = True
+isValidType (AstBool _) Bool = True
+isValidType (AstString _) String = True
+isValidType (AstChar _) Char = True
+isValidType (AstDouble _) Double = True
+isValidType _ _ = False
+-- doesn't handle AstStruct
+--                AstList
+--                AstListElem
+--                AstArg
 
 lineComment :: Parser ()
 lineComment = L.skipLineComment "//"
