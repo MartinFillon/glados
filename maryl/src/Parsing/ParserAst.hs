@@ -130,9 +130,9 @@ data Ast
     | -- | loopName condition (AstBlock to loop in)
       AstLoop (Maybe String) Ast Ast
     | -- | break statement
-      AstBreak
+      AstBreak (Maybe String)
     | -- | continue statement
-      AstContinue
+      AstContinue (Maybe String)
     | AstDefineVar Variable
     -- | AstBuiltin Function -- to do
     | AstDefineFunc Function
@@ -165,8 +165,8 @@ instance Show Ast where
     show (AstReturn ast) = "return " ++ show ast
     show (AstBlock blocks) = show blocks
     show (AstLoop loopName cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "} --> [" ++ maybe "" show loopName ++ "]"
-    show AstBreak = "break"
-    show AstContinue = "continue"
+    show (AstBreak loopName) = "break(" ++ show loopName ++ ")"
+    show (AstContinue loopName) = "continue(" ++ show loopName ++ ")"
     show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
     -- show AstBuiltin 
     show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
@@ -520,14 +520,14 @@ pIf = do
 >>> while (true) {break;}
 -}
 pBreak :: Parser Ast
-pBreak = lexeme $ AstBreak <$ string "break"
+pBreak = lexeme $ AstBreak Nothing <$ string "break"
 
 {- | Parsing continue statement (just a "continue" keyword).
 
 >>> while (true) {continue;}
 -}
 pContinue :: Parser Ast
-pContinue = lexeme $ AstContinue <$ string "continue"
+pContinue = lexeme $ AstContinue Nothing <$ string "continue"
 
 eqSymbol :: Parser String
 eqSymbol =

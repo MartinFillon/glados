@@ -1,0 +1,12 @@
+int boo(){
+    return 69;
+}
+
+int start(){
+    int a = 0;
+    while (a != 5){
+       a++;
+    }
+    print(a);
+    return 0;
+}

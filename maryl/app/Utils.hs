@@ -17,6 +17,10 @@ import Text.Megaparsec.Error (ParseErrorBundle)
 
 type ParserError = ParseErrorBundle String Void
 
+-- to do 
+pErrorColored :: String -> IO ()
+pErrorColored s = hPutStrLn stderr (pack s) >> exitWith (ExitFailure 84)
+
 pError :: String -> IO ()
 pError s = hPutStrLn stderr (pack s) >> exitWith (ExitFailure 84)
 

@@ -15,7 +15,7 @@ import Memory (Memory, addMemory, freeMemory, generateUniqueElseName, readMemory
 import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
 import VirtualMachine.Instructions (Instruction (..), Value (..), call, jump, jumpf, noop, push, pushArg, ret)
 
-------- =
+------- Operators
 
 -- (= assignment operator)
 handleAssignment :: Ast -> Ast -> Memory -> ([Instruction], Memory)
@@ -45,31 +45,6 @@ updateAssignment "<<=" left right mem = handleAssignment left (AstBinaryFunc "<<
 updateAssignment (op : _) left right mem = handleAssignment left (AstBinaryFunc [op] (clarifyAST left mem) right) mem
 updateAssignment _ _ _ mem = ([], mem)
 
-------- AstIf / Ternary
-
--- (if condition block branches)
-translateConditionBlock :: Ast -> Ast -> Memory -> String -> ([Instruction], Memory)
-translateConditionBlock cond block mem elseLabel =
-    let (condInstructions, memAfterCond) = translateAST cond mem
-        (blockInstructions, blockLength) = translateBlock' block memAfterCond
-        allInstructions =
-            condInstructions
-                ++ [jumpf Nothing (Left (blockLength + 1))]
-                ++ blockInstructions
-                ++ [jump Nothing (Right elseLabel)]
-     in (allInstructions, memAfterCond)
-
--- (else if branches)
-translateAllConditions :: [Ast] -> Memory -> String -> ([Instruction], Memory)
-translateAllConditions [] mem _ = ([], mem)
-translateAllConditions (AstIf cond block elseIfs elseBlock : rest) mem elseLabel =
-    let (condInstructions, memAfterCond) = translateConditionBlock cond block mem elseLabel
-        (restInstructions, finalMem) = translateAllConditions rest memAfterCond elseLabel
-     in (condInstructions ++ restInstructions, finalMem)
-translateAllConditions _ mem _ = ([], mem)
-
-------- Operators
-
 handlePriority :: Ast -> Ast -> Memory -> ([Instruction], Memory)
 handlePriority left (AstFunc func) mem = (fst (translateAST (AstFunc func) mem) ++ fst (translateAST left mem), mem)
 handlePriority left (AstArg arg idx) mem = (fst (translateAST (AstArg arg idx) mem) ++ fst (translateAST left mem), mem)
@@ -80,17 +55,6 @@ translateBinaryFunc :: String -> Ast -> Ast -> Memory -> ([Instruction], Memory)
 translateBinaryFunc op left right mem
     | isSingleOp op = (fst (handlePriority left right mem) ++ [translateOpInst op], mem)
     | otherwise = updateAssignment op left right mem
-
-------- AstBlock
-
--- (blocks in scope, length for jump/jumpf)
-translateBlock' :: Ast -> Memory -> ([Instruction], Int)
-translateBlock' (AstBlock block) mem =
-    let (instructions, _) = translateToASM block mem
-     in (fst (translateToASM block mem), length instructions)
-translateBlock' ast mem =
-    let (instructions, _) = translateAST ast mem
-     in (instructions, length instructions)
 
 ------- Lists
 
@@ -117,7 +81,65 @@ translateMultIndexes (x : xs) mem =
     fst (translateAST (AstInt x) mem) ++ [call Nothing "get"] ++ translateMultIndexes xs mem
 translateMultIndexes [] _ = []
 
+------- AstIf / Ternary
+
+-- (blocks in scope, length for jump/jumpf)
+translateBlock' :: Ast -> Memory -> ([Instruction], Int)
+translateBlock' (AstBlock block) mem =
+    let (instructions, _) = translateToASM block mem
+     in (fst (translateToASM block mem), length instructions)
+translateBlock' ast mem =
+    let (instructions, _) = translateAST ast mem
+     in (instructions, length instructions)
+
+-- (if condition block branches)
+translateConditionBlock :: Ast -> Ast -> Memory -> String -> ([Instruction], Memory)
+translateConditionBlock cond block mem elseLabel =
+    let (condInstructions, memAfterCond) = translateAST cond mem
+        (blockInstructions, blockLength) = translateBlock' block memAfterCond
+        allInstructions =
+            condInstructions
+                ++ [jumpf Nothing (Left (blockLength + 1))]
+                ++ blockInstructions
+                ++ [jump Nothing (Right elseLabel)]
+     in (allInstructions, memAfterCond)
+
+-- (else if branches)
+translateAllConditions :: [Ast] -> Memory -> String -> ([Instruction], Memory)
+translateAllConditions [] mem _ = ([], mem)
+translateAllConditions (AstIf cond block elseIfs elseBlock : rest) mem elseLabel =
+    let (condInstructions, memAfterCond) = translateConditionBlock cond block mem elseLabel
+        (restInstructions, finalMem) = translateAllConditions rest memAfterCond elseLabel
+     in (condInstructions ++ restInstructions, finalMem)
+translateAllConditions _ mem _ = ([], mem)
+
+translateIf :: Ast -> Memory -> ([Instruction], Memory)
+translateIf (AstIf cond ifBlock elseifEles elseEle) mem =
+    let elseName = generateUniqueElseName mem
+        newMemResult = addMemory mem elseName (AstIf cond ifBlock elseifEles elseEle)
+     in case newMemResult of
+            Right newMem ->
+                let (condInstructions, memAfterCond) = translateConditionBlock cond ifBlock newMem elseName
+                    (elseifInstructions, memAfterIfElse) = translateAllConditions elseifEles memAfterCond elseName
+                    (elseInstructions, memAfterElse) = maybe ([], mem) (`translateAST` memAfterIfElse) elseEle
+                 in (condInstructions ++ elseifInstructions ++ elseInstructions ++ [noop (Just $ "." ++ elseName)], memAfterElse)
+            _ -> ([], mem)
+
 ------- Loops
+
+translateLoop :: Ast -> Memory -> ([Instruction], Memory)
+translateLoop (AstDefineLoop loopName cond block) mem =
+    let (condInstructions, memAfterCond) = translateConditionBlock cond block (switchAsArg cond 0 mem) ("end" ++ loopName)
+     in (condInstructions ++ [jump Nothing (Right loopName), jump Nothing (Right $ "end" ++ loopName)], memAfterCond)
+
+-- ^
+-- |
+-- just like AstDefineFunc
+-- translate AstVar in condition to pushArg (mem-> upd ast type to astarg) --> SWITCHASARG
+-- Astif cond 
+--   (block == jumpf length of block + 1)
+--   (else == loopBlock ; call .loop)
+-- (mem-> upd astarg to ast type)
 
 addLoopFunction :: String -> Ast -> Ast -> Memory -> Either String Memory
 addLoopFunction loopName cond block mem =
@@ -135,13 +157,6 @@ switchAsArg (AstBinaryFunc op left (AstVar str)) n mem =
     switchAsArg (AstVar str) n mem
 -- switchAsArg (AstBool True) n mem =
 switchAsArg ast _ mem = snd $ translateAST ast mem
-
--- just like AstDefineFunc
--- translate AstVar in condition to pushArg (mem-> upd ast type to astarg)
--- Astif cond 
---   (block == [] jump .endloop)
---   (else == loopBlock ; call .loop)
--- (mem-> upd astarg to ast type)
 
 ------- Functions
 
@@ -197,28 +212,14 @@ translateAST (AstPostfixFunc (op : _) ast) mem = handleAssignment ast (AstBinary
 translateAST (AstBinaryFunc "=" left right) mem = handleAssignment left right mem
 translateAST (AstBinaryFunc op left right) mem = translateBinaryFunc op left right mem
 translateAST (AstTernary cond doBlock elseBlock) mem = translateAST (AstIf cond doBlock [] (Just elseBlock)) mem
-translateAST (AstIf cond ifBlock elseifEles elseEle) mem =
-    let elseName = generateUniqueElseName mem
-        newMemResult = addMemory mem elseName (AstIf cond ifBlock elseifEles elseEle)
-     in case newMemResult of
-            Right newMem ->
-                let (condInstructions, memAfterCond) = translateConditionBlock cond ifBlock newMem elseName
-                    (elseifInstructions, memAfterIfElse) = translateAllConditions elseifEles memAfterCond elseName
-                    (elseInstructions, memAfterElse) = maybe ([], mem) (`translateAST` memAfterIfElse) elseEle
-                 in (condInstructions ++ elseifInstructions ++ elseInstructions ++ [noop (Just $ "." ++ elseName)], memAfterElse)
-            _ -> ([], mem)
-translateAST (AstDefineLoop loopName cond block) mem =
-    case translateAST cond (switchAsArg cond 0 mem) of
-        (condBlock, mem') -> case translateAST block mem' of
-            (bodyBlock, updatedMem) -> trace ("defining loop " ++ show loopName ++ show bodyBlock) $
-                (fst (translateAST cond updatedMem) ++ [jump Nothing (Right ("end" ++ loopName))] ++ bodyBlock ++ [jump Nothing (Right loopName)], updatedMem)
-            _ -> ([], mem)
+translateAST (AstIf cond ifBlock elseifEles elseEle) mem = translateIf (AstIf cond ifBlock elseifEles elseEle) mem
+translateAST (AstDefineLoop loopName cond block) mem = translateLoop (AstDefineLoop loopName cond block) mem
 translateAST (AstLoop (Just loopName) cond block) mem =
     case translateAST cond mem of
-        (_, updatedMem) -> ([call Nothing ("." ++ loopName), noop (Just $ ".end" ++ loopName)], mem)
+        (_, updatedMem) -> ([call Nothing ("." ++ loopName), noop (Just $ ".end" ++ loopName)], updatedMem)
 translateAST (AstBlock block) mem = translateToASM block mem
--- translateAST AstBreak mem =
--- translateAST AstContinue mem =
+translateAST (AstBreak (Just loopName)) mem = ([jump Nothing (Right ("end" ++ loopName))], mem)
+translateAST (AstContinue _) mem = ([jump Nothing (Left 1)], mem)
 translateAST AstVoid mem = ([], mem)
 translateAST (AstInt n) mem = ([push Nothing (N (fromIntegral n))], mem)
 translateAST (AstBool b) mem = ([push Nothing (B b)], mem)
