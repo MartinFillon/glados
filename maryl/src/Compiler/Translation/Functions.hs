@@ -29,12 +29,10 @@ translateOpInst ">>" = call Nothing "shiftR"
 translateOpInst "<<" = call Nothing "shiftL"
 -- ">=" =
 -- "<=" =
--- "||" = to check with alexandre
--- "&&" = to check with alexandre
 translateOpInst _ = noop Nothing
 
 isSingleOp :: String -> Bool
-isSingleOp op = op `notElem` ["+=", "-=", "*=", "/=", "|=", "&=", "^=", ">>=", "<<="]
+isSingleOp op = op `notElem` ["+=", "-=", "*=", "%=", "/=", "|=", "&=", "^=", ">>=", "<<="]
 
 isBuiltin :: String -> Bool
 isBuiltin s = any (\(n, _) -> n == s) operators

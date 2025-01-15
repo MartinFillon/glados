@@ -125,14 +125,14 @@ data Ast
     | AstReturn Ast
     | AstBlock [Ast]
     | AstStruct [Ast]
-    | -- | condition (AstBlock to loop in)
-      AstLoop (Maybe Ast) Ast Ast
+    | -- | loopName condition (AstBlock to loop in)
+      AstLoop (Maybe String) Ast Ast
     | -- | break statement
       AstBreak
     | -- | continue statement
       AstContinue
     | AstDefineVar Variable
-    -- | AstBuiltin Function
+    -- | AstBuiltin Function -- to do
     | AstDefineFunc Function
     | AstArg Ast (Maybe Int)
     | -- | nameLoop condition do

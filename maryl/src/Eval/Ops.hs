@@ -43,6 +43,8 @@ isNumeric (AstArg (AstDefineVar (Variable _ Int _)) _) = True
 isNumeric (AstArg (AstDefineVar (Variable _ Double _)) _) = True
 isNumeric (AstArg (AstFunc (Function _ _ _ Int)) _) = True
 isNumeric (AstArg (AstFunc (Function _ _ _ Double)) _) = True
+isNumeric (AstArg (AstInt _) _) = True
+isNumeric (AstArg (AstDouble _) _) = True
 isNumeric (AstDefineVar (Variable _ Int _)) = True
 isNumeric (AstDefineVar (Variable _ Double _)) = True
 isNumeric (AstFunc (Function _ _ _ Int)) = True
@@ -53,6 +55,7 @@ isInt :: Ast -> Bool
 isInt (AstInt _) = True
 isInt (AstArg (AstDefineVar (Variable _ Int _)) _) = True
 isInt (AstArg (AstFunc (Function _ _ _ Int)) _) = True
+isInt (AstArg (AstInt _) _) = True
 isInt (AstDefineVar (Variable _ Int _)) = True
 isInt (AstFunc (Function _ _ _ Int)) = True
 isInt _ = False
@@ -61,6 +64,7 @@ isBool :: Ast -> Bool
 isBool (AstBool _) = True
 isBool (AstArg (AstDefineVar (Variable _ Bool _)) _) = True
 isBool (AstArg (AstFunc (Function _ _ _ Bool)) _) = True
+isBool (AstArg (AstBool _) _) = True
 isBool (AstDefineVar (Variable _ Bool _)) = True
 isBool (AstFunc (Function _ _ _ Bool)) = True
 isBool _ = False

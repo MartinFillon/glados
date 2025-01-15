@@ -14,7 +14,7 @@ import Debug.Trace (trace)
 import Eval.Assignment (updateList)
 import Eval.Ops (evalAdd, evalAnd, evalBAnd, evalBOr, evalBXor, evalDiv, evalEq, evalGreatThanEq, evalGreaterThan, evalLessThan, evalLessThanEq, evalMod, evalMul, evalNEq, evalOr, evalPower, evalShiftL, evalShiftR, evalSub)
 import Memory (Memory, addMemory, freeMemory, generateUniqueLoopName, readMemory, updateMemory)
-import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
+import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
 
 type FunctionRegistry =
     Map.Map String (Memory -> Ast -> Ast -> Either String (Ast, Memory))
@@ -27,11 +27,11 @@ evalAssign mem (AstVar var) right =
     evalNode mem right >>= \(evaluatedR, updatedMem) ->
         let newMem = updateMemory updatedMem var evaluatedR
          in Right (AstBinaryFunc "=" (AstVar var) evaluatedR, newMem)
-evalAssign mem (AstListElem var idxs) right =
+evalAssign mem (AstListElem var idxs) right = trace ("list elem: " ++ show var ++ " " ++ show idxs)$
     evalNode mem right >>= \(evaluatedAst, updatedMem) -> trace ("-->" ++ show var ++ show idxs ++ " - " ++ show evaluatedAst) $
-        updateList var (AstListElem var idxs) updatedMem evaluatedAst >>= \(clarified, newMem) -> trace (show clarified) $
+        updateList var (AstListElem var idxs) updatedMem evaluatedAst >>= \(clarified, newMem) -> trace ("!! " ++ show clarified) $
             let finalMem = updateMemory newMem var clarified
-             in Right (AstVar var, finalMem)
+             in Right (AstBinaryFunc "=" (AstVar var) clarified, finalMem)
 evalAssign _ left right = Left ("Can't assign " ++ show right ++ " to " ++ show left ++ ".")
 
 defaultRegistry :: FunctionRegistry
@@ -72,35 +72,53 @@ evalBinaryFunc :: Memory -> String -> Ast -> Ast -> Either String (Ast, Memory)
 evalBinaryFunc mem op left right = case evalNode mem left of
     Right (leftVal, mem') -> case evalNode mem' right of
         Right (rightVal, mem'') -> applyOp mem'' op leftVal rightVal
-        Left err -> Left err
-        _ -> Left ("Argument " ++ show right ++ " invalid for operation " ++ op ++ ".")
-    Left err -> Left err
-    _ -> Left ("Argument " ++ show left ++ " invalid for operation " ++ op ++ ".")
+        Left err -> Left ("Operation failed with" ++ show right ++ " invalid for " ++ op ++ " (" ++ err ++ ").")
+    Left err -> Left ("Operation failed with" ++ show left ++ " invalid for " ++ op ++ " (" ++ err ++ ").")
 
------
+----- Declarations (Functions, Variables, Loop)
 
-addLoopFunction :: String -> Ast -> Ast -> Memory -> Either String Memory
-addLoopFunction loopName cond block mem =
-    addMemory mem loopName (AstDefineLoop loopName cond block)
-
-updatedArgs :: [Ast] -> Memory -> Memory
-updatedArgs ((AstDefineVar (Variable varName varType varValue)): xs) mem =
-    updatedArgs xs (updateMemory mem varName (AstArg (AstDefineVar (Variable varName varType varValue)) Nothing))
-updatedArgs [] mem = mem
+evalArgs :: [Ast] -> Memory -> Memory
+evalArgs [] mem = mem
+evalArgs ((AstDefineVar (Variable varName varType varValue)): xs) mem =
+    evalArgs xs (updateMemory mem varName (AstArg (AstDefineVar (Variable varName varType varValue)) Nothing))
+evalArgs _ mem = mem
 
 checkBuiltins :: String -> Ast -> Memory -> Either String (Ast, Memory)
 checkBuiltins func ast mem
-    | isBuiltin func = Right (ast, mem)
+    | isBuiltin func = Right (ast, mem) -- add some error handling?
     | otherwise = Left ("Function \"" ++ show func ++ " isn't defined.")
 
------
+addDefineFunc :: Memory -> Function -> Either String (Ast, Memory)
+addDefineFunc mem func@(Function funcName args body typ) =
+    case addMemory mem funcName (AstDefineFunc func) of
+        Right newMem ->
+            let editedMem = evalArgs args (freeMemory newMem)
+             in evalAST editedMem body >>= \(evaluatedBody, updatedMem) ->
+                    let updatedFunc = func {fBody = evaluatedBody}
+                     in Right (AstVoid, updateMemory updatedMem funcName (AstDefineFunc updatedFunc))
+        Left err -> Left $ "Failed to define function (" ++ err ++ ")."
+
+addDefineLoopFunc :: String -> Ast -> Ast -> Memory -> Memory
+addDefineLoopFunc loopName cond block mem =
+    case addMemory mem loopName (AstDefineLoop loopName cond block) of
+        Right newMem -> newMem
+        _ -> mem
+
+addDefineVar :: Memory -> Variable -> Either String (Ast, Memory)
+addDefineVar mem var@(Variable varName _ vVal) =
+    evalNode mem vVal >>= \(evaluatedExpr, updatedMem) ->
+        case addMemory updatedMem varName evaluatedExpr of
+            Right finalMem ->
+                Right (AstDefineVar var, finalMem)
+            Left err -> Left $ "Failed to define var (" ++ err ++ ")."
+
+----- Types
 
 evalList :: String -> [Int] -> Memory -> Either String (Ast, Memory)
 evalList var idxs mem = case readMemory mem var of
-    Just (AstList elems) -> Right (AstListElem var idxs, mem)
-    Just val -> Left ("Index call of variable \"" ++ show var ++ "\" isn't available; only supported by type list.")
+    Just (AstList _) -> trace ("----- giving " ++ show var ++ " " ++ show idxs) $ Right (AstListElem var idxs, mem)
+    Just _ -> Left ("Index call of variable \"" ++ show var ++ "\" isn't available; only supported by type list.")
     Nothing -> Left ("Variable \"" ++ show var ++ "\" is out of scope; not defined.")
-evalList ast _ _ = Left ("Invalid index call with \"" ++ show ast ++ "\", expected a variable.")
 
 -----
 
@@ -113,33 +131,27 @@ evalNode mem (AstBinaryFunc op left right) = evalBinaryFunc mem op left right
 evalNode mem (AstPrefixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
 evalNode mem (AstPostfixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
 evalNode mem (AstVar name) =
-    case readMemory mem name of
-        Just value -> Right (value, mem)
-        Nothing -> Left $ "Undefined variable: " ++ name ++ "."
-evalNode mem (AstDefineVar (Variable varName varType vVal)) =
-    evalNode mem vVal >>= \(evaluatedExpr, updatedMem) ->
-        case addMemory updatedMem varName evaluatedExpr of
-            Right finalMem ->
-                Right
-                    ( AstDefineVar (Variable varName varType vVal),
-                      finalMem
-                    )
-            Left err -> Left $ "Failed to define var (" ++ err ++ ")."
-evalNode mem (AstDefineFunc (Function funcName args body typ)) =
-    case addMemory mem funcName (AstDefineFunc (Function funcName args body typ)) of
-        Right newMem ->
-            let editedMem = updatedArgs args (freeMemory newMem)
-             in evalAST editedMem body >>= \(evaluatedBody, updatedMem) ->
-                    let evaluatedFunction = Function funcName args evaluatedBody typ
-                     in Right (AstVoid, updateMemory updatedMem funcName (AstDefineFunc evaluatedFunction))
-        Left err -> Left $ "Failed to define function (" ++ err ++ ")."
-evalNode mem (AstFunc (Function funcName funcArgs funcBody funcType)) =
+    maybe (Left $ "Undefined variable: " ++ name ++ ".") (\value -> Right (value, mem)) (readMemory mem name)
+evalNode mem (AstDefineVar var) = addDefineVar mem var
+evalNode mem (AstDefineFunc func) = addDefineFunc mem func
+evalNode mem (AstFunc func@(Function funcName _ _ _)) =
     case readMemory mem funcName of
-        Just (AstDefineFunc (Function _ _ _ newFuncType)) -> Right (AstFunc (Function funcName funcArgs funcBody newFuncType), mem)
-        _ -> checkBuiltins funcName (AstFunc (Function funcName funcArgs funcBody funcType)) mem
-evalNode mem (AstReturn expr) =
-    evalNode mem expr >>= \(evaluatedExpr, mem') ->
-        Right (AstReturn evaluatedExpr, mem')
+        Just (AstDefineFunc (Function _ _ _ newFuncType)) -> Right (AstFunc (func {fType = newFuncType}), mem)
+        _ -> checkBuiltins funcName (AstFunc func) mem
+evalNode mem (AstLoop Nothing cond block) =
+    let loopName = generateUniqueLoopName mem
+        updatedMem = addDefineLoopFunc loopName cond block mem
+     in Right (AstLoop (Just loopName) cond block, updatedMem)
+-- evalNode mem (AstLoop cond body) = do
+--     let loop mem' = do
+--             (condResult, mem'') <- evalNode mem' cond
+--             case condResult of
+--                 AstBool True -> do
+--                     (_, mem''') <- evalAST mem'' (extractBlock body)
+--                     loop mem'''
+--                 AstBool False -> Right (AstVoid, mem'')
+--                 _ -> Left "Condition in loop is not a boolean"
+--     loop mem
 -- evalNode mem (AstIf cond trueBranch elseIfBranches elseBranch) = do
 --     (condResult, mem') <- evalNode mem cond
 --     case condResult of
@@ -157,21 +169,10 @@ evalNode mem (AstReturn expr) =
 --                     Nothing -> Right (AstVoid, mem')
 --                 _ -> Left "Invalid else-if structure"
 --         _ -> Left "Condition in if statement is not a boolean"
--- evalNode mem (AstLoop cond body) = do
---     let loop mem' = do
---             (condResult, mem'') <- evalNode mem' cond
---             case condResult of
---                 AstBool True -> do
---                     (_, mem''') <- evalAST mem'' (extractBlock body)
---                     loop mem'''
---                 AstBool False -> Right (AstVoid, mem'')
---                 _ -> Left "Condition in loop is not a boolean"
---     loop mem
-evalNode mem (AstLoop Nothing cond block) =
-    let loopName = generateUniqueLoopName mem
-     in case addLoopFunction loopName cond block mem of
-        Right updatedMem -> Right (AstLoop (Just (AstString loopName)) cond block, updatedMem)
 evalNode mem (AstListElem var idxs) = evalList var idxs mem
+evalNode mem (AstReturn expr) =
+    evalNode mem expr >>= \(evaluatedExpr, mem') ->
+        Right (AstReturn evaluatedExpr, mem')
 evalNode mem node = Right (node, mem)
 
 -- Evaluate a list of AST nodes
