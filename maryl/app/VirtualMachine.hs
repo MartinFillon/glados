@@ -11,7 +11,10 @@ import Control.Exception (IOException, catch)
 import Control.Monad.State (evalStateT, foldM)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import GHC.IO.Handle (hIsTerminalDevice)
+import Printer (Color, getColorsFromConf, reset)
 import System.Exit (ExitCode (ExitFailure), exitSuccess, exitWith)
+import System.IO (stdin)
 import Utils (handleParseError, pError)
 import VirtualMachine.Instructions (Instruction (..), Value (..), jump)
 import VirtualMachine.Interpreter (exec)
@@ -19,8 +22,21 @@ import VirtualMachine.Operators (operators)
 import VirtualMachine.Parser (parseAssembly)
 import VirtualMachine.State (V (..), initialMemory, initialState)
 
+withExit' :: Bool -> Maybe Color -> IO Value -> IO Value
+withExit' True (Just e') f =
+    f
+        `catch` ( \e ->
+                    pError
+                        (show e' <> show (e :: IOException) <> reset)
+                        >> return (N 84)
+                )
+withExit' _ _ f = f `catch` (\e -> pError (show (e :: IOException)) >> return (N 84))
+
 withExit :: IO Value -> IO Value
-withExit f = f `catch` (\e -> pError (show (e :: IOException)) >> return (N 84))
+withExit f =
+    getColorsFromConf
+        >>= (\c -> return ((\(_, e, _) -> e) <$> c))
+        >>= (\c -> hIsTerminalDevice stdin >>= (\s -> withExit' s c f))
 
 exit :: Value -> IO ()
 exit (N 0) = exitSuccess
@@ -37,7 +53,9 @@ execParsed i m =
         >>= exit
 
 parseOneFile :: FilePath -> IO [Either Instruction (String, [Instruction])]
-parseOneFile s = readFile s >>= (handleParseError True . parseAssembly)
+parseOneFile s =
+    hIsTerminalDevice stdin
+        >>= (\b -> readFile s >>= (handleParseError b . parseAssembly))
 
 vm :: [String] -> IO ()
 vm [] = pError "A file is required for the vm to run"
