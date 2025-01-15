@@ -8,7 +8,7 @@
 use std::{iter::Peekable, str::Chars};
 
 use crate::instructions::{
-    call, dup, jump, jump_if_false, push, push_arg, ret, void, Instructions, JumpValue, Value,
+    call, dup, jump, jump_if_false, noop, push, push_arg, ret, void, Instructions, JumpValue, Value,
 };
 
 #[derive(Debug)]
@@ -56,9 +56,10 @@ impl<'a> Parser<'a> {
             } else if self.r#match("jump")? {
                 self.parse_jump(label)
             } else if self.r#match("noop")? {
-                self.consume("noop")
+                self.consume("noop")?;
+                self.instructions.push(noop(label));
+                Ok(())
             } else {
-                dbg!("a");
                 Err(ParseError::UnexpectedChar(self.current.next()))
             }?;
             self.current.next();

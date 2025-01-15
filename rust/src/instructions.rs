@@ -32,12 +32,20 @@ pub enum Insts {
     JumpIfFalse(JumpValue),
     Dup,
     Void,
+    Noop,
 }
 
 #[derive(Debug, Clone)]
 pub struct Instructions {
     pub inst: Insts,
     pub label: Option<String>,
+}
+
+pub fn noop(label: Option<String>) -> Instructions {
+    Instructions {
+        inst: Insts::Noop,
+        label,
+    }
 }
 
 pub fn push(value: Value, label: Option<String>) -> Instructions {

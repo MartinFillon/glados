@@ -44,7 +44,7 @@ impl State {
                     inst: Insts::Ret,
                     label: _,
                 }) => match self.stack.pop_front() {
-                    Some(v) => Ok(Some(v)),
+                    Some(v) => return Ok(Some(v)),
                     None => Err(format!("err")),
                 },
 
@@ -88,6 +88,11 @@ impl State {
                     inst: Insts::PushArg(n),
                     label: _,
                 }) => self.exec_pusharg(*n),
+
+                Some(Instructions {
+                    inst: Insts::Noop,
+                    label: _,
+                }) => Ok(None),
             }?;
             self.pc += 1;
         }
@@ -103,8 +108,8 @@ impl State {
             JumpValue::Index(n) => self.pc += n,
             JumpValue::Label(s) => {
                 self.pc = self
-                    .get_instruction_idx_at_label(s)
-                    .ok_or("label not found")? as i32
+                    .get_instruction_idx_at_label(s.clone())
+                    .ok_or(format!("Label {s} not found"))? as i32
                     - 1
             }
         }
@@ -118,21 +123,23 @@ impl State {
     fn exec_jumpf(&mut self, jv: JumpValue) -> Result<Option<Value>, String> {
         let top = self.top()?;
         match top {
-            Value::Bool(false) => (),
-            Value::Bool(true) => return Ok(None),
-            _ => return Err(format!("Top of the stack is not a boolean")),
-        };
-        match jv {
-            JumpValue::Index(n) if n > 0 => self.pc += n - 1,
-            JumpValue::Index(n) => self.pc += n,
-            JumpValue::Label(s) => {
-                self.pc = self
-                    .get_instruction_idx_at_label(s.clone())
-                    .ok_or(format!("Label {s} not found"))? as i32
-                    - 1
+            Value::Bool(false) => {
+                match jv {
+                    JumpValue::Index(n) if n > 0 => self.pc += n - 1,
+                    JumpValue::Index(n) => self.pc += n,
+                    JumpValue::Label(s) => {
+                        self.pc = self
+                            .get_instruction_idx_at_label(s.clone())
+                            .ok_or(format!("Label {s} not found"))?
+                            as i32
+                            - 1
+                    }
+                }
+                Ok(None)
             }
+            Value::Bool(true) => Ok(None),
+            _ => Err(format!("Top of the stack is not a boolean")),
         }
-        Ok(None)
     }
 
     fn get_instruction_idx_at_label(&self, label: String) -> Option<usize> {
@@ -173,7 +180,9 @@ impl State {
                 insts: self.insts.clone(),
             };
 
-            nv.run()
+            let v = nv.run()?.ok_or("Missing last value to call")?;
+            self.stack.push_front(v);
+            Ok(None)
         } else {
             Err(format!("Function {f} Not Found"))
         }

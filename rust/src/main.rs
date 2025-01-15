@@ -10,11 +10,12 @@
 use std::process::exit;
 
 use execute::State;
+use instructions::Value;
 
 mod execute;
 mod instructions;
-mod parser;
 mod operators;
+mod parser;
 
 fn main() {
     let args = std::env::args().collect::<Vec<String>>();
@@ -39,5 +40,8 @@ fn main() {
             exit(84)
         })
         .unwrap();
-    dbg!(r);
+    match r {
+        Some(Value::Int(n)) => exit(n),
+        _ => exit(84),
+    }
 }
