@@ -17,5 +17,6 @@ glados
 *.asm
 *.masm
 *.mrl
+target
 
 test.txt
