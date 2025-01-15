@@ -7,11 +7,13 @@
 
 use std::collections::VecDeque;
 
+use binary::{op_band, op_bor, op_shiftl, op_shiftr, op_xor};
 use logical::{op_and, op_eq, op_gt, op_lt, op_neq, op_not, op_or};
 use mathematical::{op_add, op_div, op_mod, op_mul, op_sub};
 
 use crate::instructions::Value;
 
+mod binary;
 mod logical;
 mod mathematical;
 
@@ -28,6 +30,11 @@ pub enum Operators {
     Gt,
     Lt,
     Not,
+    Band,
+    Bor,
+    Xor,
+    ShiftR,
+    ShiftL,
 }
 
 impl Operators {
@@ -45,6 +52,11 @@ impl Operators {
             Operators::Gt => op_gt(stack),
             Operators::Lt => op_lt(stack),
             Operators::Not => op_not(stack),
+            Operators::Band => op_band(stack),
+            Operators::Bor => op_bor(stack),
+            Operators::Xor => op_xor(stack),
+            Operators::ShiftL => op_shiftl(stack),
+            Operators::ShiftR => op_shiftr(stack),
         }
     }
 }
@@ -63,8 +75,13 @@ impl TryFrom<String> for Operators {
             "eq" => Ok(Operators::Eq),
             "neq" => Ok(Operators::Neq),
             "or" => Ok(Operators::Or),
+            "bor" => Ok(Operators::Bor),
+            "band" => Ok(Operators::Band),
+            "xor" => Ok(Operators::Xor),
+            "shiftL" => Ok(Operators::ShiftL),
+            "shiftR" => Ok(Operators::ShiftR),
             "and" => Ok(Operators::And),
-            "great" => Ok(Operators::Gt),
+            "greater" => Ok(Operators::Gt),
             "less" => Ok(Operators::Lt),
             _ => Err(format!("Unknown operator")),
         }
