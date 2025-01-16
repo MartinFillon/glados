@@ -13,12 +13,17 @@ module Parsing.ParserAst (
     MarylType (..),
     Function (..),
     Variable (..),
+    Structure (..),
 
     -- * Types
     Parser,
     ParserError,
 
     -- * Functions
+
+    -- ** Utility
+    isValidType,
+    getMarylType,
 
     -- ** Main parsing functions
     parseAST,
@@ -194,6 +199,15 @@ isValidType _ _ = False
 --                AstList
 --                AstListElem
 --                AstArg
+
+getMarylType :: Ast -> MarylType
+getMarylType AstVoid = Void
+getMarylType (AstInt _) = Int
+getMarylType (AstBool _) = Bool
+getMarylType (AstString _) = String
+getMarylType (AstChar _) = Char
+getMarylType (AstDouble _) = Double
+getMarylType _ = Undefined
 
 lineComment :: Parser ()
 lineComment = L.skipLineComment "//"

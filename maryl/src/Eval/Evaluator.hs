@@ -14,7 +14,7 @@ import Debug.Trace (trace)
 import Eval.Assignment (updateList)
 import Eval.Ops (evalAdd, evalAnd, evalBAnd, evalBOr, evalBXor, evalDiv, evalEq, evalGreatThanEq, evalGreaterThan, evalLessThan, evalLessThanEq, evalMod, evalMul, evalNEq, evalOr, evalPower, evalShiftL, evalShiftR, evalSub)
 import Memory (Memory, addMemory, freeMemory, generateUniqueLoopName, readMemory, updateMemory)
-import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
+import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..), Structure (..), getMarylType, isValidType)
 
 type FunctionRegistry =
     Map.Map String (Memory -> Ast -> Ast -> Either String (Ast, Memory))
@@ -27,8 +27,8 @@ evalAssign mem (AstVar var) right =
     evalNode mem right >>= \(evaluatedR, updatedMem) ->
         let newMem = updateMemory updatedMem var evaluatedR
          in Right (AstBinaryFunc "=" (AstVar var) evaluatedR, newMem)
-evalAssign mem (AstListElem var idxs) right = trace ("list elem: " ++ show var ++ " " ++ show idxs)$
-    evalNode mem right >>= \(evaluatedAst, updatedMem) -> trace ("-->" ++ show var ++ show idxs ++ " - " ++ show evaluatedAst) $
+evalAssign mem (AstListElem var idxs) right =
+    evalNode mem right >>= \(evaluatedAst, updatedMem) ->
         updateList var (AstListElem var idxs) updatedMem evaluatedAst >>= \(clarified, newMem) -> trace ("!! " ++ show clarified) $
             let finalMem = updateMemory newMem var clarified
              in Right (AstBinaryFunc "=" (AstVar var) clarified, finalMem)
@@ -77,17 +77,36 @@ evalBinaryFunc mem op left right = case evalNode mem left of
 
 ----- Declarations (Functions, Variables, Loop)
 
--- evalStructDecla :: [Ast] -> Memory -> Either (Ast, Memory)
--- evalStructDecla (AstVar str : xs) mem = case readMemory mem str of
---     Just value -> evalStructDecla value mem
---     Nothing -> Left "Variable " ++ str ++ " out of scope."
--- -- evalStructDecla (AstListElem var idx) mem =
--- -- evalStructDecla (AstList)
--- -- evalStructDecla (AstStruct)
--- evalStructDecla (AstDefineVar var@(Variable varName varType varValue) : xs) mem
---     | isValidType varValue varType = evalStructDecla xs mem
---     | otherwise = Left ("Value " ++ varName ++ " isn't typed correctly, expected " ++ show varType ++ ".")
--- evalStructDecla [] mem = mem
+evalDefinition :: Ast -> MarylType -> Variable -> Memory -> Either String Bool
+evalDefinition (AstArg ast _) typeVar var mem = evalDefinition ast typeVar var mem
+evalDefinition (AstVar str) typeVar var mem = case readMemory mem str of
+    Just value -> evalDefinition value typeVar var mem
+    Nothing -> Left ("Variable " ++ str ++ " out of scope.")
+evalDefinition (AstListElem listVar idx) typeVar var mem =
+    case readMemory mem listVar of
+        Just (AstList eles) -> if getMarylType (head eles) == typeVar
+            then Right True
+            else Left ("List element isn't of proper type, expected " ++ show typeVar ++ ".") 
+        Just _ -> Left ("Variable " ++ listVar ++ " isn't referencing to type List.")
+        Nothing -> Left ("Variable " ++ listVar ++ " out of scope.")
+evalDefinition (AstList eles) (List typeVar) var mem 
+    | getMarylType (head eles) == typeVar = Right True
+    | otherwise = Left ("List element isn't of proper type, expected " ++ show typeVar ++ ".") 
+evalDefinition (AstDefineVar (Variable varName varType _)) expectedType var mem
+    | varType == expectedType = Right True
+    | otherwise = Left (varName ++ " isn't of proper type, expected " ++ show varType ++ ".")
+evalDefinition (AstStruct _) _ _ _ = Left "Not evaluating structures yet."
+evalDefinition ast varType var@(Variable varName _ _) mem
+    | isValidType ast varType = Right True
+    | otherwise = Left ("Value " ++ varName ++ " isn't typed correctly, expected " ++ show varType ++ ".")
+-- add args
+
+evalStructDecla :: [Ast] -> Memory -> Either String Bool
+evalStructDecla ((AstDefineVar var@(Variable _ varType varValue)) : xs) mem =
+    case evalDefinition varValue varType var mem of
+        Right _ -> evalStructDecla xs mem
+        Left err -> Left err
+evalStructDecla [] mem = Right True
 
 evalArgs :: [Ast] -> Memory -> Memory
 evalArgs [] mem = mem
@@ -126,11 +145,22 @@ addDefineVar mem var@(Variable varName _ vVal) =
 
 ----- Types
 
+checkListType :: [Ast] -> MarylType -> Memory -> Bool
+checkListType (x : xs) (List typeList) mem
+    | getMarylType x == typeList = checkListType xs typeList mem
+    | otherwise = False
+checkListType (AstVar var : xs) (List typeList) mem =
+    case readMemory mem var of
+        Just val -> checkListType (val : xs) typeList mem
+        _ -> False
+-- handle struct
+
 evalList :: String -> [Int] -> Memory -> Either String (Ast, Memory)
 evalList var idxs mem = case readMemory mem var of
-    Just (AstList _) -> trace ("----- giving " ++ show var ++ " " ++ show idxs) $ Right (AstListElem var idxs, mem)
+    Just (AstList _) -> Right (AstListElem var idxs, mem)
     Just _ -> Left ("Index call of variable \"" ++ show var ++ "\" isn't available; only supported by type list.")
     Nothing -> Left ("Variable \"" ++ show var ++ "\" is out of scope; not defined.")
+-- check if index is out of scope
 
 -----
 
@@ -144,7 +174,11 @@ evalNode mem (AstPrefixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs
 evalNode mem (AstPostfixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
 evalNode mem (AstVar name) =
     maybe (Left $ "Undefined variable: " ++ name ++ ".") (\value -> Right (value, mem)) (readMemory mem name)
-evalNode mem (AstDefineVar var) = addDefineVar mem var
+evalNode mem (AstDefineVar var@(Variable varName varType varValue))
+    | isValidType varValue varType = addDefineVar mem var
+    | otherwise = case evalDefinition varValue varType var mem of
+        Right _ -> addDefineVar mem var
+        Left err -> Left err
 evalNode mem (AstDefineFunc func) = addDefineFunc mem func
 evalNode mem (AstFunc func@(Function funcName _ _ _)) =
     case readMemory mem funcName of
@@ -181,15 +215,13 @@ evalNode mem (AstLoop Nothing cond block) =
 --                     Nothing -> Right (AstVoid, mem')
 --                 _ -> Left "Invalid else-if structure"
 --         _ -> Left "Condition in if statement is not a boolean"
-evalNode mem (AstListElem var idxs) = evalList var idxs mem
-translateAST (AstDefineStruct struct@(Structure name properties)) mem =
+evalNode mem (AstListElem var idxs) = evalList var idxs mem --checkListType
+evalNode mem (AstDefineStruct struct@(Structure name properties)) =
     case addMemory mem name (AstDefineStruct struct) of
-        Right newMem -> case evalStructDecla properties of
-            evalAST newMem body >>= \(evaluatedBody, updatedMem) ->
-                    let updatedFunc = func {fBody = evaluatedBody}
-                        in Right (AstVoid, updateMemory updatedMem funcName (AstDefineFunc updatedFunc))
-        Left err -> Left $ "Failed to define structure (" ++ err ++ ")."
-
+        Right newMem -> case evalStructDecla properties mem of
+            Right _ -> Right (AstDefineStruct struct, mem)
+            Left err -> Left err
+        Left err -> Left ("Failed to define structure (" ++ err ++ ").")
 -- translateAST (AstStruct eles) mem =
 evalNode mem (AstReturn expr) =
     evalNode mem expr >>= \(evaluatedExpr, mem') ->

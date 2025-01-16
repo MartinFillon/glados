@@ -58,6 +58,7 @@ translateBinaryFunc op left right mem
 
 ------- Lists
 
+-- add structures
 associateTypes :: Ast -> Memory -> Maybe Value
 associateTypes (AstInt n) _ = Just (N (fromIntegral n))
 associateTypes (AstBool b) _ = Just (B b)
@@ -107,7 +108,7 @@ translateConditionBlock cond block mem elseLabel =
 -- (else if branches)
 translateAllConditions :: [Ast] -> Memory -> String -> ([Instruction], Memory)
 translateAllConditions [] mem _ = ([], mem)
-translateAllConditions (AstIf cond block elseIfs elseBlock : rest) mem elseLabel =
+translateAllConditions (AstIf cond block _ _ : rest) mem elseLabel =
     let (condInstructions, memAfterCond) = translateConditionBlock cond block mem elseLabel
         (restInstructions, finalMem) = translateAllConditions rest memAfterCond elseLabel
      in (condInstructions ++ restInstructions, finalMem)
@@ -127,10 +128,10 @@ translateIf (AstIf cond ifBlock elseifEles elseEle) mem =
 
 ------- Loops
 
-translateLoop :: Ast -> Memory -> ([Instruction], Memory)
-translateLoop (AstDefineLoop loopName cond block) mem =
-    let (condInstructions, memAfterCond) = translateConditionBlock cond block (switchAsArg cond 0 mem) ("end" ++ loopName)
-     in (condInstructions ++ [jump Nothing (Right loopName), jump Nothing (Right $ "end" ++ loopName)], memAfterCond)
+-- translateLoop :: Ast -> Memory -> ([Instruction], Memory)
+-- translateLoop (AstDefineLoop loopName cond block) mem =
+--     let (condInstructions, memAfterCond) = translateConditionBlock cond block (switchAsArg cond 0 mem) ("end" ++ loopName)
+--      in (condInstructions ++ [jump Nothing (Right loopName), jump Nothing (Right $ "end" ++ loopName)], memAfterCond)
 
 -- ^
 -- |
@@ -145,18 +146,18 @@ addLoopFunction :: String -> Ast -> Ast -> Memory -> Either String Memory
 addLoopFunction loopName cond block mem =
     addMemory mem loopName (AstDefineLoop loopName cond block)
 
-switchAsArg :: Ast -> Int -> Memory -> Memory -- handle while(arg)?
-switchAsArg (AstVar str) n mem = case readMemory mem str of
-    Just val -> updateMemory mem str (AstArg val (Just n))
-    _ -> mem
-switchAsArg (AstBinaryFunc op (AstVar left) (AstVar right)) n mem =
-    switchAsArg (AstVar right) (n + 1) (switchAsArg (AstVar left) n mem)
-switchAsArg (AstBinaryFunc op (AstVar str) right) n mem =
-    switchAsArg (AstVar str) n mem
-switchAsArg (AstBinaryFunc op left (AstVar str)) n mem =
-    switchAsArg (AstVar str) n mem
--- switchAsArg (AstBool True) n mem =
-switchAsArg ast _ mem = snd $ translateAST ast mem
+-- switchAsArg :: Ast -> Int -> Memory -> Memory -- handle while(arg)?
+-- switchAsArg (AstVar str) n mem = case readMemory mem str of
+--     Just val -> updateMemory mem str (AstArg val (Just n))
+--     _ -> mem
+-- switchAsArg (AstBinaryFunc op (AstVar left) (AstVar right)) n mem =
+--     switchAsArg (AstVar right) (n + 1) (switchAsArg (AstVar left) n mem)
+-- switchAsArg (AstBinaryFunc op (AstVar str) right) n mem =
+--     switchAsArg (AstVar str) n mem
+-- switchAsArg (AstBinaryFunc op left (AstVar str)) n mem =
+--     switchAsArg (AstVar str) n mem
+-- -- switchAsArg (AstBool True) n mem =
+-- switchAsArg ast _ mem = snd $ translateAST ast mem
 
 ------- Functions
 
@@ -213,10 +214,10 @@ translateAST (AstBinaryFunc "=" left right) mem = handleAssignment left right me
 translateAST (AstBinaryFunc op left right) mem = translateBinaryFunc op left right mem
 translateAST (AstTernary cond doBlock elseBlock) mem = translateAST (AstIf cond doBlock [] (Just elseBlock)) mem
 translateAST (AstIf cond ifBlock elseifEles elseEle) mem = translateIf (AstIf cond ifBlock elseifEles elseEle) mem
-translateAST (AstDefineLoop loopName cond block) mem = translateLoop (AstDefineLoop loopName cond block) mem
-translateAST (AstLoop (Just loopName) cond block) mem =
-    case translateAST cond mem of
-        (_, updatedMem) -> ([call Nothing ("." ++ loopName), noop (Just $ ".end" ++ loopName)], updatedMem)
+-- translateAST (AstDefineLoop loopName cond block) mem = translateLoop (AstDefineLoop loopName cond block) mem
+-- translateAST (AstLoop (Just loopName) cond block) mem =
+--     case translateAST cond mem of
+--         (_, updatedMem) -> ([call Nothing ("." ++ loopName), noop (Just $ ".end" ++ loopName)], updatedMem)
 translateAST (AstBlock block) mem = translateToASM block mem
 translateAST (AstBreak (Just loopName)) mem = ([jump Nothing (Right ("end" ++ loopName))], mem)
 translateAST (AstContinue _) mem = ([jump Nothing (Left 1)], mem)

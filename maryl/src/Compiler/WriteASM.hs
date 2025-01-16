@@ -29,6 +29,7 @@ serializeInstArgs (Push (L l)) = " " ++ show l
 serializeInstArgs (Push (D d)) = " " ++ show d
 serializeInstArgs (Push (C c)) = " " ++ show c
 serializeInstArgs (Push (Bi bi)) = " " ++ show bi
+serializeInstArgs (Push (St s)) = " " ++ show s
 serializeInstArgs (PushArg n) = " " ++ show n
 serializeInstArgs (Call func) = " \"" ++ func ++ "\""
 serializeInstArgs (Jump (Left n)) = " " ++ show n
