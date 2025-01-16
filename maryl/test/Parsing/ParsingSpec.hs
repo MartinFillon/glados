@@ -177,7 +177,7 @@ spec = do
 
       it "while (true) { break; }" $ do
         parseAST' "while (true) { break; }"
-          `shouldBe` Right [AstLoop Nothing (AstBool True) (AstBlock [AstBreak])]
+          `shouldBe` Right [AstLoop Nothing (AstBool True) (AstBlock [AstBreak Nothing])]
 
       it "while (x != 0) { x = x - 1; }" $ do
         parseAST' "while (x != 0) { x = x - 1; }"
@@ -185,7 +185,7 @@ spec = do
 
       it "while (flag) { continue; }" $ do
         parseAST' "while (flag) { continue; }"
-          `shouldBe` Right [AstLoop Nothing (AstVar "flag") (AstBlock [AstContinue])]
+          `shouldBe` Right [AstLoop Nothing (AstVar "flag") (AstBlock [AstContinue Nothing])]
 
       it "while (count < 100) { count += 10; }" $ do
         parseAST' "while (count < 100) { count += 10; }"
