@@ -31,6 +31,7 @@ import VirtualMachine.State (
     getInArr,
     getInstructionIdxAtLabel,
     getNextInstruction,
+    getOperator,
     getStack,
     incPc,
     io,
@@ -52,7 +53,7 @@ execPushArg n = getArgs >>= (\r -> getStack >>= (\s -> execPushArg' n s r)) . ge
 
 execCall :: String -> VmState ()
 execCall s =
-    getElemInMemory s
+    getOperator s
         >>= ( \e -> case e of
                 Just (Op f) -> getStack >>= f >>= modifyStack
                 Just ((V (Bi f))) ->
@@ -99,8 +100,7 @@ execGet n =
     getElemInMemory n
         >>= ( \v -> case v of
                 Nothing -> fail $ "could not find constant " ++ n
-                Just (V v') -> getStack >>= modifyStack . (v' :) >> return ()
-                Just _ -> fail "cannot access an operator using get"
+                Just v' -> getStack >>= modifyStack . (v' :) >> return ()
             )
 
 drop1 :: [a] -> [a]

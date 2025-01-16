@@ -84,7 +84,7 @@ parseGet :: Parser Instruction
 parseGet = lexeme (parseInstruction get "get" parseString')
 
 parseLoad :: Parser Instruction
-parseLoad = lexeme (parseInstruction2A load "load" parseString' parseVal)
+parseLoad = lexeme (parseInstruction load "load" parseString')
 
 keyWords :: [Parser Instruction]
 keyWords =

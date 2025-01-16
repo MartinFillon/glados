@@ -49,6 +49,7 @@ module VirtualMachine.State (
     ioCatch,
     setError,
     getError,
+    getOperator,
 ) where
 
 import Control.Exception (catch)
@@ -246,9 +247,12 @@ getArgs = gets args
 getMemory :: VmState VmMemory
 getMemory = gets memory
 
-getElemInMemory :: String -> VmState (Maybe V)
+getElemInMemory :: String -> VmState (Maybe Value)
 getElemInMemory s =
-    getMemory <&> Map.lookup s . values
+    getMemory <&> Map.lookup s . vars
+
+getOperator :: String -> VmState (Maybe V)
+getOperator s = getMemory <&> Map.lookup s . values
 
 getHandleInMemory :: Int64 -> VmState Handle
 getHandleInMemory i =

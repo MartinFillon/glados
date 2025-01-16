@@ -77,16 +77,13 @@ spec = do
         it "shoudl parse a get" $ do
             parseAssembly "get \"hello\"" `shouldBe` Right [Left $ get Nothing "hello"]
         it "shoudl parse a load" $ do
-            parseAssembly "load \"hello\" 1"
-                `shouldBe` Right [Left $ load Nothing "hello" $ N 1]
+            parseAssembly "load \"hello\""
+                `shouldBe` Right [Left $ load Nothing "hello"]
         it "shoudl parse a load with a label" $ do
-            parseAssembly ".test load \"hello\" 1"
-                `shouldBe` Right [Left $ load (Just ".test") "hello" $ N 1]
-        it "shoudl parse a get with a label" $ do
-            parseAssembly ".test get \"hello\""
-                `shouldBe` Right [Left $ get (Just ".test") "hello"]
-        it "should fail on a load with int int" $ do
-            isLeft (parseAssembly "load 1 1") `shouldBe` True
+            parseAssembly ".test load \"hello\""
+                `shouldBe` Right [Left $ load (Just ".test") "hello"]
+        it "should fail on a load with int" $ do
+            isLeft (parseAssembly "load 1") `shouldBe` True
         it "should fail on a get with int" $ do
             isLeft (parseAssembly "get 1") `shouldBe` True
         it "should parse a call to a string" $ do

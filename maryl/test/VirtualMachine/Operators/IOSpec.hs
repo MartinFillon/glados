@@ -70,7 +70,8 @@ spec = describe "testing io functions" $ do
     testPrint $ N 3
     it "should set element in memory and retrieve it" $
         execTest
-            [ load Nothing "v" $ N 42,
+            [ push Nothing $ N 42,
+              load Nothing "v",
               get Nothing "v",
               ret Nothing
             ]
