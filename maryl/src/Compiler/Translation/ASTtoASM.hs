@@ -221,7 +221,6 @@ translateAST (AstIf cond ifBlock elseifEles elseEle) mem = translateIf (AstIf co
 translateAST (AstBlock block) mem = translateToASM block mem
 translateAST (AstBreak (Just loopName)) mem = ([jump Nothing (Right ("end" ++ loopName))], mem)
 translateAST (AstContinue _) mem = ([jump Nothing (Left 1)], mem)
-translateAST AstVoid mem = ([], mem)
 translateAST (AstInt n) mem = ([push Nothing (N (fromIntegral n))], mem)
 translateAST (AstBool b) mem = ([push Nothing (B b)], mem)
 translateAST (AstString s) mem = ([push Nothing (S s)], mem)
@@ -230,14 +229,13 @@ translateAST (AstChar c) mem = ([push Nothing (C c)], mem)
 translateAST (AstList list) mem = ([push Nothing (L (translateList list mem))], mem)
 translateAST (AstListElem var idxs) mem =
     (fst (translateAST (AstVar var) mem) ++ translateMultIndexes idxs mem, mem)
-translateAST _ mem = ([], mem)
 -- translateAST (AstDefineStruct (Structure name properties)) mem =
 -- translateAST (AstStruct eles) mem =
+translateAST _ mem = ([], mem)
 
 translateToASM :: [Ast] -> Memory -> ([Instruction], Memory)
 translateToASM asts mem = foldl processAST ([], mem) asts
   where
-    processAST :: ([Instruction], Memory) -> Ast -> ([Instruction], Memory)
     processAST (instructions, currentMem) ast =
         let (newInstructions, updatedMem) = translateAST ast currentMem
          in (instructions ++ newInstructions, updatedMem)

@@ -139,7 +139,6 @@ data Ast
     | -- | continue statement
       AstContinue (Maybe String)
     | AstDefineVar Variable
-    -- | AstBuiltin Function -- to do
     | AstDefineFunc Function
     | AstArg Ast (Maybe Int)
     | -- | nameLoop condition do
@@ -148,45 +147,48 @@ data Ast
     | AstList [Ast]
     | -- | variable indexes
       AstListElem String [Int]
-    | AstLabel String Ast -- ^ label-name value
-    | AstImport String -- ^ file to import, must be .mrl extension
-    deriving (Eq, Ord, Show)
+    | -- |label-name value
+      AstLabel String Ast
+    | -- | file to import, must be .mrl extension
+      AstImport String
+    deriving (Eq, Ord)
 
--- instance Show Ast where
---     show :: Ast -> String
---     show (AstVar s) = s
---     show AstVoid = "Void"
---     show (AstInt n) = show n
---     show (AstBool b) = show b
---     show (AstString s) = show s
---     show (AstChar c) = show c
---     show (AstDouble d) = show d
---     show (AstBinaryFunc op left right) = show left ++ " " ++ show op ++ " " ++ show right
---     show (AstPostfixFunc f ast) = show ast ++ tail (init (show f))
---     show (AstPrefixFunc f ast) = tail (init (show f)) ++ show ast
---     show (AstFunc (Function funcName funcArgs funcBody _)) = "call " ++ show funcName ++ "(" ++ show funcArgs ++ "){" ++ show funcBody ++ "}"
---     show (AstIf cond ifBlock elseIf maybeElse) = "if (" ++ show cond ++ "){" ++ show ifBlock ++ "} " ++ show elseIf ++ " else {" ++ show maybeElse ++ "}"
---     show (AstTernary cond terBlock elseBlock) = show cond ++ " ? " ++ show terBlock ++ " : " ++ show elseBlock
---     show (AstReturn ast) = "return " ++ show ast
---     show (AstBlock blocks) = show blocks
---     show (AstLoop loopName cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "} --> [" ++ maybe "" show loopName ++ "]"
---     show (AstBreak loopName) = "break(" ++ show loopName ++ ")"
---     show (AstContinue loopName) = "continue(" ++ show loopName ++ ")"
---     show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
---     show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
---     show (AstArg arg idx) = "(Arg " ++ show arg ++ " (" ++ show idx ++ "))"
---     show (AstDefineLoop nLoop cond loopBlock) = "DefLoop " ++ show nLoop ++ "(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
---     show (AstList asts) = "List" ++ show asts
---     show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
---     show (AstStruct s) = "Struct " ++ show s
---     show (AstDefineStruct s) = "DefStruct " ++ sName s ++ " " ++ show (sProperties s)
---     show (AstLabel n v) = "Label " ++ n ++ ": " ++ show v
---     show (AstImport f) = "Import " ++ f
+instance Show Ast where
+    show :: Ast -> String
+    show (AstVar s) = s
+    show AstVoid = "Void"
+    show (AstInt n) = show n
+    show (AstBool b) = show b
+    show (AstString s) = show s
+    show (AstChar c) = show c
+    show (AstDouble d) = show d
+    show (AstBinaryFunc op left right) = show left ++ " " ++ show op ++ " " ++ show right
+    show (AstPostfixFunc f ast) = show ast ++ tail (init (show f))
+    show (AstPrefixFunc f ast) = tail (init (show f)) ++ show ast
+    show (AstFunc (Function funcName funcArgs funcBody _)) = "call " ++ show funcName ++ "(" ++ show funcArgs ++ "){" ++ show funcBody ++ "}"
+    show (AstIf cond ifBlock elseIf maybeElse) = "if (" ++ show cond ++ "){" ++ show ifBlock ++ "} " ++ show elseIf ++ " else {" ++ show maybeElse ++ "}"
+    show (AstTernary cond terBlock elseBlock) = show cond ++ " ? " ++ show terBlock ++ " : " ++ show elseBlock
+    show (AstReturn ast) = "return " ++ show ast
+    show (AstBlock blocks) = show blocks
+    show (AstLoop loopName cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "} --> [" ++ maybe "" show loopName ++ "]"
+    show (AstBreak loopName) = "break(" ++ show loopName ++ ")"
+    show (AstContinue loopName) = "continue(" ++ show loopName ++ ")"
+    show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
+    show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
+    show (AstArg arg idx) = "(Arg " ++ show arg ++ " (" ++ show idx ++ "))"
+    show (AstDefineLoop nLoop cond loopBlock) = "DefLoop " ++ show nLoop ++ "(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
+    show (AstList asts) = "List" ++ show asts
+    show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
+    show (AstStruct s) = "Struct " ++ show s
+    show (AstDefineStruct s) = "DefStruct " ++ sName s ++ " " ++ show (sProperties s)
+    show (AstLabel n v) = "Label " ++ n ++ ": " ++ show v
+    show (AstImport f) = "Import " ++ f
 
 -- | Types handled by the program.
 data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
     deriving (Eq, Ord, Show)
 
+-- | Compare AST to a MarylType and evaluates with Boolean
 isValidType :: Ast -> MarylType -> Bool
 isValidType AstVoid Void = True
 isValidType (AstInt _) Int = True
@@ -195,11 +197,14 @@ isValidType (AstString _) String = True
 isValidType (AstChar _) Char = True
 isValidType (AstDouble _) Double = True
 isValidType _ _ = False
+
+-- ^^^
 -- doesn't handle AstStruct
 --                AstList
 --                AstListElem
 --                AstArg
 
+-- | Obtain suggested MarylType from an AST
 getMarylType :: Ast -> MarylType
 getMarylType AstVoid = Void
 getMarylType (AstInt _) = Int
@@ -400,12 +405,13 @@ pStruct = lexeme $ do
     return $ s ++ " " ++ n
 
 types :: Parser String
-types = choice
-    [ choice (map string $ ("[]" ++) <$> types')
-    , choice (map string $ ("const " ++) <$> types')
-    , choice (map string types')
-    , pStruct
-    ]
+types =
+    choice
+        [ choice (map string $ ("[]" ++) <$> types'),
+          choice (map string $ ("const " ++) <$> types'),
+          choice (map string types'),
+          pStruct
+        ]
 
 trimFront :: String -> String -> String
 trimFront toTrim str = dropWhile (\x -> x == ' ' || x == '\t') (fromJust $ stripPrefix toTrim str)
@@ -663,7 +669,7 @@ ternary f = TernR ((f <$ lexeme (char ':')) <$ lexeme (char '?'))
 -- | Operator table containing every operator handled by the program.
 operatorTable :: [[Operator Parser Ast]]
 operatorTable =
-    [   [ binary "." (AstBinaryFunc ".") ],
+    [ [binary "." (AstBinaryFunc ".")],
         [ prefix "--" (AstPrefixFunc "--"),
           prefix "-" (AstPrefixFunc "-"),
           prefix "++" (AstPrefixFunc "++"),
