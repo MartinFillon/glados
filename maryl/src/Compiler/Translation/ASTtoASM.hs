@@ -9,10 +9,11 @@ module Compiler.Translation.ASTtoASM (translateToASM, translateAST) where
 
 import Compiler.Streamline (clarifyAST)
 import Compiler.Translation.Functions (isBuiltin, isSingleOp, translateOpInst)
+import qualified Data.Map as Map
 import Debug.Trace (trace)
 import Eval.Assignment (updateList)
 import Memory (Memory, addMemory, freeMemory, generateUniqueElseName, readMemory, updateMemory)
-import Parsing.ParserAst (Ast (..), Function (..), Variable (..))
+import Parsing.ParserAst (Ast (..), Function (..), Structure (..), Variable (..))
 import VirtualMachine.Instructions (Instruction (..), Value (..), call, jump, jumpf, noop, push, pushArg, ret)
 
 ------- Operators
@@ -66,6 +67,10 @@ associateTypes (AstString s) _ = Just (S s)
 associateTypes (AstDouble d) _ = Just (D d)
 associateTypes (AstChar c) _ = Just (C c)
 associateTypes (AstList list) mem = Just (L (translateList list mem))
+associateTypes (AstListElem var idx) mem = case readMemory mem var of
+    Just (AstList (x : _)) -> associateTypes x mem
+    _ -> Nothing 
+associateTypes (AstArg ast _) mem = associateTypes ast mem
 associateTypes (AstVar var) mem = case readMemory mem var of
     Just val -> associateTypes val mem
     _ -> Nothing
@@ -182,9 +187,8 @@ translateArgs (x : xs) mem =
 pushArgs :: [Ast] -> Memory -> Int -> Memory
 pushArgs [] mem _ = mem
 pushArgs (AstDefineVar (Variable varName varType varValue) : xs) mem idx =
-    case addMemory mem varName (AstArg (AstDefineVar (Variable varName varType varValue)) (Just idx)) of
-        Right updatedMem -> pushArgs xs updatedMem (idx + 1)
-        _ -> mem
+    let updatedMem = updateMemory mem varName (AstArg (AstDefineVar (Variable varName varType varValue)) (Just idx))
+     in pushArgs xs updatedMem (idx + 1)
 pushArgs _ mem _ = mem
 
 -------
@@ -229,7 +233,15 @@ translateAST (AstChar c) mem = ([push Nothing (C c)], mem)
 translateAST (AstList list) mem = ([push Nothing (L (translateList list mem))], mem)
 translateAST (AstListElem var idxs) mem =
     (fst (translateAST (AstVar var) mem) ++ translateMultIndexes idxs mem, mem)
--- translateAST (AstDefineStruct (Structure name properties)) mem =
+translateAST (AstDefineStruct struct@(Structure name props)) mem =
+    case mapM toStructField props of
+        Just fields ->
+            ([push Nothing (St $ Map.fromList fields)], updateMemory mem name (AstDefineStruct struct))
+        Nothing -> trace "nooo" ([], mem)
+    where
+        toStructField (AstDefineVar (Variable n _ v)) =
+            -- trace ("Processing field: " ++ n) $
+                fmap ((,) n) (associateTypes v mem)
 -- translateAST (AstStruct eles) mem =
 translateAST _ mem = ([], mem)
 

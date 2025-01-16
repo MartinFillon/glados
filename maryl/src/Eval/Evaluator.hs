@@ -78,7 +78,8 @@ evalBinaryFunc mem op left right = case evalNode mem left of
 
 ----- Declarations (Functions, Variables, Loop)
 
-evalDefinition :: Ast -> MarylType -> Variable -> Memory -> Either String ()
+evalDefinition :: Ast -> MarylType -> Variable -> Memory -> Either String Ast
+evalDefinition AstVoid _ _ _ = Right AstVoid
 evalDefinition (AstArg ast _) typeVar var mem = evalDefinition ast typeVar var mem
 evalDefinition (AstVar str) typeVar var mem = case readMemory mem str of
     Just value -> evalDefinition value typeVar var mem
@@ -87,24 +88,30 @@ evalDefinition (AstListElem listVar idx) typeVar var mem =
     case readMemory mem listVar of
         Just (AstList eles) ->
             if getMarylType (head eles) == typeVar
-                then Right ()
+                then Right (AstListElem listVar idx)
                 else Left ("List element isn't of proper type, expected " ++ show typeVar ++ ".")
         Just _ -> Left ("Variable " ++ listVar ++ " isn't referencing to type List.")
         Nothing -> Left ("Variable " ++ listVar ++ " out of scope.")
 evalDefinition (AstList eles) (List typeVar) var mem
-    | getMarylType (head eles) == typeVar = Right ()
+    | getMarylType (head eles) == typeVar = Right (AstList eles)
     | otherwise = Left ("List element isn't of proper type, expected " ++ show typeVar ++ ".")
-evalDefinition (AstDefineVar (Variable varName varType _)) expectedType var mem
-    | varType == expectedType = Right ()
+evalDefinition (AstDefineVar origVar@(Variable varName varType _)) expectedType var mem
+    | varType == expectedType = Right (AstDefineVar origVar)
     | otherwise = Left (varName ++ " isn't of proper type, expected " ++ show varType ++ ".")
-evalDefinition (AstStruct _) _ _ _ = Left "Not evaluating structures yet."
-evalDefinition ast varType var@(Variable varName _ _) mem
-    | isValidType ast varType = Right ()
+evalDefinition ast (Struct structType) var@(Variable varName _ _) mem =
+    case readMemory mem structType of
+        Just (AstDefineStruct struct) -> Right ast
+        _ -> Left ("Struct of type " ++ structType ++ " can't be found, " ++ varName ++ " can't be defined.")
+evalDefinition ast varType var@(Variable varName _ varValue) mem
+    | isValidType ast varType = Right ast
     | otherwise = Left ("Value " ++ varName ++ " isn't typed correctly, expected " ++ show varType ++ ".")
 
 evalStructDecla :: [Ast] -> Memory -> Either String ()
-evalStructDecla ((AstDefineVar var@(Variable _ varType varValue)) : xs) mem =
+-- evalStructDecla ((AstDefineVar var@(Variable varName varType AstVoid)) : xs) mem =
+--     Left ("Defining a structure requires no uninitialised values, expected " ++ show varType ++ " for " ++ varName)
+evalStructDecla ((AstDefineVar var@(Variable varName varType varValue)) : xs) mem =
     case evalDefinition varValue varType var mem of
+        -- Right AstVoid -> Left ("Defining a structure requires no uninitialised values, expected " ++ show varType ++ " for " ++ varName)
         Right _ -> evalStructDecla xs mem
         Left err -> Left err
 evalStructDecla [] mem = Right ()
@@ -192,7 +199,7 @@ evalNode mem (AstVar name) =
 evalNode mem (AstDefineVar var@(Variable varName varType varValue))
     | isValidType varValue varType = addDefineVar mem var
     | otherwise = case evalDefinition varValue varType var mem of
-        Right () -> addDefineVar mem var
+        Right _ -> addDefineVar mem var
         Left err -> Left err
 evalNode mem (AstDefineFunc func) = addDefineFunc mem func
 evalNode mem (AstFunc func@(Function funcName _ _ _)) =
@@ -233,8 +240,8 @@ evalNode mem (AstLoop Nothing cond block) =
 evalNode mem (AstListElem var idxs) = evalList var idxs mem -- >> checkListType
 evalNode mem (AstDefineStruct struct@(Structure name properties)) =
     case addMemory mem name (AstDefineStruct struct) of
-        Right newMem -> case evalStructDecla properties mem of
-            Right () -> Right (AstVar name, mem)
+        Right newMem -> case evalStructDecla properties newMem of
+            Right () -> Right (AstDefineStruct struct, newMem)
             Left err -> Left err
         Left err -> Left ("Failed to define structure (" ++ err ++ ").")
 -- translateAST (AstStruct eles) mem =

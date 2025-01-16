@@ -121,6 +121,7 @@ data Ast
     | AstString String
     | AstChar Char
     | AstDouble Double
+    | AstGlobal Ast
     | AstBinaryFunc String Ast Ast
     | AstPostfixFunc String Ast
     | AstPrefixFunc String Ast
@@ -162,6 +163,7 @@ instance Show Ast where
     show (AstString s) = show s
     show (AstChar c) = show c
     show (AstDouble d) = show d
+    show (AstGlobal ast) = "Global value [" ++ show ast ++ "]"
     show (AstBinaryFunc op left right) = show left ++ " " ++ show op ++ " " ++ show right
     show (AstPostfixFunc f ast) = show ast ++ tail (init (show f))
     show (AstPrefixFunc f ast) = tail (init (show f)) ++ show ast
