@@ -22,7 +22,7 @@ updateMemory mem var value =
 
 addMemory :: Memory -> String -> Ast -> Either String Memory
 addMemory mem var value =
-    -- trace ("adding " ++ show var ++ " to mem (" ++ show value ++ ")") $
+    trace ("adding " ++ show var ++ " to mem (" ++ show value ++ ")") $
     case readMemory mem var of
         Just _ -> Left ("multiple definition of \"" ++ var ++ "\"")
         Nothing -> Right (updateMemory mem var value)
@@ -52,6 +52,7 @@ freeMemory =
             AstDefineFunc _ -> True
             AstDefineLoop {} -> True
             AstIf {} -> True
+            AstGlobal _ -> True
             _ -> False
         )
 
