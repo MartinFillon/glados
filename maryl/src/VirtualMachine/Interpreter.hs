@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-
 -- EPITECH PROJECT, 2024
 -- inst [WSL: Ubuntu]
@@ -74,7 +75,7 @@ execJumpF' _ _ = pure ()
 
 dropAndGet' :: [Value] -> VmState Value
 dropAndGet' (x : xs) = modifyStack xs >> return x
-dropAndGet' [] = fail "bad jumpf"
+dropAndGet' [] = fail "empty stack"
 
 dropAndGet :: VmState Value
 dropAndGet = getStack >>= dropAndGet'
@@ -110,6 +111,9 @@ dup1 :: [a] -> [a]
 dup1 (x : xs) = x : x : xs
 dup1 [] = []
 
+execLoad :: String -> VmState ()
+execLoad n = dropAndGet >>= register . (n,)
+
 execInstruction :: Instruction -> VmState (Maybe Value)
 execInstruction (Instruction _ _ Ret _) =
     getStack >>= eitherS . execRet
@@ -122,7 +126,7 @@ execInstruction (Instruction _ _ (PushArg x) _) = execPushArg x >> return Nothin
 execInstruction (Instruction _ _ (Call n) _) = execCall n >> return Nothing
 execInstruction (Instruction _ _ (Jump j) _) = execJump j >> return Nothing
 execInstruction (Instruction _ _ (JumpIfFalse j) _) = execJumpF j >> return Nothing
-execInstruction (Instruction _ _ (Load n v) _) = register (n, V v) >> return Nothing
+execInstruction (Instruction _ _ (Load n) _) = execLoad n >> return Nothing
 execInstruction (Instruction _ _ (Get n) _) = execGet n >> return Nothing
 execInstruction i = fail $ "Not handled" ++ name i
 
