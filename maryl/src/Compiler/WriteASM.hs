@@ -30,12 +30,14 @@ serializeInstArgs (Jump (Left n)) = " " ++ show n
 serializeInstArgs (Jump (Right labelVal)) = " ." ++ labelVal
 serializeInstArgs (JumpIfFalse (Left n)) = " " ++ show n
 serializeInstArgs (JumpIfFalse (Right labelVal)) = " ." ++ labelVal
+serializeInstArgs (Load val) = " \"" ++ val ++ "\""
+serializeInstArgs (Get val) = " \"" ++ val ++ "\""
 serializeInstArgs _ = ""
 
 serializeValue :: Value -> String
 serializeValue (N n) = show n
 serializeValue (B b) = show b
-serializeValue (S s) = "\"" ++ s ++ "\""
+serializeValue (S s) = show s
 serializeValue (L l) = show l
 serializeValue (D d) = show d
 serializeValue (C c) = "'" ++ [c] ++ "'"
@@ -71,11 +73,7 @@ serializeMemoryFunctions mem =
         let (instructions, updatedMem) = translateAST (AstDefineFunc val) currentMem
             serializedFunc = serializeFunction key instructions
          in (acc ++ [serializedFunc], updatedMem)
-    extractFunction (acc, currentMem) key (AstDefineLoop loopName cond block) =
-        let (instructions, updatedMem) = translateAST (AstDefineLoop loopName cond block) currentMem
-            serializedLoop = serializeFunction key instructions
-         in (acc ++ [serializedLoop], updatedMem)
-    extractFunction accAndMem _ _ = accAndMem -- != AstDefineFunc | AstDefineLoop
+    extractFunction accAndMem _ _ = accAndMem -- != AstDefineFunc
 
 writeInstructionsToFile :: FilePath -> Memory -> IO ()
 writeInstructionsToFile filePath mem = writeFile filePath (serializeMemoryFunctions mem)

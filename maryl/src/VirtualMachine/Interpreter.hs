@@ -13,7 +13,7 @@ module VirtualMachine.Interpreter (
     exec,
 ) where
 
-import Control.Monad.State.Lazy (MonadState (get), evalStateT)
+import Control.Monad.State.Lazy (MonadState (get), evalStateT, void)
 import VirtualMachine.Instructions (
     Inst (..),
     Instruction (..),
@@ -21,6 +21,7 @@ import VirtualMachine.Instructions (
  )
 import VirtualMachine.State (
     V (..),
+    Vm (..),
     VmState,
     appendStack,
     copyVm,
@@ -33,6 +34,7 @@ import VirtualMachine.State (
     getNextInstruction,
     getOperator,
     getStack,
+    handles,
     incPc,
     io,
     modifyPc,
@@ -130,8 +132,26 @@ execInstruction (Instruction _ _ (Load n) _) = execLoad n >> return Nothing
 execInstruction (Instruction _ _ (Get n) _) = execGet n >> return Nothing
 execInstruction i = fail $ "Not handled" ++ name i
 
+dbg :: VmState ()
+dbg = get >>= (io . printVM)
+
+printVM :: Vm -> IO ()
+printVM (Vm s i m p _ _) =
+    putStrLn "==============================\nStack :"
+        >> print s
+        >> putStrLn "==============================\nStack :"
+        >> print s
+        >> putStrLn "==============================\nHandles :"
+        >> mapM print (handles m)
+        >> putStrLn "\n\nInsts :"
+        >> mapM print i
+        >> putStrLn "\nCurrent: "
+        >> print (i !! p)
+        >> void getLine
+
 exec' :: Maybe Instruction -> VmState Value
 exec' (Just i) =
+    -- dbg >>
     execInstruction i
         >>= maybe (incPc >> getNextInstruction >>= exec') return
 exec' Nothing = return $ N 84

@@ -7,7 +7,6 @@
 
 module Eval.Assignment (updateList) where
 
-import Data.List (intercalate)
 import Debug.Trace (trace)
 import Memory (Memory, readMemory)
 import Parsing.ParserAst (Ast (..))

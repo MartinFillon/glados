@@ -1,0 +1,18 @@
+int yo(int a){
+    a = a + 1;
+    return a;
+}
+
+int start() {
+    string l = readFile("test/test_files/hello.txt");
+    if (l == "hello")
+    {
+        print(l);
+        print(" world\n");
+    } else {
+        print("goodbye");
+        print(l);
+        print("\n");
+    }
+    return yo(1);
+}
