@@ -32,8 +32,8 @@ import Eval.Ops (
     evalPower,
     evalShiftL,
     evalShiftR,
-    evalSub
-)
+    evalSub,
+    )
 import Memory (Memory, addMemory, freeMemory, generateUniqueLoopName, readMemory, updateMemory)
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Structure (..), Variable (..), getMarylType, isValidType)
 
@@ -123,7 +123,7 @@ validateAndNormalizeFields defFields labelFields = case labelFields of
 normalizeStruct :: Ast -> Ast -> Either String Ast
 normalizeStruct (AstDefineStruct (Structure _ structProps)) (AstStruct instanceFields) =
     let definedFields = map (\(AstDefineVar (Variable name varType defaultValue)) ->
-        (name, varType, defaultValue)) structProps
+            (name, varType, defaultValue)) structProps
         labeledFields = case instanceFields of
             (AstLabel _ _ : _) -> Right instanceFields
             _ -> matchPositionalFields definedFields instanceFields
@@ -271,9 +271,6 @@ evalNode mem (AstVar name) =
 evalNode mem (AstDefineVar var@(Variable varName varType varValue))
     | isValidType varValue varType = addDefineVar mem var
     | otherwise = case evalDefinition varValue varType var mem of
-        Right (AstStruct eles) -> case addMemory mem varName (AstStruct eles) of
-            Right newMem -> Right (AstDefineVar (Variable varName varType (AstStruct eles)), newMem)
-            Left err -> Left $ "Failed to define var (" ++ err ++ ")."
         Right _ -> addDefineVar mem var
         Left err -> Left err
 evalNode mem (AstDefineFunc func) = addDefineFunc mem func
