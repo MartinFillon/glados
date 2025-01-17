@@ -66,6 +66,7 @@ import Control.Monad.Combinators.Expr (
 import Data.List (intercalate, isPrefixOf, stripPrefix)
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Void (Void)
+import Debug.Trace
 import Text.Megaparsec (
     MonadParsec (eof, try),
     ParseErrorBundle,
@@ -146,7 +147,7 @@ data Ast
     | AstList [Ast]
     | -- | variable indexes
       AstListElem String [Int]
-    | -- |label-name value
+    | -- | label-name value
       AstLabel String Ast
     | -- | file to import, must be .mrl extension
       AstImport String
@@ -196,12 +197,12 @@ isValidType (AstString _) String = True
 isValidType (AstChar _) Char = True
 isValidType (AstDouble _) Double = True
 isValidType _ _ = False
-
--- ^^^
--- doesn't handle AstStruct
---                AstList
---                AstListElem
---                AstArg
+{- ^ ^^
+ doesn't handle AstStruct
+                AstList
+                AstListElem
+                AstArg
+-}
 
 -- | Obtain suggested MarylType from an AST
 getMarylType :: Ast -> MarylType
@@ -403,10 +404,16 @@ pStruct = lexeme $ do
     n <- variable
     return $ s ++ " " ++ n
 
+pListType :: Parser String
+pListType = lexeme $ do
+    s <- some $ string "[]"
+    t <- choice $ map string types'
+    return (concat s ++ t)
+
 types :: Parser String
 types =
     choice
-        [ choice (map string $ ("[]" ++) <$> types'),
+        [ try pListType,
           choice (map string $ ("const " ++) <$> types'),
           choice (map string types'),
           pStruct
@@ -424,7 +431,7 @@ getType "char" = Char
 getType "bool" = Bool
 getType "void" = Void
 getType str
-    | "[]" `isPrefixOf` str = List $ getType (fromJust $ stripPrefix "[]" str)
+    | "[]" `isPrefixOf` trace ("prefix of " ++ str) str = List $ getType (fromJust $ stripPrefix "[]" str)
     | "const" `isPrefixOf` str = Const $ getType $ trimFront "const" str
     | "struct" `isPrefixOf` str = Struct $ takeWhile (\x -> x /= ' ' && x /= '\t') $ trimFront "struct" str
     | otherwise = Undefined
