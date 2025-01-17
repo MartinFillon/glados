@@ -4,21 +4,51 @@
 -- File description:
 -- ASTtoASM
 -}
+{-# LANGUAGE TupleSections #-}
 
 module Compiler.Translation.ASTtoASM (translateToASM, translateAST) where
 
-import Compiler.Translation.Functions (isBuiltin, isSingleOp, translateOpInst)
+import Compiler.Translation.Functions (isBuiltin, isSingleOp, pushArgs, translateOpInst)
+import Compiler.Translation.ListsStructures (associateTypes, translateList, translateMultIndexes)
+import qualified Data.DList as D
 import qualified Data.Map as Map
 import Debug.Trace (trace)
-import Eval.Assignment (normalizeStruct)
-import qualified Data.DList as D
+import Eval.Structures (normalizeStruct)
 import Memory (Memory, addMemory, freeMemory, generateUniqueElseName, readMemory, updateMemory)
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Structure (..), Variable (..))
 import VirtualMachine.Instructions (Instruction (..), Value (..), call, get, jump, jumpf, load, noop, push, pushArg, ret)
 
 ------- Operators
 
--- (= assignment operator)
+{- | Translates a 'set' operation on a list element for nested or multi-dimensional lists.
+ Handles variable assignment when the list contains more than one dimension.
+-}
+setMultipleIndexes :: [Int] -> Int -> String -> Ast -> Memory -> (D.DList Instruction, String)
+setMultipleIndexes [x] n baseVarName ast mem =
+    ( D.singleton (push Nothing (N (fromIntegral x)))
+        `D.append` fst (translateAST ast mem)
+        `D.append` D.fromList
+            [call Nothing "set", load Nothing (baseVarName ++ show n)],
+      baseVarName ++ show n
+    )
+setMultipleIndexes (x : xs) 0 baseVarName ast mem =
+    let (nestedInstructions, lastVarName) = setMultipleIndexes xs 1 baseVarName ast mem
+    in ( D.fromList [push Nothing (N (fromIntegral x)), call Nothing "get"]
+            `D.append` nestedInstructions,
+          lastVarName
+        )
+setMultipleIndexes (x : xs) n baseVarName ast mem =
+    let (nestedInstructions, lastVarName) = setMultipleIndexes xs (n + 1) baseVarName ast mem
+     in ( D.fromList [push Nothing (N (fromIntegral x)), call Nothing "get", load Nothing (baseVarName ++ show n)]
+            `D.append` nestedInstructions,
+          lastVarName
+        )
+setMultipleIndexes [] _ _ _ _ = (D.empty, "")
+
+{- Assignment operator '='
+ Supports regular variables, normal list element call and nested list element call.
+ Uses 'load' instruction on instance of redefinition of variable.
+-}
 handleAssignment :: Ast -> Ast -> Memory -> (D.DList Instruction, Memory)
 handleAssignment (AstVar var) right mem =
     (fst (translateAST right mem) `D.append` D.singleton (load Nothing var), mem)
@@ -27,24 +57,35 @@ handleAssignment (AstListElem var [x]) right mem =
         (rightInstrs, updatedMem) = translateAST right mem
         postfixInstrs = D.fromList [call Nothing "set", load Nothing var]
      in (prefixInstrs `D.append` rightInstrs `D.append` postfixInstrs, updatedMem)
--- handleAssignment (AstListElem var (x : xs)) right mem =
+handleAssignment (AstListElem var list) right mem =
+    let prefixInstrs = D.singleton (get Nothing var)
+        (indexInstrs, lastVarName) = setMultipleIndexes list 0 var right mem
+        postfixInstrs = D.fromList [get Nothing var, push Nothing (N 0), get Nothing lastVarName, call Nothing "set", load Nothing var]
+     in (prefixInstrs `D.append` indexInstrs `D.append` postfixInstrs, mem)
 -- handleAssignment (AstArg arg (Just idx)) right mem =
 --     (fst (translateAST right mem))
 -- struct
 handleAssignment _ _ mem = (D.empty, mem)
 
+{- | Handles compound assignment operators such as '+=', '-=', etc.,
+ by converting them to their equivalent binary operation and delegating to handleAssignment.
+-}
 updateAssignment :: String -> Ast -> Ast -> Memory -> (D.DList Instruction, Memory)
 updateAssignment ">>=" left right mem = handleAssignment left (AstBinaryFunc ">>" left right) mem
 updateAssignment "<<=" left right mem = handleAssignment left (AstBinaryFunc "<<" left right) mem
 updateAssignment (op : _) left right mem = handleAssignment left (AstBinaryFunc [op] left right) mem
 updateAssignment _ _ _ mem = (D.empty, mem)
 
+-- | Priority is considered on calls to functions/ function argument to compute before call to operation
 handlePriority :: Ast -> Ast -> Memory -> (D.DList Instruction, Memory)
 handlePriority left (AstFunc func) mem = (fst (translateAST (AstFunc func) mem) `D.append` fst (translateAST left mem), mem)
 handlePriority left (AstArg arg idx) mem = (fst (translateAST (AstArg arg idx) mem) `D.append` fst (translateAST left mem), mem)
 handlePriority left right mem =
     (fst (translateAST left mem) `D.append` fst (translateAST right mem), mem)
 
+{- | Handles the translation of an AST binary function:
+ such as arithmetic or logical operations.
+-}
 translateBinaryFunc :: String -> Ast -> Ast -> Memory -> (D.DList Instruction, Memory)
 translateBinaryFunc op left right mem
     | isSingleOp op = (fst (handlePriority left right mem) `D.append` D.singleton (translateOpInst op), mem)
@@ -52,65 +93,43 @@ translateBinaryFunc op left right mem
 
 ------- Structures
 
+{- | Translates evaluated structures to map of tuple of field name and its value:
+
+>>> [("x", 4), ("y", 2), ("z", 4)]
+-}
 translateStruct :: Ast -> Ast -> String -> Memory -> (D.DList Instruction, Memory)
-translateStruct (AstDefineStruct struct@(Structure structName props)) AstVoid varName mem =
+translateStruct (AstDefineStruct (Structure _ props)) AstVoid varName mem =
     case mapM toStructField props of
         Just fields ->
             (D.singleton (push Nothing (St $ Map.fromList fields)), updateMemory mem varName (AstStruct props))
         Nothing -> (D.empty, mem)
-    where
-      toStructField (AstDefineVar (Variable n _ v)) =
-              fmap ((,) n) (associateTypes v mem)
-      toStructField _ = Nothing
+  where
+    toStructField :: Ast -> Maybe (String, Value)
+    toStructField (AstDefineVar (Variable n _ v)) =
+        fmap (n,) (associateTypes v mem)
+    toStructField _ = Nothing
 translateStruct (AstDefineStruct struct) structValues nameStruct mem =
     case normalizeStruct (AstDefineStruct struct) structValues of
-        Right (AstStruct eles) -> trace (">>> " ++ nameStruct ++ " " ++ show eles) $
-             case mapM toStructField eles of
+        Right (AstStruct eles) ->
+            case mapM toStructField eles of
                 Just fields ->
-                    (D.fromList [push Nothing (St $ Map.fromList fields), load Nothing nameStruct],
-                        updateMemory mem nameStruct (AstStruct eles))
+                    ( D.fromList [push Nothing (St $ Map.fromList fields), load Nothing nameStruct],
+                      updateMemory mem nameStruct (AstStruct eles)
+                    )
                 Nothing -> (D.empty, mem)
-            where
-                toStructField (AstLabel fieldName fieldValue) =
-                    fmap (\val -> (fieldName, val)) (associateTypes fieldValue mem)
-                toStructField _ = Nothing
+          where
+            toStructField :: Ast -> Maybe (String, Value)
+            toStructField (AstLabel fieldName fieldValue) =
+                fmap (fieldName,) (associateTypes fieldValue mem)
+            toStructField _ = Nothing
         _ -> (D.empty, mem)
-translateStruct  _ _ _ mem = (D.empty, mem)
-
-------- Lists
-
--- add structures
-associateTypes :: Ast -> Memory -> Maybe Value
-associateTypes (AstInt n) _ = Just (N (fromIntegral n))
-associateTypes (AstBool b) _ = Just (B b)
-associateTypes (AstString s) _ = Just (S s)
-associateTypes (AstDouble d) _ = Just (D d)
-associateTypes (AstChar c) _ = Just (C c)
-associateTypes (AstList list) mem = Just (L (translateList list mem))
-associateTypes (AstListElem var _) mem = case readMemory mem var of -- check this
-    Just (AstList (x : _)) -> associateTypes x mem
-    _ -> Nothing
-associateTypes (AstArg ast _) mem = associateTypes ast mem
-associateTypes (AstVar var) mem = case readMemory mem var of
-    Just val -> associateTypes val mem
-    _ -> Nothing
-associateTypes _ _ = Nothing
-
-translateList :: [Ast] -> Memory -> [Value]
-translateList [] _ = []
-translateList (x : xs) mem = case associateTypes x mem of
-    Just val -> val : translateList xs mem
-    _ -> []
-
-translateMultIndexes :: [Int] -> Memory -> D.DList Instruction
-translateMultIndexes (x : xs) mem =
-    fst (translateAST (AstInt x) mem) `D.append`
-    D.singleton (call Nothing "get") `D.append` translateMultIndexes xs mem
-translateMultIndexes [] _ = D.empty
+translateStruct _ _ _ mem = (D.empty, mem)
 
 ------- AstIf / Ternary
 
--- (blocks in scope, length for jump/jumpf)
+{- | Translate blocks of code (in scope) and returns translation with the number of lines.
+ Allows the use of jump/ jumpf instructions, to allow jumping past block.
+-}
 translateBlock' :: Ast -> Memory -> (D.DList Instruction, Int)
 translateBlock' (AstBlock block) mem =
     let (instructions, _) = translateToASM block mem
@@ -119,7 +138,14 @@ translateBlock' ast mem =
     let (instructions, _) = translateAST ast mem
      in (instructions, length instructions)
 
--- (if condition block branches)
+{- Groups the translation of a condition, the block and necessary jumps.
+ Translates a condition,
+ adds a 'jumpIfFalse' instruction to the lengths of the block,
+ adds the translation of block,
+ and a 'jump' to label of 'elseName' generated.
+
+>>> <cond>, jumpf (length <block>), <block>, jump (<.elseName>)
+-}
 translateConditionBlock :: Ast -> Ast -> Memory -> String -> (D.DList Instruction, Memory)
 translateConditionBlock cond block mem elseLabel =
     let (condInstructions, memAfterCond) = translateAST cond mem
@@ -131,7 +157,7 @@ translateConditionBlock cond block mem elseLabel =
                 `D.append` D.singleton (jump Nothing (Right elseLabel))
      in (allInstructions, memAfterCond)
 
--- (else if branches)
+-- | Recursive function that takes a list of ElseIf conditions and translates it
 translateAllConditions :: [Ast] -> Memory -> String -> (D.DList Instruction, Memory)
 translateAllConditions [] mem _ = (D.empty, mem)
 translateAllConditions (AstIf cond block _ _ : rest) mem elseLabel =
@@ -140,6 +166,7 @@ translateAllConditions (AstIf cond block _ _ : rest) mem elseLabel =
      in (condInstructions `D.append` restInstructions, finalMem)
 translateAllConditions _ mem _ = (D.empty, mem)
 
+-- | Groups the translation of a full AstIf instance, with else if and else.
 translateIf :: Ast -> Memory -> (D.DList Instruction, Memory)
 translateIf (AstIf cond ifBlock elseifEles elseEle) mem =
     let elseName = generateUniqueElseName mem
@@ -149,29 +176,41 @@ translateIf (AstIf cond ifBlock elseifEles elseEle) mem =
                 let (condInstructions, memAfterCond) = translateConditionBlock cond ifBlock newMem elseName
                     (elseifInstructions, memAfterIfElse) = translateAllConditions elseifEles memAfterCond elseName
                     (elseInstructions, memAfterElse) = maybe (D.empty, mem) (`translateAST` memAfterIfElse) elseEle
-                 in (condInstructions `D.append` elseifInstructions `D.append` elseInstructions `D.append`
-                    D.singleton (noop (Just $ "." ++ elseName)), memAfterElse)
+                 in ( condInstructions
+                        `D.append` elseifInstructions
+                        `D.append` elseInstructions
+                        `D.append` D.singleton (noop (Just $ "." ++ elseName)),
+                      memAfterElse
+                    )
             _ -> (D.empty, mem)
 translateIf _ mem = (D.empty, mem)
 
 ------- Loops
 
+{-
+-}
 translateLoop :: String -> Ast -> Ast -> Memory -> (D.DList Instruction, Memory)
 translateLoop loopName cond block mem =
     let (condInstructions, memAfterCond) = translateAST cond mem
         (blockInstructions, _) = translateAST block memAfterCond
-     in (D.singleton (noop (Just $ "." ++ loopName)) `D.append` condInstructions `D.append` D.singleton (jumpf Nothing (Right ("end" ++ loopName)))
-        `D.append` blockInstructions `D.append` D.fromList [jump Nothing (Right loopName), noop (Just $ ".end" ++ loopName)], memAfterCond)
+     in ( D.singleton (noop (Just $ "." ++ loopName))
+            `D.append` condInstructions
+            `D.append` D.singleton (jumpf Nothing (Right ("end" ++ loopName)))
+            `D.append` blockInstructions
+            `D.append` D.fromList [jump Nothing (Right loopName), noop (Just $ ".end" ++ loopName)],
+          memAfterCond
+        )
  
 ------- Functions
 
+-- | Highlights call to builtin functions (no '.' at name of function)
 translateBuiltin :: String -> [Ast] -> Memory -> (D.DList Instruction, Memory)
 translateBuiltin n' args mem =
     ( fst (translateArgs args mem) `D.append` D.singleton (call Nothing n'),
       mem
     )
 
--- (call defined Vars)
+-- | Call defined variables using instruction 'get'
 callArgs :: Ast -> Memory -> D.DList Instruction
 callArgs (AstVar varName) mem =
     case readMemory mem varName of
@@ -180,21 +219,15 @@ callArgs (AstVar varName) mem =
         Nothing -> D.empty
 callArgs ast mem = fst $ translateAST ast mem
 
--- (parsing AstVar)
+-- | Translation of args passed into a function call to push before instruction 'call'
 translateArgs :: [Ast] -> Memory -> (D.DList Instruction, Memory)
 translateArgs [] mem = (D.empty, mem)
 translateArgs (x : xs) mem =
     (callArgs x mem `D.append` fst (translateArgs xs mem), mem) -- called args
 
-pushArgs :: [Ast] -> Memory -> Int -> Memory
-pushArgs [] mem _ = mem
-pushArgs (AstDefineVar (Variable varName varType varValue) : xs) mem idx =
-    let updatedMem = updateMemory mem varName (AstArg (AstDefineVar (Variable varName varType varValue)) (Just idx))
-     in pushArgs xs updatedMem (idx + 1)
-pushArgs _ mem _ = mem
-
 -------
 
+-- | Translates an AST node to its corresponding assembly instructions.
 translateAST :: Ast -> Memory -> (D.DList Instruction, Memory)
 translateAST (AstArg _ (Just n)) mem = (D.singleton (pushArg Nothing n), mem)
 translateAST (AstArg (AstDefineVar (Variable varName _ _)) Nothing) mem =
@@ -203,7 +236,7 @@ translateAST (AstArg (AstDefineVar (Variable varName _ _)) Nothing) mem =
         Nothing -> (D.empty, mem)
 translateAST (AstDefineVar (Variable varName (Struct structName) ast)) mem =
     case readMemory mem structName of
-        Just (AstDefineStruct struct) -> 
+        Just (AstDefineStruct struct) ->
             translateStruct (AstDefineStruct struct) ast varName mem
         _ -> (D.empty, mem)
 translateAST (AstDefineVar (Variable varName _ varValue)) mem =
@@ -242,6 +275,7 @@ translateAST (AstDefineStruct struct@(Structure structName _)) mem =
     (D.empty, updateMemory mem structName (AstDefineStruct struct))
 translateAST _ mem = (D.empty, mem)
 
+-- | Translates a list of AST nodes to assembly instructions.
 translateToASM :: [Ast] -> Memory -> (D.DList Instruction, Memory)
 translateToASM asts mem = (instructions, finalMem)
   where
