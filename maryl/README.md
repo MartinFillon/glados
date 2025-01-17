@@ -1,6 +1,7 @@
 # Maryl (Part 2)
 
 More advanced language based on four axis:
+
 - Language-based security and robustness (skill: **security**)
 - Its syntax, grammar and semantics (skill: **parsing**)
 - The way and how fast it executes code (skill: **evaluation / compilation**)
@@ -25,6 +26,20 @@ stack build
 This will trigger the build process using `stack`, which will compile all necessary Haskell files and their dependencies based on the `stack.yaml` configuration.
 
 This command ensures that all the modules are correctly compiled and linked.
+
+## Usage
+
+To compile a maryl file into maryl asm use:
+
+```sh
+./glados build <file.mrl> -o <output file>
+```
+
+To run maryl asm use:
+
+```sh
+./glados run <file.masm> [args]
+```
 
 ### Clean Project
 
