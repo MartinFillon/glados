@@ -111,12 +111,12 @@ parseList =
         <$> between (char '[') (char ']') (parseVal `sepBy` lexeme ",")
 
 parseStruct' :: Parser (String, Value)
-parseStruct' = (,) <$> parseString' <*> (void (char '=') >> parseVal)
+parseStruct' = (,) <$> parseString' <*> lexeme (void (char '=') >> lexeme parseVal)
 
 parseStruct :: Parser Value
 parseStruct =
     St . Map.fromList
-        <$> between (char '{') (char '}') (many parseStruct')
+        <$> between (char '{') (char '}') (parseStruct' `sepBy` lexeme ",")
         <?> "Structure"
 
 parseVal :: Parser Value
