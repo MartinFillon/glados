@@ -12,7 +12,7 @@ import Compiler.Translation.ASTtoASM (translateAST, translateToASM)
 import Memory (initMemory)
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
 import Test.Hspec (Spec, describe, it, shouldBe)
-import VirtualMachine.Instructions (Value (..), call, push, ret)
+import VirtualMachine.Instructions (Value (..), call, load, push, ret)
 
 spec :: Spec
 spec = do
@@ -62,7 +62,7 @@ spec = do
             fst (translateAST (AstChar 'a') initMemory) `shouldBe` [push Nothing (C 'a')]
 
         it "translates AstDefineVar for integer" $
-            fst (translateAST (AstDefineVar (Variable "x" Int (AstInt 42))) initMemory) `shouldBe` []
+            fst (translateAST (AstDefineVar (Variable "x" Int (AstInt 42))) initMemory) `shouldBe` [push Nothing (N 42), load Nothing "x"]
 
         it "translates AstBinaryFunc for addition" $ do
             let ast = AstBinaryFunc "+" (AstInt 10) (AstInt 20)
