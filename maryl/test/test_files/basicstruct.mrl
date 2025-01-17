@@ -1,0 +1,18 @@
+char foo() {
+    return 'p';
+}
+
+int start() {
+    struct boo {
+        int a = 0;
+        int b = 0;
+        int c = 0;
+    }
+    struct boo me = {1, 2, 3};
+    print(me);
+    struct boo metoo = {a: 4, b:5, c: 6};
+    struct boo you;
+    you = me;
+    print(you);
+    return 0;
+}

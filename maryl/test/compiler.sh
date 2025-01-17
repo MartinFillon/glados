@@ -24,8 +24,8 @@ print_red() {
 
 # add.mrl
 print_bold "Running add.mrl..."
-./glados test/test_files/add.mrl
-./glados out.masm --vm
+./glados build test/test_files/add.mrl -o out.masm
+./glados run out.masm
 output=$(echo $?)
 if [ "$output" == "8" ]; then
     print_green "✅ add.mrl passed!"
@@ -36,8 +36,8 @@ fi
 
 # mixupadd.mrl
 print_bold "Running mixupadd.mrl..."
-./glados test/test_files/mixupadd.mrl
-./glados out.masm --vm
+./glados build test/test_files/mixupadd.mrl -o out.masm
+./glados run out.masm
 output=$(echo $?)
 if [ "$output" == "6" ]; then
     print_green "✅ mixupadd.mrl passed!"
@@ -48,8 +48,8 @@ fi
 
 # ifbasic.mrl
 print_bold "Running ifbasic.mrl..."
-./glados test/test_files/ifbasic.mrl
-./glados out.masm --vm
+./glados build test/test_files/ifbasic.mrl -o out.masm
+./glados run out.masm
 output=$(echo $?)
 if [ "$output" == "2" ]; then
     print_green "✅ ifbasic.mrl passed!"
@@ -60,8 +60,8 @@ fi
 
 # elseifelse.mrl
 print_bold "Running elseifelse.mrl..."
-./glados test/test_files/elseifelse.mrl
-./glados out.masm --vm
+./glados build test/test_files/elseifelse.mrl -o out.masm
+./glados run out.masm
 output=$(echo $?)
 if [ "$output" == "3" ]; then
     print_green "✅ elseifelse.mrl passed!"
@@ -72,8 +72,8 @@ fi
 
 # basiclist.mrl
 print_bold "Running basiclist.mrl..."
-./glados test/test_files/basiclist.mrl
-./glados out.masm --vm
+./glados build test/test_files/basiclist.mrl -o out.masm
+./glados run out.masm
 output=$(echo $?)
 if [ "$output" == "4" ]; then
     print_green "✅ basiclist.mrl passed!"
@@ -84,8 +84,8 @@ fi
 
 # print.mrl
 print_bold "Running print.mrl..."
-./glados test/test_files/print.mrl
-output=$(./glados out.masm --vm | tr -d '\n')
+./glados build test/test_files/print.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
 result=$(echo -e "sooo\n1\n5\n['h','e','l','l','o']" | tr -d '\n')
 if [ "$output" == "$result" ]; then
     print_green "✅ print.mrl passed!"
@@ -96,8 +96,8 @@ fi
 
 # ops.mrl
 print_bold "Running ops.mrl..."
-./glados test/test_files/ops.mrl
-./glados out.masm --vm
+./glados build test/test_files/ops.mrl -o out.masm
+./glados run out.masm
 output=$(echo $?)
 if [ "$output" == '1' ]; then
     print_green "✅ ops.mrl passed!"
@@ -108,8 +108,8 @@ fi
 
 # ternary.mrl
 print_bold "Running ternary.mrl..."
-./glados test/test_files/ternary.mrl
-./glados out.masm --vm
+./glados build test/test_files/ternary.mrl -o out.masm
+./glados run out.masm
 output=$(echo $?)
 if [ "$output" == '4' ]; then
     print_green "✅ ternary.mrl passed!"
@@ -120,8 +120,8 @@ fi
 
 # fact.mrl
 print_bold "Running fact.mrl..."
-./glados test/test_files/fact.mrl
-./glados out.masm --vm
+./glados build test/test_files/fact.mrl -o out.masm
+./glados run out.masm
 output=$(echo $?)
 if [ "$output" == '120' ]; then
     print_green "✅ fact.mrl passed!"
@@ -132,8 +132,8 @@ fi
 
 # loop.mrl
 print_bold "Running loop.mrl..."
-./glados test/test_files/loop.mrl
-output=$(./glados out.masm --vm | tr -d '\n')
+./glados build test/test_files/loop.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
 result=$(echo -e "5" | tr -d '\n')
 if [ "$output" == "$result" ]; then
     print_green "✅ loop.mrl passed!"
@@ -144,8 +144,8 @@ fi
 
 # closeevalerror.mrl
 print_bold "Running closeevalerror.mrl..."
-./glados test/test_files/closeevalerror.mrl
-output=$(./glados out.masm --vm | tr -d '\n')
+./glados build test/test_files/closeevalerror.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
 result=$(echo -e "p['h','a','r','r','o']" | tr -d '\n')
 if [ "$output" == "$result" ]; then
     print_green "✅ closeevalerror.mrl passed!"
@@ -156,8 +156,8 @@ fi
 
 # builtin.mrl
 print_bold "Running builtin.mrl..."
-./glados test/test_files/builtin.mrl
-output=$(./glados out.masm --vm | tr -d '\n')
+./glados build test/test_files/builtin.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
 result=$(echo -e "hello world" | tr -d '\n')
 if [ "$output" == "$result" ]; then
     print_green "✅ builtin.mrl passed!"
@@ -165,3 +165,17 @@ else
     print_yellow "got '$output'"
     print_red "❌ builtin.mrl failed"
 fi
+
+# basicstruct.mrl
+print_bold "Running basicstruct.mrl..."
+./glados build test/test_files/basicstruct.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "{"a" = 1,"b" = 2,"c" = 3}{"a" = 0,"b" = 0,"c" = 0}" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ basicstruct.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ basicstruct.mrl failed"
+fi
+
+rm out.masm

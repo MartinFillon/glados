@@ -53,17 +53,26 @@ translateBinaryFunc op left right mem
 ------- Structures
 
 translateStruct :: Ast -> Ast -> String -> Memory -> (D.DList Instruction, Memory)
-translateStruct (AstDefineStruct struct@(Structure _ props)) structValues nameStruct mem = trace "yoo" $
+translateStruct (AstDefineStruct struct@(Structure structName props)) AstVoid varName mem =
+    case mapM toStructField props of
+        Just fields ->
+            (D.singleton (push Nothing (St $ Map.fromList fields)), updateMemory mem varName (AstStruct props))
+        Nothing -> (D.empty, mem)
+    where
+      toStructField (AstDefineVar (Variable n _ v)) =
+              fmap ((,) n) (associateTypes v mem)
+      toStructField _ = Nothing
+translateStruct (AstDefineStruct struct) structValues nameStruct mem =
     case normalizeStruct (AstDefineStruct struct) structValues of
-        Right (AstStruct eles) ->  trace "~~~~~~~~~~~`" $
-             case mapM toStructField props of
+        Right (AstStruct eles) -> trace (">>> " ++ nameStruct ++ " " ++ show eles) $
+             case mapM toStructField eles of
                 Just fields ->
-                    (D.singleton (push Nothing (St $ Map.fromList fields)), updateMemory mem nameStruct (AstStruct eles))
+                    (D.fromList [push Nothing (St $ Map.fromList fields), load Nothing nameStruct],
+                        updateMemory mem nameStruct (AstStruct eles))
                 Nothing -> (D.empty, mem)
             where
-                toStructField (AstLabel n v) =
-                    trace ("Processing field: " ++ n) $
-                        fmap ((,) n) (associateTypes v mem)
+                toStructField (AstLabel fieldName fieldValue) =
+                    fmap (\val -> (fieldName, val)) (associateTypes fieldValue mem)
                 toStructField _ = Nothing
         _ -> (D.empty, mem)
 translateStruct  _ _ _ mem = (D.empty, mem)
@@ -192,9 +201,10 @@ translateAST (AstArg (AstDefineVar (Variable varName _ _)) Nothing) mem =
     case readMemory mem varName of
         Just val -> translateAST val mem
         Nothing -> (D.empty, mem)
-translateAST (AstDefineVar (Variable varName (Struct structName) (AstStruct eles))) mem =
+translateAST (AstDefineVar (Variable varName (Struct structName) ast)) mem =
     case readMemory mem structName of
-        Just (AstDefineStruct struct) -> translateStruct (AstDefineStruct struct) (AstStruct eles) varName mem
+        Just (AstDefineStruct struct) -> 
+            translateStruct (AstDefineStruct struct) ast varName mem
         _ -> (D.empty, mem)
 translateAST (AstDefineVar (Variable varName _ varValue)) mem =
     let (instrs, updatedMem) = translateAST varValue mem
@@ -228,25 +238,9 @@ translateAST (AstChar c) mem = (D.singleton (push Nothing (C c)), mem)
 translateAST (AstList list) mem = (D.singleton (push Nothing (L (translateList list mem))), mem)
 translateAST (AstListElem var idxs) mem =
     (fst (translateAST (AstVar var) mem) `D.append` translateMultIndexes idxs mem, mem)
-translateAST (AstDefineStruct struct@(Structure structName props)) mem =
-    case mapM toStructField props of
-        Just fields ->
-            (D.empty, updateMemory mem structName (AstDefineStruct struct))
-            -- (D.singleton (push Nothing (St $ Map.fromList fields)), updateMemory mem structName (AstDefineStruct struct))
-        Nothing -> (D.empty, mem)
-    where
-      toStructField (AstDefineVar (Variable n _ v)) =
-          trace ("Processing field: " ++ n) $
-              fmap ((,) n) (associateTypes v mem)
-      toStructField _ = Nothing
+translateAST (AstDefineStruct struct@(Structure structName _)) mem =
+    (D.empty, updateMemory mem structName (AstDefineStruct struct))
 translateAST _ mem = (D.empty, mem)
-
--- translateToASM :: [Ast] -> Memory -> (D.DList Instruction, Memory)
--- translateToASM asts mem = foldl processAST (D.empty, mem) asts
---   where
---     processAST (instructions, currentMem) ast =
---         let (newInstructions, updatedMem) = translateAST ast currentMem
---          in (instructions ++ newInstructions, updatedMem)
 
 translateToASM :: [Ast] -> Memory -> (D.DList Instruction, Memory)
 translateToASM asts mem = (instructions, finalMem)
