@@ -54,6 +54,8 @@ evalAssign mem (AstListElem var idxs) right =
             let finalMem = updateMemory newMem var clarified
              in Right (AstBinaryFunc "=" (AstVar var) clarified, finalMem)
 evalAssign _ left right = Left ("Can't assign " ++ show right ++ " to " ++ show left ++ ".")
+-- struct
+-- astarg
 
 defaultRegistry :: FunctionRegistry
 defaultRegistry =
@@ -134,20 +136,15 @@ normalizeStruct (AstDefineStruct (Structure _ structProps)) (AstStruct instanceF
             Left err -> Left err
 normalizeStruct _ _ = Left "Invalid struct definition or instance."
 
-evalFinalStruct :: [Ast] -> Ast -> Either String Ast
+evalFinalStruct :: [Ast] -> Ast -> Either String Ast -- check if there are extra values
 evalFinalStruct ((AstLabel label AstVoid) : _) _ =
     Left ("Defining a structure requires no uninitialised values, expected value for field '" ++ label ++ "'.")
 evalFinalStruct ((AstLabel _ _) : xs) ast = evalFinalStruct xs ast
 evalFinalStruct [] ast = Right ast
 evalFinalStruct _ ast = Right ast
 
-evalDefinition :: Ast -> MarylType -> Variable -> Memory -> Either String Ast
-evalDefinition AstVoid _ _ _ = Right AstVoid
-evalDefinition (AstArg ast _) typeVar var mem = evalDefinition ast typeVar var mem
-evalDefinition (AstVar str) typeVar var mem = case readMemory mem str of
-    Just value -> evalDefinition value typeVar var mem
-    Nothing -> Left ("Variable " ++ str ++ " out of scope.")
-evalDefinition (AstListElem listVar idx) typeVar _ mem =
+evalListElemDef :: String -> [Int] -> MarylType -> Memory -> Either String Ast
+evalListElemDef listVar idx typeVar mem =
     case readMemory mem listVar of
         Just (AstList eles) ->
             if getMarylType (head eles) == typeVar
@@ -155,6 +152,14 @@ evalDefinition (AstListElem listVar idx) typeVar _ mem =
                 else Left ("List element isn't of proper type, expected " ++ show typeVar ++ ".")
         Just _ -> Left ("Variable " ++ listVar ++ " isn't referencing to type List.")
         Nothing -> Left ("Variable " ++ listVar ++ " out of scope.")
+
+evalDefinition :: Ast -> MarylType -> Variable -> Memory -> Either String Ast
+evalDefinition AstVoid _ _ _ = Right AstVoid
+evalDefinition (AstArg ast _) typeVar var mem = evalDefinition ast typeVar var mem
+evalDefinition (AstVar str) typeVar var mem = case readMemory mem str of
+    Just value -> evalDefinition value typeVar var mem
+    Nothing -> Left ("Variable " ++ str ++ " out of scope.")
+evalDefinition (AstListElem listVar idx) typeVar _ mem = evalListElemDef listVar idx typeVar mem
 evalDefinition (AstList eles) (List typeVar) _ mem
     | checkListType eles typeVar mem = Right (AstList eles)
     | otherwise = Left ("Element in list isn't of proper type, expected list full of " ++ show typeVar ++ ".")
@@ -270,9 +275,8 @@ evalNode mem (AstVar name) =
     maybe (Left $ "Undefined variable: " ++ name ++ ".") (\value -> Right (value, mem)) (readMemory mem name)
 evalNode mem (AstDefineVar var@(Variable varName varType varValue))
     | isValidType varValue varType = addDefineVar mem var
-    | otherwise = case evalDefinition varValue varType var mem of
-        Right _ -> addDefineVar mem var
-        Left err -> Left err
+    | otherwise =
+        evalDefinition varValue varType var mem >> addDefineVar mem var
 evalNode mem (AstDefineFunc func) = addDefineFunc mem func
 evalNode mem (AstFunc func@(Function funcName _ _ _)) =
     case readMemory mem funcName of
@@ -312,13 +316,9 @@ evalNode mem (AstLoop Nothing cond block) =
 evalNode mem (AstListElem var idxs) = evalList var idxs mem
 evalNode mem (AstDefineStruct struct@(Structure name properties)) =
     case addMemory mem name (AstDefineStruct struct) of
-        Right newMem -> case evalStructDecla properties newMem of
-            Right () -> Right (AstDefineStruct struct, newMem)
-            Left err -> Left err
+        Right newMem -> evalStructDecla properties newMem >>= \() -> 
+            Right (AstDefineStruct struct, newMem)
         Left err -> Left ("Failed to define structure (" ++ err ++ ").")
--- translateAST (AstStruct eles) mem =
--- >> checkout as AstDefineVar
--- >> check that all labels or of correct type and update values
 evalNode mem (AstReturn expr) =
     evalNode mem expr >>= \(evaluatedExpr, mem') ->
         Right (AstReturn expr, mem')

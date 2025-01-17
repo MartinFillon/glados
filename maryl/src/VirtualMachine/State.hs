@@ -31,6 +31,7 @@ module VirtualMachine.State (
     getNextInstruction,
     getPc,
     getStack,
+    handles,
     modifyStack,
     incPc,
     getArgs,
