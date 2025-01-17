@@ -12,6 +12,7 @@ import Test.Hspec (describe, hspec)
 import Compiler.SerializeSpec (spec)
 import Compiler.TranslationSpec (spec)
 import Eval.OpsSpec (spec)
+import Eval.EvalSpec (spec)
 import MemorySpec (spec)
 import Parsing.ParsingSpec (spec)
 import PrinterSpec (spec)
@@ -26,5 +27,6 @@ main = hspec $ do
     describe "Compiler Translation spec" Compiler.TranslationSpec.spec
     describe "Compiler Serializing spec" Compiler.SerializeSpec.spec
     describe "Parsing spec" Parsing.ParsingSpec.spec
+    describe "Eval spec" Eval.EvalSpec.spec
     describe "Eval (for ops) spec" Eval.OpsSpec.spec
     describe "Memory spec" MemorySpec.spec
