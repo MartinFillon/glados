@@ -258,22 +258,34 @@ spec = do
         parseAST' "struct outer {struct inner {int z;}; int y;}"
           `shouldBe` Right [AstDefineStruct (Structure "outer" [AstDefineStruct (Structure "inner" [AstDefineVar (Variable "z" Int AstVoid)]), AstDefineVar (Variable "y" Int AstVoid)])]
 
+      it "struct complex {string name; float value;}" $ do
+        parseAST' "struct complex {string name; float value;}"
+          `shouldBe` Right [AstDefineStruct (Structure "complex" [AstDefineVar (Variable "name" String AstVoid), AstDefineVar (Variable "value" Double AstVoid)])]
+
+      it "struct nested {struct complex c; int count;}" $ do
+        parseAST' "struct nested {struct complex c; int count;}"
+          `shouldBe` Right [AstDefineStruct (Structure "nested" [AstDefineVar (Variable "c" (Struct "complex") AstVoid), AstDefineVar (Variable "count" Int AstVoid)])]
+
     context "Constant declaration" $ do
-      it "const int max = 100;" $ do
+      it "constant int max = 100;" $ do
         parseAST' "const int max = 100;"
           `shouldBe` Right [AstDefineVar (Variable "max" (Const Int) (AstInt 100))]
 
-      it "const string name = \"Maryl\";" $ do
+      it "constant string name = \"Maryl\";" $ do
         parseAST' "const string name = \"Maryl\";"
           `shouldBe` Right [AstDefineVar (Variable "name" (Const String) (AstString "Maryl"))]
 
-      it "const double pi = 3.14159;" $ do
+      it "constant double pi = 3.14159;" $ do
         parseAST' "const double pi = 3.14159;"
           `shouldBe` Right [AstDefineVar (Variable "pi" (Const Double) (AstDouble 3.14159))]
 
-      it "const bool isReady = true;" $ do
+      it "constant bool isReady = true;" $ do
         parseAST' "const bool isReady = true;"
           `shouldBe` Right [AstDefineVar (Variable "isReady" (Const Bool) (AstBool True))]
+
+      it "constant char letter = 'Z';" $ do
+        parseAST' "const char letter = 'Z';"
+          `shouldBe` Right [AstDefineVar (Variable "letter" (Const Char) (AstChar 'Z'))]
 
     context "File import" $ do
       it "import \"utils.mrl\";" $ do
@@ -287,6 +299,10 @@ spec = do
       it "Multiple imports" $ do
         parseAST' "import \"utils.mrl\"; import \"core.mrl\";"
           `shouldBe` Right [AstImport "utils.mrl", AstImport "core.mrl"]
+
+      it "import \"library/utils.mrl\";" $ do
+        parseAST' "import \"library/utils.mrl\";"
+          `shouldBe` Right [AstImport "library/utils.mrl"]
 
     context "Invalid syntax" $ do
       it "int = 42;" $ do
@@ -367,6 +383,9 @@ spec = do
       it "struct unsupported property type" $ do
         isLeft (parseAST' "struct vector {unsupportedType z;}") `shouldBe` True
 
+      it "struct missing semicolon" $ do
+        isLeft (parseAST' "struct broken {string name float value}") `shouldBe` True
+
       it "Reassignment of constant should fail" $ do
         isLeft (parseAST' "const int max = 100; max = 200;") `shouldBe` True
 
@@ -378,6 +397,12 @@ spec = do
 
       it "constant duplicate declaration" $ do
         isLeft (parseAST' "const int x = 10; const int x = 20;") `shouldBe` True
+
+      it "constant missing value" $ do
+        isLeft (parseAST' "const int max;") `shouldBe` True
+
+      it "constant incompatible value" $ do
+        isLeft (parseAST' "const int max = true;") `shouldBe` True
 
       it "import missing file extension" $ do
         isLeft (parseAST' "import \"utils\";") `shouldBe` True
@@ -393,3 +418,9 @@ spec = do
 
       it "import invalid syntax" $ do
         isLeft (parseAST' "import utils.mrl;") `shouldBe` True
+
+      it "import missing quotes" $ do
+        isLeft (parseAST' "import utils.mrl;") `shouldBe` True
+
+      it "import multiple on once" $ do
+        isLeft (parseAST' "import \"utils.mrl\" \"config.mrl\";") `shouldBe` True
