@@ -285,6 +285,14 @@ evalList var idxs mem = case readMemory mem var of
 
 -----
 
+validateArguments :: [Ast] -> [Ast] -> Either String ()
+validateArguments [] [] = Right ()
+validateArguments (AstDefineVar (Variable _ expectedType _) : expectedRest) (actual : actualRest) =
+  if isValidType actual expectedType
+    then validateArguments expectedRest actualRest
+    else Left $ "Type mismatch: expected " ++ show expectedType ++ ", but got " ++ show (getMarylType actual)
+validateArguments _ _ = Left "Argument count mismatch"
+
 evalNode :: Memory -> Ast -> Either String (Ast, Memory)
 evalNode mem (AstBinaryFunc "=" left right) = evalAssign mem left right
 evalNode mem (AstBinaryFunc (x : "=") left right)
@@ -300,10 +308,26 @@ evalNode mem (AstDefineVar var@(Variable varName varType varValue))
   | otherwise =
       evalDefinition varValue varType var mem >> addDefineVar mem var
 evalNode mem (AstDefineFunc func) = addDefineFunc mem func
-evalNode mem (AstFunc func@(Function funcName _ _ _)) =
+evalNode mem (AstFunc (Function funcName args _ _)) =
   case readMemory mem funcName of
-    Just (AstDefineFunc (Function _ _ _ newFuncType)) -> Right (AstFunc (func {fType = newFuncType}), mem)
-    _ -> checkBuiltins funcName (AstFunc func) mem
+    Just (AstDefineFunc (Function _ expectedArgs body returnType)) -> do
+      validateArguments expectedArgs args
+      let newMem =
+            foldl
+              ( \m (AstDefineVar (Variable varName _ value)) ->
+                  updateMemory m varName value
+              )
+              mem
+              args
+      evalAST newMem body >>= \(evaluatedBody, updatedMem) ->
+        case filter isReturn evaluatedBody of
+          (AstReturn value : _) -> Right (value, updatedMem)
+          _ -> Right (AstVoid, updatedMem)
+    Nothing -> Left $ "Function \"" ++ funcName ++ "\" is not defined."
+-- evalNode mem (AstFunc func@(Function funcName _ _ _)) =
+--   case readMemory mem funcName of
+--     Just (AstDefineFunc (Function _ _ _ newFuncType)) -> Right (AstFunc (func {fType = newFuncType}), mem)
+--     _ -> checkBuiltins funcName (AstFunc func) mem
 evalNode mem (AstLoop Nothing cond block) =
   let loopName = generateUniqueLoopName mem
       updatedMem = addLoopLabel loopName cond block mem
@@ -361,3 +385,7 @@ evalAST mem (ast : asts) = trace ("[[ " ++ show ast ++ " ]]") $
 extractBlock :: Ast -> [Ast]
 extractBlock (AstBlock body) = body
 extractBlock _ = []
+
+isReturn :: Ast -> Bool
+isReturn (AstReturn _) = True
+isReturn _ = False
