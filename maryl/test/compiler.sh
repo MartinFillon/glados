@@ -129,3 +129,39 @@ else
     print_yellow "got '$output'"
     print_red "❌ fact.mrl failed"
 fi
+
+# loop.mrl
+print_bold "Running loop.mrl..."
+./glados test/test_files/loop.mrl
+output=$(./glados out.masm --vm | tr -d '\n')
+result=$(echo -e "5" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ loop.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ loop.mrl failed"
+fi
+
+# closeevalerror.mrl
+print_bold "Running closeevalerror.mrl..."
+./glados test/test_files/closeevalerror.mrl
+output=$(./glados out.masm --vm | tr -d '\n')
+result=$(echo -e "p['h','a','r','r','o']" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ closeevalerror.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ closeevalerror.mrl failed"
+fi
+
+# builtin.mrl
+print_bold "Running builtin.mrl..."
+./glados test/test_files/builtin.mrl
+output=$(./glados out.masm --vm | tr -d '\n')
+result=$(echo -e "hello world" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ builtin.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ builtin.mrl failed"
+fi

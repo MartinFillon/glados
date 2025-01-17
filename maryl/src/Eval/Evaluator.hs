@@ -9,11 +9,31 @@
 module Eval.Evaluator (evalAST, evalNode, applyOp, defaultRegistry) where
 
 import Compiler.Translation.Functions (isBuiltin)
-import Data.List (intercalate)
+import Data.List (find, intercalate)
 import qualified Data.Map as Map
 import Debug.Trace (trace)
 import Eval.Assignment (updateList)
-import Eval.Ops (evalAdd, evalAnd, evalBAnd, evalBOr, evalBXor, evalDiv, evalEq, evalGreatThanEq, evalGreaterThan, evalLessThan, evalLessThanEq, evalMod, evalMul, evalNEq, evalOr, evalPower, evalShiftL, evalShiftR, evalSub)
+import Eval.Ops (
+    evalAdd,
+    evalAnd,
+    evalBAnd,
+    evalBOr,
+    evalBXor,
+    evalDiv,
+    evalEq,
+    evalGreatThanEq,
+    evalGreaterThan,
+    evalLessThan,
+    evalLessThanEq,
+    evalMod,
+    evalMul,
+    evalNEq,
+    evalOr,
+    evalPower,
+    evalShiftL,
+    evalShiftR,
+    evalSub
+)
 import Memory (Memory, addMemory, freeMemory, generateUniqueLoopName, readMemory, updateMemory)
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Structure (..), Variable (..), getMarylType, isValidType)
 
@@ -78,13 +98,56 @@ evalBinaryFunc mem op left right = case evalNode mem left of
 
 ----- Declarations (Functions, Variables, Loop)
 
+matchPositionalFields :: [(String, MarylType, Ast)] -> [Ast] -> Either String [Ast]
+matchPositionalFields defFields newFields
+    | length newFields == length defFields =
+        Right (zipWith (\(name, _, _) value -> AstLabel name value) defFields newFields)
+    | otherwise = Left ("Defining a structure requires no uninitialised values, expected " ++ show (length defFields) ++
+        " elements but got " ++ show (length newFields) ++ ".")
+
+validateField :: [Ast] -> (String, MarylType, Ast) -> Either String Ast
+validateField labeledFields (name, expectedType, defaultValue) =
+    case find (\(AstLabel n _) -> n == name) labeledFields of
+        Just (AstLabel _ value) ->
+            if isValidType value expectedType
+            then Right (AstLabel name value)
+            else Left ("Type mismatch for field '" ++ name ++ "', expected " ++ show expectedType ++ " but got \"" ++
+                show value ++ "\".")
+        _ -> Right (AstLabel name defaultValue)
+
+validateAndNormalizeFields :: [(String, MarylType, Ast)] -> Either String [Ast] -> Either String [Ast]
+validateAndNormalizeFields defFields labelFields = case labelFields of
+    Right labeledFields -> traverse (validateField labeledFields) defFields
+    Left err -> Left err
+
+normalizeStruct :: Ast -> Ast -> Either String Ast
+normalizeStruct (AstDefineStruct (Structure _ structProps)) (AstStruct instanceFields) =
+    let definedFields = map (\(AstDefineVar (Variable name varType defaultValue)) ->
+        (name, varType, defaultValue)) structProps
+        labeledFields = case instanceFields of
+            (AstLabel _ _ : _) -> Right instanceFields
+            _ -> matchPositionalFields definedFields instanceFields
+
+        validatedFields = validateAndNormalizeFields definedFields labeledFields
+     in case validatedFields of
+            Right normalized -> evalFinalStruct normalized (AstStruct normalized)
+            Left err -> Left err
+normalizeStruct _ _ = Left "Invalid struct definition or instance."
+
+evalFinalStruct :: [Ast] -> Ast -> Either String Ast
+evalFinalStruct ((AstLabel label AstVoid) : _) _ =
+    Left ("Defining a structure requires no uninitialised values, expected value for field '" ++ label ++ "'.")
+evalFinalStruct ((AstLabel _ _) : xs) ast = evalFinalStruct xs ast
+evalFinalStruct [] ast = Right ast
+evalFinalStruct _ ast = Right ast
+
 evalDefinition :: Ast -> MarylType -> Variable -> Memory -> Either String Ast
 evalDefinition AstVoid _ _ _ = Right AstVoid
 evalDefinition (AstArg ast _) typeVar var mem = evalDefinition ast typeVar var mem
 evalDefinition (AstVar str) typeVar var mem = case readMemory mem str of
     Just value -> evalDefinition value typeVar var mem
     Nothing -> Left ("Variable " ++ str ++ " out of scope.")
-evalDefinition (AstListElem listVar idx) typeVar var mem =
+evalDefinition (AstListElem listVar idx) typeVar _ mem =
     case readMemory mem listVar of
         Just (AstList eles) ->
             if getMarylType (head eles) == typeVar
@@ -92,29 +155,33 @@ evalDefinition (AstListElem listVar idx) typeVar var mem =
                 else Left ("List element isn't of proper type, expected " ++ show typeVar ++ ".")
         Just _ -> Left ("Variable " ++ listVar ++ " isn't referencing to type List.")
         Nothing -> Left ("Variable " ++ listVar ++ " out of scope.")
-evalDefinition (AstList eles) (List typeVar) var mem
+evalDefinition (AstList eles) (List typeVar) _ mem
     | checkListType eles typeVar mem = Right (AstList eles)
     | otherwise = Left ("Element in list isn't of proper type, expected list full of " ++ show typeVar ++ ".")
-evalDefinition (AstDefineVar origVar@(Variable varName varType _)) expectedType var mem
+evalDefinition (AstDefineVar origVar@(Variable varName varType _)) expectedType _ _
     | varType == expectedType = Right (AstDefineVar origVar)
     | otherwise = Left (varName ++ " isn't of proper type, expected " ++ show varType ++ ".")
-evalDefinition ast (Struct structType) var@(Variable varName _ _) mem =
+evalDefinition ast (Struct structType) (Variable varName _ _) mem =
     case readMemory mem structType of
-        Just (AstDefineStruct struct) -> Right ast
+        Just (AstDefineStruct struct) -> normalizeStruct (AstDefineStruct struct) ast
         _ -> Left ("Struct of type " ++ structType ++ " can't be found, " ++ varName ++ " can't be defined.")
-evalDefinition ast varType var@(Variable varName _ varValue) mem
+evalDefinition (AstFunc funcName) _ _ _ =
+    trace "to do: evaluate functions " Right (AstFunc funcName)
+evalDefinition (AstTernary _ doState elseState) expectedType var mem = -- eval condition?
+    case evalDefinition doState expectedType var mem of
+        Right _ -> evalDefinition elseState expectedType var mem
+        _ -> Left (show doState ++ " in ternary isn't typed correctly, expected " ++ show expectedType ++ ".")
+evalDefinition ast varType (Variable varName _ _) _
     | isValidType ast varType = Right ast
     | otherwise = Left ("Value " ++ varName ++ " isn't typed correctly, expected " ++ show varType ++ ".")
 
 evalStructDecla :: [Ast] -> Memory -> Either String ()
--- evalStructDecla ((AstDefineVar var@(Variable varName varType AstVoid)) : xs) mem = >> NOT APPLICABLE FOR DEFASTSTRUCT ANYMORE, ONLY FOR ASTSTRUCT (MAKE SURE VM DOESN'T GET VOID VALUE)
---     Left ("Defining a structure requires no uninitialised values, expected " ++ show varType ++ " for " ++ varName)
-evalStructDecla ((AstDefineVar var@(Variable varName varType varValue)) : xs) mem =
+evalStructDecla ((AstDefineVar var@(Variable _ varType varValue)) : xs) mem =
     case evalDefinition varValue varType var mem of
-        -- Right AstVoid -> Left ("Defining a structure requires no uninitialised values, expected " ++ show varType ++ " for " ++ varName) >> HERE TOO
         Right _ -> evalStructDecla xs mem
         Left err -> Left err
-evalStructDecla [] mem = Right ()
+evalStructDecla [] _ = Right ()
+evalStructDecla _ _ = Left "Invalid definition of structure."
 
 evalArgs :: [Ast] -> Memory -> Memory
 evalArgs [] mem = mem
@@ -125,10 +192,10 @@ evalArgs _ mem = mem
 checkBuiltins :: String -> Ast -> Memory -> Either String (Ast, Memory)
 checkBuiltins func ast mem
     | isBuiltin func = Right (ast, mem) -- add some error handling?
-    | otherwise = Left ("Function \"" ++ show func ++ " isn't defined.")
+    | otherwise = Left ("Function \"" ++ func ++ "\" isn't defined.")
 
 addDefineFunc :: Memory -> Function -> Either String (Ast, Memory)
-addDefineFunc mem func@(Function funcName args body typ) =
+addDefineFunc mem func@(Function funcName args body _) =
     case addMemory mem funcName (AstDefineFunc func) of
         Right newMem ->
             let editedMem = evalArgs args (freeMemory newMem)
@@ -137,9 +204,9 @@ addDefineFunc mem func@(Function funcName args body typ) =
                      in Right (AstVoid, updateMemory updatedMem funcName (AstDefineFunc updatedFunc))
         Left err -> Left $ "Failed to define function (" ++ err ++ ")."
 
-addDefineLoopFunc :: String -> Ast -> Ast -> Memory -> Memory
-addDefineLoopFunc loopName cond block mem =
-    case addMemory mem loopName (AstDefineLoop loopName cond block) of
+addLoopLabel :: String -> Ast -> Ast -> Memory -> Memory
+addLoopLabel loopName cond block mem =
+    case addMemory mem loopName (AstGlobal (AstLoop (Just loopName) cond block)) of
         Right newMem -> newMem
         _ -> mem
 
@@ -154,9 +221,9 @@ addDefineVar mem var@(Variable varName _ vVal) =
 ----- Types
 
 checkListType :: [Ast] -> MarylType -> Memory -> Bool
-checkListType (x : xs) (Struct typeStruct) mem =
+checkListType (x : xs) (Struct typeStruct) mem = -- fix this
     case readMemory mem typeStruct of
-        Just (AstDefineStruct struct) -> checkListType xs (Struct typeStruct) mem
+        Just (AstDefineStruct _) -> checkListType xs (Struct typeStruct) mem
         _ -> False
 checkListType (AstVar var : xs) expectedType mem =
     case readMemory mem var of
@@ -171,22 +238,23 @@ checkListType [] _ _ = True
 checkIndices :: [Int] -> [Ast] -> Either String ()
 checkIndices [] _ = Right ()
 checkIndices (i : idxs) list
-    | i < 0 || i >= length list = Left ("Index " ++ show i ++ " is out of bounds for the list.")
+    | i < 0 || i >= length list =
+        Left ("Index " ++ show i ++ " is out of bounds for the list.")
     | otherwise = case list !! i of
         AstList sublist -> checkIndices idxs sublist
         _ ->
             if null idxs
                 then Right ()
-                else Left ("Invalid indexing at depth, cannot be applied for " ++ show list ++ "[" ++ intercalate "][" (map show idxs) ++ "].")
+                else Left ("Invalid indexing at depth, cannot be applied for [" ++ intercalate "][" (map show idxs) ++ "].")
 
 evalList :: String -> [Int] -> Memory -> Either String (Ast, Memory)
 evalList var idxs mem = case readMemory mem var of
     Just (AstList list) ->
         case checkIndices idxs list of
             Right () -> Right (AstListElem var idxs, mem)
-            Left err -> Left err
-    Just _ -> Left ("Index call of variable \"" ++ show var ++ "\" isn't available; only supported by type list.")
-    Nothing -> Left ("Variable \"" ++ show var ++ "\" is out of scope; not defined.")
+            Left err -> Left (var ++ ": " ++ err)
+    Just _ -> Left ("Index call of variable \"" ++ var ++ "\" isn't available; only supported by type list.")
+    Nothing -> Left ("Variable \"" ++ var ++ "\" is out of scope; not defined.")
 
 -----
 
@@ -203,6 +271,9 @@ evalNode mem (AstVar name) =
 evalNode mem (AstDefineVar var@(Variable varName varType varValue))
     | isValidType varValue varType = addDefineVar mem var
     | otherwise = case evalDefinition varValue varType var mem of
+        Right (AstStruct eles) -> case addMemory mem varName (AstStruct eles) of
+            Right newMem -> Right (AstDefineVar (Variable varName varType (AstStruct eles)), newMem)
+            Left err -> Left $ "Failed to define var (" ++ err ++ ")."
         Right _ -> addDefineVar mem var
         Left err -> Left err
 evalNode mem (AstDefineFunc func) = addDefineFunc mem func
@@ -212,7 +283,7 @@ evalNode mem (AstFunc func@(Function funcName _ _ _)) =
         _ -> checkBuiltins funcName (AstFunc func) mem
 evalNode mem (AstLoop Nothing cond block) =
     let loopName = generateUniqueLoopName mem
-        updatedMem = addDefineLoopFunc loopName cond block mem
+        updatedMem = addLoopLabel loopName cond block mem
      in Right (AstLoop (Just loopName) cond block, updatedMem)
 -- evalNode mem (AstLoop cond body) = do
 --     let loop mem' = do
@@ -253,7 +324,7 @@ evalNode mem (AstDefineStruct struct@(Structure name properties)) =
 -- >> check that all labels or of correct type and update values
 evalNode mem (AstReturn expr) =
     evalNode mem expr >>= \(evaluatedExpr, mem') ->
-        Right (AstReturn evaluatedExpr, mem')
+        Right (AstReturn expr, mem')
 evalNode mem node = Right (node, mem)
 
 -- Evaluate a list of AST nodes

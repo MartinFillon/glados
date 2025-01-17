@@ -142,8 +142,6 @@ data Ast
     | AstDefineVar Variable
     | AstDefineFunc Function
     | AstArg Ast (Maybe Int)
-    | -- | nameLoop condition do
-      AstDefineLoop String Ast Ast
     | AstDefineStruct Structure
     | AstList [Ast]
     | -- | variable indexes
@@ -178,7 +176,6 @@ instance Show Ast where
     show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
     show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
     show (AstArg arg idx) = "(Arg " ++ show arg ++ " (" ++ show idx ++ "))"
-    show (AstDefineLoop nLoop cond loopBlock) = "DefLoop " ++ show nLoop ++ "(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
     show (AstList asts) = "List" ++ show asts
     show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
     show (AstStruct s) = "Struct " ++ show s
