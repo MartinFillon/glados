@@ -68,7 +68,7 @@ import Data.List (intercalate, isPrefixOf, stripPrefix)
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Void (Void)
 import Text.Megaparsec (
-    MonadParsec (eof, try),
+    MonadParsec (eof, try, lookAhead),
     ParseErrorBundle,
     Parsec,
     between,
@@ -85,6 +85,7 @@ import Text.Megaparsec (
  )
 import Text.Megaparsec.Char (alphaNumChar, char, letterChar, string)
 import qualified Text.Megaparsec.Char.Lexer as L
+import Debug.Trace (trace)
 
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
@@ -422,26 +423,37 @@ types' :: [String]
 types' =
     [ "int",
       "float",
+      "double",
       "string",
       "char",
       "bool",
       "void"
     ]
 
-pStruct :: Parser String
-pStruct = lexeme $ do
-    s <- string "struct"
+pType :: Parser String
+pType = choice (string <$> types')
+
+pStructType :: Parser String
+pStructType = lexeme $ do
+    s <- string "struct "
     sc
     n <- variable
     return $ s ++ " " ++ n
 
+typesLookahead :: String -> Parser String
+typesLookahead pfx = lexeme $ do
+    s <- string pfx
+    sc
+    t <- types
+    return $ s ++ " " ++ t
+
 types :: Parser String
 types =
     choice
-        [ choice (map string $ ("[]" ++) <$> types'),
-          choice (map string $ ("const " ++) <$> types'),
-          choice (map string types'),
-          pStruct
+        [ pStructType,
+          try $ typesLookahead "[]",
+          typesLookahead "const ",
+          pType
         ]
 
 trimFront :: String -> String -> String
@@ -451,14 +463,15 @@ trimFront toTrim str = dropWhile (\x -> x == ' ' || x == '\t') (fromJust $ strip
 getType :: String -> MarylType
 getType "int" = Int
 getType "float" = Double
+getType "double" = Double
 getType "string" = String
 getType "char" = Char
 getType "bool" = Bool
 getType "void" = Void
 getType str
-    | "[]" `isPrefixOf` str = List $ getType (fromJust $ stripPrefix "[]" str)
-    | "const" `isPrefixOf` str = Const $ getType $ trimFront "const" str
-    | "struct" `isPrefixOf` str = Struct $ takeWhile (\x -> x /= ' ' && x /= '\t') $ trimFront "struct" str
+    | "[]" `isPrefixOf` str = List $ getType $ trimFront "[]" str
+    | "const " `isPrefixOf` str = Const $ getType $ trimFront "const" str
+    | "struct " `isPrefixOf` str = Struct $ takeWhile (\x -> x /= ' ' && x /= '\t') $ trimFront "struct" str
     | otherwise = Undefined
 
 optionalValue :: Parser (Maybe Ast)
