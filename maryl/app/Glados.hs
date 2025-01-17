@@ -31,7 +31,7 @@ handleEvalResult _ (Left err) =
     pError ("*** ERROR *** with\n\t" ++ err)
 
 parseAstCode :: Memory -> [Ast] -> IO Memory
-parseAstCode mem asts = trace (show asts) $ let evalResult = evalAST mem asts
+parseAstCode mem asts = let evalResult = evalAST mem asts
          in handleEvalResult asts evalResult
                 >> return (either (const mem) snd evalResult)
 

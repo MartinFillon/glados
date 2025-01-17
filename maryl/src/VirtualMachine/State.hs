@@ -31,6 +31,7 @@ module VirtualMachine.State (
     getNextInstruction,
     getPc,
     getStack,
+    handles,
     modifyStack,
     incPc,
     getArgs,
@@ -49,6 +50,7 @@ module VirtualMachine.State (
     ioCatch,
     setError,
     getError,
+    getOperator,
 ) where
 
 import Control.Exception (catch)
@@ -81,15 +83,19 @@ instance Show V where
 
 data VmMemory = VmMemory
     { values :: Map String V,
+      vars :: Map String Value,
       handles :: [Handle]
     }
     deriving (Show)
 
 initialMemory :: Map String V -> VmMemory
-initialMemory op = VmMemory op [stdin, stdout, stderr]
+initialMemory op = VmMemory op Map.empty [stdin, stdout, stderr]
 
-registerValue :: VmMemory -> (String, V) -> VmMemory
-registerValue v@(VmMemory vls _) (k, k') = v {values = Map.insert k k' vls}
+registerValue :: VmMemory -> (String, Value) -> VmMemory
+registerValue v@(VmMemory _ vls _) (k, k') = v {vars = Map.insert k k' vls}
+
+copyMemory :: VmMemory -> VmMemory
+copyMemory v = v {vars = Map.empty}
 
 {- | The 'Vm' Data is what holds every useful information about the state of the vitual machine.
 It can be used by itself but it is highly recommended to use it with 'VmState'.
@@ -132,7 +138,7 @@ initialState i m a = Vm [] i m 0 a False
 It also clears the stack and takes the old one as argument in order for it to become the new args.
 -}
 copyVm :: [Instruction] -> [Value] -> Vm -> Vm
-copyVm i a v = v {stack = [], args = a, instructions = i, pc = 0}
+copyVm i a v = v {stack = [], args = a, instructions = i, pc = 0, memory = copyMemory (memory v)}
 
 {- | The 'copyVm'' function is used to copy a vm state and its memory and change its pc.
 It also clears the stack and takes the old one as argument in order for it to become the new args.
@@ -168,22 +174,17 @@ It can be used like 'io' but for functions returning a 'Either'.
 eitherS :: Show e => Either e a -> VmState a
 eitherS = io . eitherS'
 
-register' :: (String, V) -> Vm -> Vm
+register' :: (String, Value) -> Vm -> Vm
 register' k v = v {memory = registerValue (memory v) k}
 
-register :: (String, V) -> VmState ()
-register (n, v) =
-    getElemInMemory n
-        >>= ( \i -> case i of
-                Nothing -> modify (register' (n, v))
-                Just _ -> fail $ "Cannot redifine constant " ++ n
-            )
+register :: (String, Value) -> VmState ()
+register (n, v) = modify (register' (n, v))
 
-registerL :: [(String, V)] -> VmState ()
+registerL :: [(String, Value)] -> VmState ()
 registerL = foldr ((>>) . register) (pure ())
 
 registerHandle' :: Handle -> VmMemory -> VmState VmMemory
-registerHandle' h vmm@(VmMemory _ h') = modify (\v -> v {memory = vmm {handles = h' ++ [h]}}) >> getMemory
+registerHandle' h vmm@(VmMemory _ _ h') = modify (\v -> v {memory = vmm {handles = h' ++ [h]}}) >> getMemory
 
 registerHandle :: Handle -> VmState Int64
 registerHandle h =
@@ -247,9 +248,12 @@ getArgs = gets args
 getMemory :: VmState VmMemory
 getMemory = gets memory
 
-getElemInMemory :: String -> VmState (Maybe V)
+getElemInMemory :: String -> VmState (Maybe Value)
 getElemInMemory s =
-    getMemory <&> Map.lookup s . values
+    getMemory <&> Map.lookup s . vars
+
+getOperator :: String -> VmState (Maybe V)
+getOperator s = getMemory <&> Map.lookup s . values
 
 getHandleInMemory :: Int64 -> VmState Handle
 getHandleInMemory i =

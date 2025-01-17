@@ -15,6 +15,7 @@ module Compiler.WriteASM (
 ) where
 
 import Compiler.Translation.ASTtoASM (translateAST)
+import Data.Map (Map)
 import qualified Data.Map as Map
 import Debug.Trace (trace)
 import Memory (Memory)
@@ -22,20 +23,35 @@ import Parsing.ParserAst (Ast (..))
 import VirtualMachine.Instructions (Inst (..), Instruction (..), Value (..))
 
 serializeInstArgs :: Inst -> String
-serializeInstArgs (Push (N n)) = " " ++ show n
-serializeInstArgs (Push (B b)) = " " ++ show b
-serializeInstArgs (Push (S s)) = " \"" ++ s ++ "\""
-serializeInstArgs (Push (L l)) = " " ++ show l
-serializeInstArgs (Push (D d)) = " " ++ show d
-serializeInstArgs (Push (C c)) = " " ++ show c
-serializeInstArgs (Push (Bi bi)) = " " ++ show bi
+serializeInstArgs (Push val) = " " ++ serializeValue val
 serializeInstArgs (PushArg n) = " " ++ show n
 serializeInstArgs (Call func) = " \"" ++ func ++ "\""
 serializeInstArgs (Jump (Left n)) = " " ++ show n
 serializeInstArgs (Jump (Right labelVal)) = " ." ++ labelVal
 serializeInstArgs (JumpIfFalse (Left n)) = " " ++ show n
 serializeInstArgs (JumpIfFalse (Right labelVal)) = " ." ++ labelVal
+serializeInstArgs (Load val) = " \"" ++ val ++ "\""
+serializeInstArgs (Get val) = " \"" ++ val ++ "\""
 serializeInstArgs _ = ""
+
+serializeValue :: Value -> String
+serializeValue (N n) = show n
+serializeValue (B b) = show b
+serializeValue (S s) = show s
+serializeValue (L l) = show l
+serializeValue (D d) = show d
+serializeValue (C c) = "'" ++ [c] ++ "'"
+serializeValue (Bi bi) = show bi
+serializeValue (St s) = serializeStruct s
+
+serializeStruct :: Map String Value -> String
+serializeStruct struct =
+    "{" ++ concatMapWithSeparator ", " serializeField (Map.toList struct) ++ "}"
+  where
+    serializeField (key, value) = "\"" ++ key ++ "\"=" ++ show value
+
+concatMapWithSeparator :: String -> (a -> String) -> [a] -> String
+concatMapWithSeparator sep f = foldr (\x acc -> f x ++ if null acc then "" else sep ++ acc) ""
 
 serializeInstruction :: Instruction -> String
 serializeInstruction (Instruction _ nameVal instVal labelVal) =
@@ -57,13 +73,7 @@ serializeMemoryFunctions mem =
         let (instructions, updatedMem) = translateAST (AstDefineFunc val) currentMem
             serializedFunc = serializeFunction key instructions
          in (acc ++ [serializedFunc], updatedMem)
-    extractFunction (acc, currentMem) key (AstDefineLoop loopName cond block) =
-        let (instructions, updatedMem) = translateAST (AstDefineLoop loopName cond block) currentMem
-            serializedLoop = serializeFunction key instructions
-         in (acc ++ [serializedLoop], updatedMem)
-    extractFunction accAndMem _ _ = accAndMem -- != AstDefineFunc | AstDefineLoop
+    extractFunction accAndMem _ _ = accAndMem -- != AstDefineFunc
 
 writeInstructionsToFile :: FilePath -> Memory -> IO ()
-writeInstructionsToFile filePath mem =
-    let serializedData = serializeMemoryFunctions mem
-    in writeFile filePath serializedData
+writeInstructionsToFile filePath mem = writeFile filePath (serializeMemoryFunctions mem)

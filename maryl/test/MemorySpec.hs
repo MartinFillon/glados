@@ -53,12 +53,10 @@ spec = do
             let mem = Map.fromList
                     [ ("var1", AstDefineFunc (Function "f" [] [] Void)),
                       ("var2", AstString "value"),
-                      ("var3", AstDefineLoop "loop" (AstString "cond") (AstString "do")),
                       ("var4", AstIf (AstString "cond") (AstString "then") [] Nothing)
                     ]
                 freedMem = freeMemory mem
             freedMem `shouldBe` Map.fromList
                 [ ("var1", AstDefineFunc (Function "f" [] [] Void)),
-                  ("var3", AstDefineLoop "loop" (AstString "cond") (AstString "do")),
                   ("var4", AstIf (AstString "cond") (AstString "then") [] Nothing)
                 ]

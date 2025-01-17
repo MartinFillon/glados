@@ -13,6 +13,7 @@ module Parsing.ParserAst (
     MarylType (..),
     Function (..),
     Variable (..),
+    Structure (..),
 
     -- * Types
     Parser,
@@ -22,6 +23,8 @@ module Parsing.ParserAst (
 
     -- ** Utility
     isSameType,
+    isValidType,
+    getMarylType,
 
     -- ** Main parsing functions
     parseAST,
@@ -119,6 +122,7 @@ data Ast
     | AstString String
     | AstChar Char
     | AstDouble Double
+    | AstGlobal Ast
     | AstBinaryFunc String Ast Ast
     | AstPostfixFunc String Ast
     | AstPrefixFunc String Ast
@@ -133,32 +137,32 @@ data Ast
     | -- | loopName condition (AstBlock to loop in)
       AstLoop (Maybe String) Ast Ast
     | -- | break statement
-      AstBreak
+      AstBreak (Maybe String)
     | -- | continue statement
-      AstContinue
+      AstContinue (Maybe String)
     | AstDefineVar Variable
-    -- | AstBuiltin Function -- to do
     | AstDefineFunc Function
     | AstArg Ast (Maybe Int)
-    | -- | nameLoop condition do
-      AstDefineLoop String Ast Ast
     | AstDefineStruct Structure
     | AstList [Ast]
     | -- | variable indexes
       AstListElem String [Int]
-    | AstLabel String Ast -- ^ label-name value
-    | AstImport String -- ^ file to import, must be .mrl extension
+    | -- |label-name value
+      AstLabel String Ast
+    | -- | file to import, must be .mrl extension
+      AstImport String
     deriving (Eq, Ord)
 
 instance Show Ast where
     show :: Ast -> String
-    show (AstVar s) = tail (init (show s))
+    show (AstVar s) = s
     show AstVoid = "Void"
     show (AstInt n) = show n
     show (AstBool b) = show b
     show (AstString s) = show s
     show (AstChar c) = show c
     show (AstDouble d) = show d
+    show (AstGlobal ast) = "Global value [" ++ show ast ++ "]"
     show (AstBinaryFunc op left right) = show left ++ " " ++ show op ++ " " ++ show right
     show (AstPostfixFunc f ast) = show ast ++ tail (init (show f))
     show (AstPrefixFunc f ast) = tail (init (show f)) ++ show ast
@@ -168,19 +172,17 @@ instance Show Ast where
     show (AstReturn ast) = "return " ++ show ast
     show (AstBlock blocks) = show blocks
     show (AstLoop loopName cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "} --> [" ++ maybe "" show loopName ++ "]"
-    show AstBreak = "break"
-    show AstContinue = "continue"
+    show (AstBreak loopName) = "break(" ++ show loopName ++ ")"
+    show (AstContinue loopName) = "continue(" ++ show loopName ++ ")"
     show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
-    -- show AstBuiltin
     show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
     show (AstArg arg idx) = "(Arg " ++ show arg ++ " (" ++ show idx ++ "))"
-    show (AstDefineLoop nLoop cond loopBlock) = "DefLoop " ++ show nLoop ++ "(" ++ show cond ++ "){" ++ show loopBlock ++ "}"
     show (AstList asts) = "List" ++ show asts
     show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
-    show (AstStruct s) = "struct " ++ show s
-    show (AstDefineStruct s) = "struct " ++ sName s ++ " " ++ show (sProperties s)
-    show (AstLabel n v) = "label " ++ n ++ ": " ++ show v
-    show (AstImport f) = "import " ++ f
+    show (AstStruct s) = "Struct " ++ show s
+    show (AstDefineStruct s) = "DefStruct " ++ sName s ++ " " ++ show (sProperties s)
+    show (AstLabel n v) = "Label " ++ n ++ ": " ++ show v
+    show (AstImport f) = "Import " ++ f
 
 -- | Types handled by the program.
 data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
@@ -205,18 +207,43 @@ isSameType (AstReturn {}) (AstReturn {}) = True
 isSameType (AstBlock {}) (AstBlock {}) = True
 isSameType (AstStruct {}) (AstStruct {}) = True
 isSameType (AstLoop {}) (AstLoop {}) = True
-isSameType AstBreak AstBreak = True
-isSameType AstContinue AstContinue = True
+isSameType (AstBreak {}) (AstBreak {}) = True
+isSameType (AstContinue {}) (AstContinue {}) = True
 isSameType (AstArg {}) (AstArg {}) = True
 isSameType (AstDefineVar {}) (AstDefineVar {}) = True
 isSameType (AstDefineFunc {}) (AstDefineFunc {}) = True
-isSameType (AstDefineLoop {}) (AstDefineLoop {}) = True
 isSameType (AstDefineStruct {}) (AstDefineStruct {}) = True
 isSameType (AstList {}) (AstList {}) = True
 isSameType (AstListElem {}) (AstListElem {}) = True
 isSameType (AstLabel {}) (AstLabel {}) = True
 isSameType (AstImport {}) (AstImport {}) = True
 isSameType _ _ = False
+
+-- | Compare AST to a MarylType and evaluates with Boolean
+isValidType :: Ast -> MarylType -> Bool
+isValidType AstVoid Void = True
+isValidType (AstInt _) Int = True
+isValidType (AstBool _) Bool = True
+isValidType (AstString _) String = True
+isValidType (AstChar _) Char = True
+isValidType (AstDouble _) Double = True
+isValidType _ _ = False
+
+-- ^^^
+-- doesn't handle AstStruct
+--                AstList
+--                AstListElem
+--                AstArg
+
+-- | Obtain suggested MarylType from an AST
+getMarylType :: Ast -> MarylType
+getMarylType AstVoid = Void
+getMarylType (AstInt _) = Int
+getMarylType (AstBool _) = Bool
+getMarylType (AstString _) = String
+getMarylType (AstChar _) = Char
+getMarylType (AstDouble _) = Double
+getMarylType _ = Undefined
 
 lineComment :: Parser ()
 lineComment = L.skipLineComment "//"
@@ -409,12 +436,13 @@ pStruct = lexeme $ do
     return $ s ++ " " ++ n
 
 types :: Parser String
-types = choice
-    [ choice (map string $ ("[]" ++) <$> types')
-    , choice (map string $ ("const " ++) <$> types')
-    , choice (map string types')
-    , pStruct
-    ]
+types =
+    choice
+        [ choice (map string $ ("[]" ++) <$> types'),
+          choice (map string $ ("const " ++) <$> types'),
+          choice (map string types'),
+          pStruct
+        ]
 
 trimFront :: String -> String -> String
 trimFront toTrim str = dropWhile (\x -> x == ' ' || x == '\t') (fromJust $ stripPrefix toTrim str)
@@ -555,14 +583,14 @@ pIf = do
 >>> while (true) {break;}
 -}
 pBreak :: Parser Ast
-pBreak = lexeme $ AstBreak <$ string "break"
+pBreak = lexeme $ AstBreak Nothing <$ string "break"
 
 {- | Parsing continue statement (just a "continue" keyword).
 
 >>> while (true) {continue;}
 -}
 pContinue :: Parser Ast
-pContinue = lexeme $ AstContinue <$ string "continue"
+pContinue = lexeme $ AstContinue Nothing <$ string "continue"
 
 eqSymbol :: Parser String
 eqSymbol =
@@ -672,7 +700,7 @@ ternary f = TernR ((f <$ lexeme (char ':')) <$ lexeme (char '?'))
 -- | Operator table containing every operator handled by the program.
 operatorTable :: [[Operator Parser Ast]]
 operatorTable =
-    [   [ binary "." (AstBinaryFunc ".") ],
+    [ [binary "." (AstBinaryFunc ".")],
         [ prefix "--" (AstPrefixFunc "--"),
           prefix "-" (AstPrefixFunc "-"),
           prefix "++" (AstPrefixFunc "++"),

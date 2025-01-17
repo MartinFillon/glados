@@ -95,7 +95,7 @@ data Inst
     | PushArg Int
     | Call String
     | Ret
-    | Load String Value
+    | Load String
     | Get String
     | JumpIfFalse (Either Int String)
     | Jump (Either Int String)
@@ -144,13 +144,13 @@ pushArg :: Label -> Int -> Instruction
 pushArg l x = Instruction 5 "pushArg" (PushArg x) l
 
 {- | The 'Load' instruction constructor.
- 'Load' is used to load constant values into the memory.
+ 'Load' is used to load values into the memory.
 -}
-load :: Label -> String -> Value -> Instruction
-load l n v = Instruction 6 "load" (Load n v) l
+load :: Label -> String -> Instruction
+load l n = Instruction 6 "load" (Load n) l
 
 {- | The 'Get' instruction constructor.
- 'Get' is used to get constant values from the memory.
+ 'Get' is used to get svalues from the memory.
 -}
 get :: Label -> String -> Instruction
 get l n = Instruction 7 "get" (Get n) l

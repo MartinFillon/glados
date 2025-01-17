@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-
 -- EPITECH PROJECT, 2024
 -- inst [WSL: Ubuntu]
@@ -12,7 +13,7 @@ module VirtualMachine.Interpreter (
     exec,
 ) where
 
-import Control.Monad.State.Lazy (MonadState (get), evalStateT)
+import Control.Monad.State.Lazy (MonadState (get), evalStateT, void)
 import VirtualMachine.Instructions (
     Inst (..),
     Instruction (..),
@@ -20,6 +21,7 @@ import VirtualMachine.Instructions (
  )
 import VirtualMachine.State (
     V (..),
+    Vm (..),
     VmState,
     appendStack,
     copyVm,
@@ -30,7 +32,9 @@ import VirtualMachine.State (
     getInArr,
     getInstructionIdxAtLabel,
     getNextInstruction,
+    getOperator,
     getStack,
+    handles,
     incPc,
     io,
     modifyPc,
@@ -51,7 +55,7 @@ execPushArg n = getArgs >>= (\r -> getStack >>= (\s -> execPushArg' n s r)) . ge
 
 execCall :: String -> VmState ()
 execCall s =
-    getElemInMemory s
+    getOperator s
         >>= ( \e -> case e of
                 Just (Op f) -> getStack >>= f >>= modifyStack
                 Just ((V (Bi f))) ->
@@ -74,7 +78,7 @@ execJumpF' _ _ = pure ()
 
 dropAndGet' :: [Value] -> VmState Value
 dropAndGet' (x : xs) = modifyStack xs >> return x
-dropAndGet' [] = fail "bad jumpf"
+dropAndGet' [] = fail "empty stack"
 
 dropAndGet :: VmState Value
 dropAndGet = getStack >>= dropAndGet'
@@ -98,8 +102,7 @@ execGet n =
     getElemInMemory n
         >>= ( \v -> case v of
                 Nothing -> fail $ "could not find constant " ++ n
-                Just (V v') -> getStack >>= modifyStack . (v' :) >> return ()
-                Just _ -> fail "cannot access an operator using get"
+                Just v' -> getStack >>= modifyStack . (v' :) >> return ()
             )
 
 drop1 :: [a] -> [a]
@@ -109,6 +112,9 @@ drop1 (_ : xs) = xs
 dup1 :: [a] -> [a]
 dup1 (x : xs) = x : x : xs
 dup1 [] = []
+
+execLoad :: String -> VmState ()
+execLoad n = dropAndGet >>= register . (n,)
 
 execInstruction :: Instruction -> VmState (Maybe Value)
 execInstruction (Instruction _ _ Ret _) =
@@ -122,12 +128,30 @@ execInstruction (Instruction _ _ (PushArg x) _) = execPushArg x >> return Nothin
 execInstruction (Instruction _ _ (Call n) _) = execCall n >> return Nothing
 execInstruction (Instruction _ _ (Jump j) _) = execJump j >> return Nothing
 execInstruction (Instruction _ _ (JumpIfFalse j) _) = execJumpF j >> return Nothing
-execInstruction (Instruction _ _ (Load n v) _) = register (n, V v) >> return Nothing
+execInstruction (Instruction _ _ (Load n) _) = execLoad n >> return Nothing
 execInstruction (Instruction _ _ (Get n) _) = execGet n >> return Nothing
 execInstruction i = fail $ "Not handled" ++ name i
 
+dbg :: VmState ()
+dbg = get >>= (io . printVM)
+
+printVM :: Vm -> IO ()
+printVM (Vm s i m p _ _) =
+    putStrLn "==============================\nStack :"
+        >> print s
+        >> putStrLn "==============================\nStack :"
+        >> print s
+        >> putStrLn "==============================\nHandles :"
+        >> mapM print (handles m)
+        >> putStrLn "\n\nInsts :"
+        >> mapM print i
+        >> putStrLn "\nCurrent: "
+        >> print (i !! p)
+        >> void getLine
+
 exec' :: Maybe Instruction -> VmState Value
 exec' (Just i) =
+    -- dbg >>
     execInstruction i
         >>= maybe (incPc >> getNextInstruction >>= exec') return
 exec' Nothing = return $ N 84

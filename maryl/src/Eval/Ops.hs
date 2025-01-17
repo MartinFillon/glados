@@ -12,11 +12,11 @@ module Eval.Ops (
     evalPower,
     evalDiv,
     evalMod,
-    evalAnd, 
+    evalAnd,
     evalOr,
     evalBAnd,
     evalBOr,
-    evalBXor, 
+    evalBXor,
     evalShiftL,
     evalShiftR,
     evalGreaterThan,
@@ -25,7 +25,7 @@ module Eval.Ops (
     evalLessThanEq,
     evalEq,
     evalNEq,
-    isNumeric
+    isNumeric,
 ) where
 
 import Data.Bits (Bits (shiftL, shiftR, xor, (.|.)), (.&.))
@@ -126,7 +126,7 @@ evalBinaryOp ::
     Ast ->
     Ast ->
     Either String (Ast, Memory)
-evalBinaryOp opname op mem (AstInt i1) (AstInt i2) = Right (AstInt (op i1 i2), mem)
+evalBinaryOp _ op mem (AstInt i1) (AstInt i2) = Right (AstInt (op i1 i2), mem)
 evalBinaryOp opname _ mem (AstArg var idx) (AstInt i)
     | isInt var = Right (AstBinaryFunc opname (AstArg var idx) (AstInt i), mem)
     | otherwise = Left (show var ++ "isn't of valid type for " ++ opname ++ ", expected Int.")
@@ -165,7 +165,7 @@ evalBooleanOp ::
     Ast ->
     Ast ->
     Either String (Ast, Memory)
-evalBooleanOp opname op mem (AstBool b1) (AstBool b2) = Right (AstBool (op b1 b2), mem)
+evalBooleanOp _ op mem (AstBool b1) (AstBool b2) = Right (AstBool (op b1 b2), mem)
 evalBooleanOp opname _ mem (AstArg var idx) (AstBool b)
     | isBool var = Right (AstBinaryFunc opname (AstArg var idx) (AstBool b), mem)
     | otherwise = Left (show var ++ "isn't of valid type for " ++ opname ++ ", expected Bool.")
