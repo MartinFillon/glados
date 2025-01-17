@@ -68,7 +68,7 @@ import Data.List (intercalate, isPrefixOf, stripPrefix)
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Void (Void)
 import Text.Megaparsec (
-    MonadParsec (eof, try, lookAhead),
+    MonadParsec (eof, try),
     ParseErrorBundle,
     Parsec,
     between,
@@ -85,7 +85,6 @@ import Text.Megaparsec (
  )
 import Text.Megaparsec.Char (alphaNumChar, char, letterChar, string)
 import qualified Text.Megaparsec.Char.Lexer as L
-import Debug.Trace (trace)
 
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
@@ -148,7 +147,7 @@ data Ast
     | AstList [Ast]
     | -- | variable indexes
       AstListElem String [Int]
-    | -- |label-name value
+    | -- | label-name value
       AstLabel String Ast
     | -- | file to import, must be .mrl extension
       AstImport String
@@ -229,12 +228,12 @@ isValidType (AstString _) String = True
 isValidType (AstChar _) Char = True
 isValidType (AstDouble _) Double = True
 isValidType _ _ = False
-
--- ^^^
--- doesn't handle AstStruct
---                AstList
---                AstListElem
---                AstArg
+{- ^ ^^
+ doesn't handle AstStruct
+                AstList
+                AstListElem
+                AstArg
+-}
 
 -- | Obtain suggested MarylType from an AST
 getMarylType :: Ast -> MarylType
