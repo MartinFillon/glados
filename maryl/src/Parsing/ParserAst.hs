@@ -739,10 +739,10 @@ operatorTable =
         ],
         [ binary "==" (AstBinaryFunc "=="),
           binary "!=" (AstBinaryFunc "!="),
-          binary ">" (AstBinaryFunc ">"),
           binary ">=" (AstBinaryFunc ">="),
-          binary "<" (AstBinaryFunc "<"),
-          binary "<=" (AstBinaryFunc "<=")
+          binary ">" (AstBinaryFunc ">"),
+          binary "<=" (AstBinaryFunc "<="),
+          binary "<" (AstBinaryFunc "<")
         ],
         [ binary "or" (AstBinaryFunc "or"),
           binary "and" (AstBinaryFunc "and")
