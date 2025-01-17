@@ -11,7 +11,7 @@ import Test.Hspec (describe, hspec)
 
 import Compiler.SerializeSpec (spec)
 import Compiler.TranslationSpec (spec)
-import Eval.OpsSpecs (spec)
+import Eval.OpsSpec (spec)
 import MemorySpec (spec)
 import Parsing.ParsingSpec (spec)
 import PrinterSpec (spec)
