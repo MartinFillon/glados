@@ -8,7 +8,7 @@
 module Parsing.ParsingSpec (spec) where
 
 import Data.Either (isLeft)
-import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), ParserError, Variable (..), parseAST)
+import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), ParserError, Structure (..), Variable (..), parseAST)
 import Test.Hspec (Spec, context, describe, it, shouldBe)
 
 parseAST' :: String -> Either ParserError [Ast]
@@ -237,6 +237,87 @@ spec = do
         parseAST' "(a and b) or c;"
           `shouldBe` Right [AstBinaryFunc "or" (AstBinaryFunc "and" (AstVar "a") (AstVar "b")) (AstVar "c")]
 
+    context "Structure declaration" $ do
+      it "struct vector {int x; int y;}" $ do
+        parseAST' "struct vector {int x; int y;}"
+          `shouldBe` Right [AstDefineStruct (Structure "vector" [AstDefineVar (Variable "x" Int AstVoid), AstDefineVar (Variable "y" Int AstVoid)])]
+
+      -- TO CHECK
+      -- it "struct point {double x; double y; struct vector v;}" $ do
+      --   parseAST' "struct point {double x; double y; struct vector v;}"
+      --     `shouldBe` Right [AstDefineStruct (Structure "point" [AstDefineVar (Variable "x" Double AstVoid), AstDefineVar (Variable "y" Double AstVoid), AstDefineVar (Variable "v" (Struct "vector") AstVoid)])]
+
+      it "struct empty {};" $ do
+        parseAST' "struct empty {}"
+          `shouldBe` Right [AstDefineStruct (Structure "empty" [])]
+
+      -- TO CHECK
+      -- it "struct complex {string name; int value; const double rate;}" $ do
+      --   parseAST' "struct complex {string name; int value; const double rate;}"
+      --     `shouldBe` Right [AstDefineStruct (Structure "complex" [AstDefineVar (Variable "name" String AstVoid), AstDefineVar (Variable "value" Int AstVoid), AstDefineVar (Variable "rate" (Const Double) AstVoid)])]
+
+      it "struct complex {string name; float value;}" $ do
+        parseAST' "struct complex {string name; float value;}"
+          `shouldBe` Right [AstDefineStruct (Structure "complex" [AstDefineVar (Variable "name" String AstVoid), AstDefineVar (Variable "value" Double AstVoid)])]
+
+      it "struct nested {struct complex c; int count;}" $ do
+        parseAST' "struct nested {struct complex c; int count;}"
+          `shouldBe` Right [AstDefineStruct (Structure "nested" [AstDefineVar (Variable "c" (Struct "complex") AstVoid), AstDefineVar (Variable "count" Int AstVoid)])]
+
+    context "Constant declaration" $ do
+      it "constant int max = 100;" $ do
+        parseAST' "const int max = 100;"
+          `shouldBe` Right [AstDefineVar (Variable "max" (Const Int) (AstInt 100))]
+
+      it "constant string name = \"Maryl\";" $ do
+        parseAST' "const string name = \"Maryl\";"
+          `shouldBe` Right [AstDefineVar (Variable "name" (Const String) (AstString "Maryl"))]
+
+      -- TO CHECK
+      -- it "constant double pi = 3.14159;" $ do
+      --   parseAST' "const double pi = 3.14159;"
+      --     `shouldBe` Right [AstDefineVar (Variable "pi" (Const Double) (AstDouble 3.14159))]
+
+      it "constant bool isReady = true;" $ do
+        parseAST' "const bool isReady = true;"
+          `shouldBe` Right [AstDefineVar (Variable "isReady" (Const Bool) (AstBool True))]
+
+      it "constant char letter = 'Z';" $ do
+        parseAST' "const char letter = 'Z';"
+          `shouldBe` Right [AstDefineVar (Variable "letter" (Const Char) (AstChar 'Z'))]
+
+      it "constant missing value" $ do
+        parseAST' "const int max;" `shouldBe` Right [AstDefineVar (Variable "max" (Const Int) AstVoid)]
+
+    context "File import" $ do
+      it "import \"utils.mrl\";" $ do
+        parseAST' "import \"utils.mrl\";"
+          `shouldBe` Right [AstImport "utils.mrl"]
+
+      it "import \"core.mrl\";" $ do
+        parseAST' "import \"core.mrl\";"
+          `shouldBe` Right [AstImport "core.mrl"]
+
+      it "Multiple imports" $ do
+        parseAST' "import \"utils.mrl\"; import \"core.mrl\";"
+          `shouldBe` Right [AstImport "utils.mrl", AstImport "core.mrl"]
+
+      it "import \"library/utils.mrl\";" $ do
+        parseAST' "import \"library/utils.mrl\";"
+          `shouldBe` Right [AstImport "library/utils.mrl"]
+
+      it "import relative path with unsupported characters" $ do
+        parseAST' "import \"../utils.mrl\";" `shouldBe` Right [AstImport "../utils.mrl"]
+
+      it "import missing file extension" $ do
+        parseAST' "import \"utils\";" `shouldBe` Right [AstImport "utils"]
+
+      it "import unsupported file type" $ do
+        parseAST' "import \"utils.txt\";" `shouldBe` Right [AstImport "utils.txt"]
+
+      it "import empty path" $ do
+        parseAST' "import \"\";" `shouldBe` Right [AstImport ""]
+
     context "Invalid syntax" $ do
       it "int = 42;" $ do
         isLeft (parseAST' "int = 42;") `shouldBe` True
@@ -306,3 +387,24 @@ spec = do
 
       it "a += b /= c *= d" $ do
         isLeft (parseAST' "a += b /= c *= d;") `shouldBe` True
+
+      it "struct no name" $ do
+        isLeft (parseAST' "struct {int x; int y;}") `shouldBe` True
+
+      it "struct unsupported property type" $ do
+        isLeft (parseAST' "struct vector {unsupportedType z;}") `shouldBe` True
+
+      it "struct missing semicolon" $ do
+        isLeft (parseAST' "struct broken {string name float value}") `shouldBe` True
+
+      it "Nested struct definition" $ do
+        isLeft (parseAST' "struct outer {struct inner {int z;}; int y;}") `shouldBe` True
+
+      it "constant unsupported type" $ do
+        isLeft (parseAST' "const unsupportedType x = 10;") `shouldBe` True
+
+      it "import invalid syntax" $ do
+        isLeft (parseAST' "import utils.mrl;") `shouldBe` True
+
+      it "import multiple on once" $ do
+        isLeft (parseAST' "import \"utils.mrl\" \"config.mrl\";") `shouldBe` True

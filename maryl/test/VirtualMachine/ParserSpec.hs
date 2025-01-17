@@ -8,6 +8,7 @@
 module VirtualMachine.ParserSpec (spec) where
 
 import Data.Either (isLeft)
+import qualified Data.Map as Map
 import Test.Hspec (Spec, describe, it, shouldBe)
 import VirtualMachine.Instructions (
     Value (..),
@@ -45,8 +46,8 @@ spec = do
                 `shouldBe` Right [Left $ jump Nothing (Right ".test")]
         it "should parse pushArg with arg" $ do
             parseAssembly "pushArg 64" `shouldBe` Right [Left $ pushArg Nothing 64]
-        -- it "should parse push with char" $ do
-        -- parseAssembly "push a" `shouldBe` Right [Left $ push Nothing $ C 'a']
+        it "should parse push with char" $ do
+            parseAssembly "push \'a\'" `shouldBe` Right [Left $ push Nothing $ C 'a']
         it "should parse push with string" $ do
             parseAssembly "push \"42\"" `shouldBe` Right [Left $ push Nothing $ S "42"]
         it "should parse push with arg Int and label" $ do
@@ -113,3 +114,6 @@ spec = do
         it "should fail on appendFile with non-string arguments" $ do
             isLeft (parseAssembly "appendFile 42 \"World\"") `shouldBe` True
             isLeft (parseAssembly "appendFile \"test.txt\" 42") `shouldBe` True
+
+        it "should parse a struct with a int and a char" $ do
+            parseAssembly ".start push {\"a\"=\'1\', \"b\"=2}" `shouldBe` Right [Left $ push (Just ".start") (St (Map.fromList [("a", C '1'), ("b", N 2)]))]
