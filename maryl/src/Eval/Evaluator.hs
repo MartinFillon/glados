@@ -263,11 +263,14 @@ evalList var idxs mem = case readMemory mem var of
 
 -----
 
+boolTokens :: [Char]
+boolTokens = ['=', '!', '<', '>']
+
 evalNode :: Memory -> Ast -> Either String (Ast, Memory)
 evalNode mem (AstBinaryFunc "=" left right) = evalAssign mem left right
 evalNode mem (AstBinaryFunc (x : "=") left right)
-    | x /= '=' && x /= '!' = evalAssign mem left (AstBinaryFunc [x] left right)
-    | otherwise = evalNode mem (AstBinaryFunc (x : "=") left right)
+    | x `notElem` boolTokens = evalAssign mem left (AstBinaryFunc [x] left right)
+    | otherwise = evalBinaryFunc mem (x : "=") left right
 evalNode mem (AstBinaryFunc op left right) = evalBinaryFunc mem op left right
 evalNode mem (AstPrefixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
 evalNode mem (AstPostfixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
