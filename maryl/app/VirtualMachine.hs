@@ -43,12 +43,12 @@ exit (N 0) = exitSuccess
 exit (N n) = exitWith $ ExitFailure (fromIntegral n)
 exit e = pError ("Bad exit code " ++ show e)
 
-execParsed :: [Instruction] -> Map String V -> IO ()
-execParsed i m =
+execParsed :: [String] -> [Instruction] -> Map String V -> IO ()
+execParsed a i m =
     withExit
         ( evalStateT
             exec
-            (initialState (jump Nothing (Right ".start") : i) (initialMemory m) [])
+            (initialState (jump Nothing (Right ".start") : i) (initialMemory m) [N (fromIntegral (length a)), L $ map S a])
         )
         >>= exit
 
@@ -57,11 +57,10 @@ parseOneFile s =
     hIsTerminalDevice stdin
         >>= (\b -> readFile s >>= (handleParseError b . parseAssembly))
 
-vm :: [String] -> IO ()
-vm [] = pError "A file is required for the vm to run"
-vm files =
-    foldM (\a s -> (a ++) <$> parseOneFile s) [] files
-        >>= uncurry execParsed . prepareParsed
+vm :: String -> [String] -> IO ()
+vm f args =
+    foldM (\a s -> (a ++) <$> parseOneFile s) [] [f]
+        >>= uncurry (execParsed args) . prepareParsed
 
 prepareParsed'' :: [Either Instruction (String, [Instruction])] -> Map String V
 prepareParsed'' [] = Map.fromList operators

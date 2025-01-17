@@ -131,4 +131,4 @@ getContentFromStdin mem =
 glados :: Mode -> IO ()
 glados (Compile (Just path) out) = Monad.void (getContentFromFile initMemory path out)
 glados (Compile Nothing _) = getContentFromStdin initMemory
-glados (Vm path _) = vm [path]
+glados (Vm path a) = vm path a
