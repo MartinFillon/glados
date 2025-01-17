@@ -35,7 +35,7 @@ import Eval.Ops (
     evalSub,
     )
 import Memory (Memory, addMemory, freeMemory, generateUniqueLoopName, readMemory, updateMemory)
-import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Structure (..), Variable (..), getMarylType, isValidType)
+import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Structure (..), Variable (..), MarylType (..), getMarylType, isValidType, isSameType)
 
 type FunctionRegistry =
     Map.Map String (Memory -> Ast -> Ast -> Either String (Ast, Memory))
@@ -220,11 +220,14 @@ evalList var idxs mem = case readMemory mem var of
 
 -----
 
+boolTokens :: [Char]
+boolTokens = ['=', '!', '<', '>']
+
 evalNode :: Memory -> Ast -> Either String (Ast, Memory)
 evalNode mem (AstBinaryFunc "=" left right) = evalAssign mem left right
 evalNode mem (AstBinaryFunc (x : "=") left right)
-    | x /= '=' && x /= '!' = evalAssign mem left (AstBinaryFunc [x] left right)
-    | otherwise = evalNode mem (AstBinaryFunc (x : "=") left right)
+    | x `notElem` boolTokens = evalAssign mem left (AstBinaryFunc [x] left right)
+    | otherwise = evalBinaryFunc mem (x : "=") left right
 evalNode mem (AstBinaryFunc op left right) = evalBinaryFunc mem op left right
 evalNode mem (AstPrefixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
 evalNode mem (AstPostfixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
@@ -253,27 +256,36 @@ evalNode mem (AstLoop Nothing cond block) =
 --                 AstBool False -> Right (AstVoid, mem'')
 --                 _ -> Left "Condition in loop is not a boolean"
 --     loop mem
--- evalNode mem (AstIf cond trueBranch elseIfBranches elseBranch) = do
---     (condResult, mem') <- evalNode mem cond
---     case condResult of
---         AstBool True -> do
---             (evaluatedBlock, mem'') <- evalAST mem' (extractBlock trueBranch)
---             Right (AstBlock evaluatedBlock, mem'')
---         AstBool False ->
---             case elseIfBranches of
---                 (AstIf elifCond elifTrue [] Nothing : rest) ->
---                     evalNode mem' (AstIf elifCond elifTrue rest elseBranch)
---                 [] -> case elseBranch of
---                     Just block -> do
---                         (evaluatedBlock, mem'') <- evalAST mem' (extractBlock block)
---                         Right (AstBlock evaluatedBlock, mem'')
---                     Nothing -> Right (AstVoid, mem')
---                 _ -> Left "Invalid else-if structure"
---         _ -> Left "Condition in if statement is not a boolean"
+evalNode mem (AstIf cond trueBranch elseIfBranches elseBranch) =
+    evalNode mem cond >>= \(condResult, mem') -> case condResult of
+        AstTernary c t e -> evalNode mem' (AstIf c t [] (Just e)) >> Right (AstIf cond trueBranch elseIfBranches elseBranch, mem')
+        AstVar var -> case readMemory mem' var of
+            Just (AstBool b) -> evalNode mem' (AstIf (AstBool b) trueBranch elseIfBranches elseBranch) >> Right (AstIf cond trueBranch elseIfBranches elseBranch, mem')
+            _ -> Left $ "Unknown variable \"" ++ var ++ "\""
+        AstFunc func -> case readMemory mem' (fName func) of
+            Just (AstDefineFunc f) -> if fType f == Bool
+                then evalAST mem' (extractBlock trueBranch) >>= \(_, mem'') -> Right (AstIf cond trueBranch elseIfBranches elseBranch, mem'')
+                else Left $ "Function \"" ++ fName f ++ "\" is not a function of type bool"
+            _ -> Left $ "Unknown function \"" ++ fName func ++ "\""
+        AstBool True -> evalAST mem' (extractBlock trueBranch)
+            >>= \(_, mem'') -> Right (AstIf cond trueBranch elseIfBranches elseBranch, mem'')
+        AstBool False ->
+            case elseIfBranches of
+                (AstIf elifCond elifTrue [] Nothing : rest) ->
+                    evalNode mem' (AstIf elifCond elifTrue rest elseBranch) >> Right (AstIf cond trueBranch elseIfBranches elseBranch, mem')
+                [] -> case elseBranch of
+                    Just block -> evalAST mem' (extractBlock block)
+                        >>= \(_, mem'') -> Right (AstIf cond trueBranch elseIfBranches elseBranch, mem'')
+                    Nothing -> Right (AstIf cond trueBranch elseIfBranches elseBranch, mem')
+                _ -> Left "Invalid else-if structure"
+        _ -> Left "Condition in if statement is not a boolean"
+evalNode mem (AstTernary cond trueBranch elseBranch) = if isSameType trueBranch elseBranch
+    then evalNode mem (AstIf cond trueBranch [] (Just elseBranch)) >> Right (AstTernary cond trueBranch elseBranch, mem)
+    else Left "Mismatching types in ternary operation"
 evalNode mem (AstListElem var idxs) = evalList var idxs mem
 evalNode mem (AstDefineStruct struct@(Structure name properties)) =
     case addMemory mem name (AstDefineStruct struct) of
-        Right newMem -> evalStructDecla properties newMem >>= \() -> 
+        Right newMem -> evalStructDecla properties newMem >>= \() ->
             Right (AstDefineStruct struct, newMem)
         Left err -> Left ("Failed to define structure (" ++ err ++ ").")
 evalNode mem (AstReturn expr) =

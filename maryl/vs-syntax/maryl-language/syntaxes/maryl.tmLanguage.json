@@ -29,7 +29,7 @@
       "patterns": [
         {
           "name": "keyword.control.maryl",
-          "match": "\\b(if|while|for|return|int|string|char|while|void|float|bool)\\b"
+          "match": "\\b(if|while|for|return|int|string|char|while|void|float|bool|else|double|break|continue|import|and|or|const|struct)\\b"
         }
       ]
     },
