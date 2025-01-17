@@ -32,7 +32,7 @@ tests_run:
 	$(shell stack test --allow-different-user)
 
 functional_tests:
-	./test/lisp.sh
+	./test/compiler.sh
 
 coverage:
 	$(RM) $(TEST_PATH)

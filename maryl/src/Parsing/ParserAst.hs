@@ -22,6 +22,7 @@ module Parsing.ParserAst (
     -- * Functions
 
     -- ** Utility
+    isSameType,
     isValidType,
     getMarylType,
 
@@ -66,7 +67,6 @@ import Control.Monad.Combinators.Expr (
 import Data.List (intercalate, isPrefixOf, stripPrefix)
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Void (Void)
-import Debug.Trace
 import Text.Megaparsec (
     MonadParsec (eof, try),
     ParseErrorBundle,
@@ -187,6 +187,37 @@ instance Show Ast where
 -- | Types handled by the program.
 data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
     deriving (Eq, Ord, Show)
+
+-- | Checks if both Ast are the same without comparing their value if they have one
+isSameType :: Ast -> Ast -> Bool
+isSameType (AstBool {}) (AstBool {}) = True
+isSameType (AstVar {}) (AstVar {}) = True
+isSameType AstVoid AstVoid = True
+isSameType (AstInt {}) (AstInt {}) = True
+isSameType (AstString {}) (AstString {}) = True
+isSameType (AstChar {}) (AstChar {}) = True
+isSameType (AstDouble {}) (AstDouble {}) = True
+isSameType (AstBinaryFunc {}) (AstBinaryFunc {}) = True
+isSameType (AstPostfixFunc {}) (AstPostfixFunc {}) = True
+isSameType (AstPrefixFunc {}) (AstPrefixFunc {}) = True
+isSameType (AstFunc {}) (AstFunc {}) = True
+isSameType (AstIf {}) (AstIf {}) = True
+isSameType (AstTernary {}) (AstTernary {}) = True
+isSameType (AstReturn {}) (AstReturn {}) = True
+isSameType (AstBlock {}) (AstBlock {}) = True
+isSameType (AstStruct {}) (AstStruct {}) = True
+isSameType (AstLoop {}) (AstLoop {}) = True
+isSameType (AstBreak {}) (AstBreak {}) = True
+isSameType (AstContinue {}) (AstContinue {}) = True
+isSameType (AstArg {}) (AstArg {}) = True
+isSameType (AstDefineVar {}) (AstDefineVar {}) = True
+isSameType (AstDefineFunc {}) (AstDefineFunc {}) = True
+isSameType (AstDefineStruct {}) (AstDefineStruct {}) = True
+isSameType (AstList {}) (AstList {}) = True
+isSameType (AstListElem {}) (AstListElem {}) = True
+isSameType (AstLabel {}) (AstLabel {}) = True
+isSameType (AstImport {}) (AstImport {}) = True
+isSameType _ _ = False
 
 -- | Compare AST to a MarylType and evaluates with Boolean
 isValidType :: Ast -> MarylType -> Bool
@@ -391,32 +422,37 @@ types' :: [String]
 types' =
     [ "int",
       "float",
+      "double",
       "string",
       "char",
       "bool",
       "void"
     ]
 
-pStruct :: Parser String
-pStruct = lexeme $ do
-    s <- string "struct"
+pType :: Parser String
+pType = choice (string <$> types')
+
+pStructType :: Parser String
+pStructType = lexeme $ do
+    s <- string "struct "
     sc
     n <- variable
     return $ s ++ " " ++ n
 
-pListType :: Parser String
-pListType = lexeme $ do
-    s <- some $ string "[]"
-    t <- choice $ map string types'
-    return (concat s ++ t)
+typesLookahead :: String -> Parser String
+typesLookahead pfx = lexeme $ do
+    s <- string pfx
+    sc
+    t <- types
+    return $ s ++ " " ++ t
 
 types :: Parser String
 types =
     choice
-        [ try pListType,
-          choice (map string $ ("const " ++) <$> types'),
-          choice (map string types'),
-          pStruct
+        [ pStructType,
+          try $ typesLookahead "[]",
+          typesLookahead "const ",
+          pType
         ]
 
 trimFront :: String -> String -> String
@@ -426,14 +462,15 @@ trimFront toTrim str = dropWhile (\x -> x == ' ' || x == '\t') (fromJust $ strip
 getType :: String -> MarylType
 getType "int" = Int
 getType "float" = Double
+getType "double" = Double
 getType "string" = String
 getType "char" = Char
 getType "bool" = Bool
 getType "void" = Void
 getType str
-    | "[]" `isPrefixOf` trace ("prefix of " ++ str) str = List $ getType (fromJust $ stripPrefix "[]" str)
-    | "const" `isPrefixOf` str = Const $ getType $ trimFront "const" str
-    | "struct" `isPrefixOf` str = Struct $ takeWhile (\x -> x /= ' ' && x /= '\t') $ trimFront "struct" str
+    | "[]" `isPrefixOf` str = List $ getType $ trimFront "[]" str
+    | "const " `isPrefixOf` str = Const $ getType $ trimFront "const" str
+    | "struct " `isPrefixOf` str = Struct $ takeWhile (\x -> x /= ' ' && x /= '\t') $ trimFront "struct" str
     | otherwise = Undefined
 
 optionalValue :: Parser (Maybe Ast)
@@ -701,10 +738,10 @@ operatorTable =
         ],
         [ binary "==" (AstBinaryFunc "=="),
           binary "!=" (AstBinaryFunc "!="),
-          binary ">" (AstBinaryFunc ">"),
           binary ">=" (AstBinaryFunc ">="),
-          binary "<" (AstBinaryFunc "<"),
-          binary "<=" (AstBinaryFunc "<=")
+          binary ">" (AstBinaryFunc ">"),
+          binary "<=" (AstBinaryFunc "<="),
+          binary "<" (AstBinaryFunc "<")
         ],
         [ binary "or" (AstBinaryFunc "or"),
           binary "and" (AstBinaryFunc "and")

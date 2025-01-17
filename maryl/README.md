@@ -114,6 +114,7 @@ ln -s maryl-language <path to the repository>/maryl/vs-syntax/maryl-language
 ```bnf
 <type> ::= "int"
         | "float"
+        | "double"
         | "string"
         | "char"
         | "bool"

@@ -242,19 +242,17 @@ spec = do
         parseAST' "struct vector {int x; int y;}"
           `shouldBe` Right [AstDefineStruct (Structure "vector" [AstDefineVar (Variable "x" Int AstVoid), AstDefineVar (Variable "y" Int AstVoid)])]
 
-      -- TO CHECK
-      -- it "struct point {double x; double y; struct vector v;}" $ do
-      --   parseAST' "struct point {double x; double y; struct vector v;}"
-      --     `shouldBe` Right [AstDefineStruct (Structure "point" [AstDefineVar (Variable "x" Double AstVoid), AstDefineVar (Variable "y" Double AstVoid), AstDefineVar (Variable "v" (Struct "vector") AstVoid)])]
+      it "struct point {double x; double y; struct vector v;}" $ do
+        parseAST' "struct point {double x; double y; struct vector v;}"
+          `shouldBe` Right [AstDefineStruct (Structure "point" [AstDefineVar (Variable "x" Double AstVoid), AstDefineVar (Variable "y" Double AstVoid), AstDefineVar (Variable "v" (Struct "vector") AstVoid)])]
 
       it "struct empty {};" $ do
         parseAST' "struct empty {}"
           `shouldBe` Right [AstDefineStruct (Structure "empty" [])]
 
-      -- TO CHECK
-      -- it "struct complex {string name; int value; const double rate;}" $ do
-      --   parseAST' "struct complex {string name; int value; const double rate;}"
-      --     `shouldBe` Right [AstDefineStruct (Structure "complex" [AstDefineVar (Variable "name" String AstVoid), AstDefineVar (Variable "value" Int AstVoid), AstDefineVar (Variable "rate" (Const Double) AstVoid)])]
+      it "struct complex {string name; int value; const double rate;}" $ do
+        parseAST' "struct complex {string name; int value; const double rate;}"
+          `shouldBe` Right [AstDefineStruct (Structure "complex" [AstDefineVar (Variable "name" String AstVoid), AstDefineVar (Variable "value" Int AstVoid), AstDefineVar (Variable "rate" (Const Double) AstVoid)])]
 
       it "struct complex {string name; float value;}" $ do
         parseAST' "struct complex {string name; float value;}"
@@ -273,10 +271,9 @@ spec = do
         parseAST' "const string name = \"Maryl\";"
           `shouldBe` Right [AstDefineVar (Variable "name" (Const String) (AstString "Maryl"))]
 
-      -- TO CHECK
-      -- it "constant double pi = 3.14159;" $ do
-      --   parseAST' "const double pi = 3.14159;"
-      --     `shouldBe` Right [AstDefineVar (Variable "pi" (Const Double) (AstDouble 3.14159))]
+      it "constant double pi = 3.14159;" $ do
+        parseAST' "const double pi = 3.14159;"
+          `shouldBe` Right [AstDefineVar (Variable "pi" (Const Double) (AstDouble 3.14159))]
 
       it "constant bool isReady = true;" $ do
         parseAST' "const bool isReady = true;"
