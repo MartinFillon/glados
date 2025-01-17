@@ -15,6 +15,7 @@ module Compiler.WriteASM (
 ) where
 
 import Compiler.Translation.ASTtoASM (translateAST)
+import qualified Data.DList as D
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Debug.Trace (trace)
@@ -71,7 +72,7 @@ serializeMemoryFunctions mem =
   where
     extractFunction (acc, currentMem) key (AstDefineFunc val) =
         let (instructions, updatedMem) = translateAST (AstDefineFunc val) currentMem
-            serializedFunc = serializeFunction key instructions
+            serializedFunc = serializeFunction key (D.toList instructions)
          in (acc ++ [serializedFunc], updatedMem)
     extractFunction accAndMem _ _ = accAndMem -- != AstDefineFunc
 

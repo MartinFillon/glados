@@ -9,10 +9,10 @@
 module Eval.Evaluator (evalAST, evalNode, applyOp, defaultRegistry) where
 
 import Compiler.Translation.Functions (isBuiltin)
-import Data.List (find, intercalate)
+import Data.List (intercalate)
 import qualified Data.Map as Map
 import Debug.Trace (trace)
-import Eval.Assignment (updateList)
+import Eval.Assignment (evalFinalStruct, normalizeStruct, updateList)
 import Eval.Ops (
     evalAdd,
     evalAnd,
@@ -99,49 +99,6 @@ evalBinaryFunc mem op left right = case evalNode mem left of
     Left err -> Left ("Operation failed with" ++ show left ++ " invalid for " ++ op ++ " (" ++ err ++ ").")
 
 ----- Declarations (Functions, Variables, Loop)
-
-matchPositionalFields :: [(String, MarylType, Ast)] -> [Ast] -> Either String [Ast]
-matchPositionalFields defFields newFields
-    | length newFields == length defFields =
-        Right (zipWith (\(name, _, _) value -> AstLabel name value) defFields newFields)
-    | otherwise = Left ("Defining a structure requires no uninitialised values, expected " ++ show (length defFields) ++
-        " elements but got " ++ show (length newFields) ++ ".")
-
-validateField :: [Ast] -> (String, MarylType, Ast) -> Either String Ast
-validateField labeledFields (name, expectedType, defaultValue) =
-    case find (\(AstLabel n _) -> n == name) labeledFields of
-        Just (AstLabel _ value) ->
-            if isValidType value expectedType
-            then Right (AstLabel name value)
-            else Left ("Type mismatch for field '" ++ name ++ "', expected " ++ show expectedType ++ " but got \"" ++
-                show value ++ "\".")
-        _ -> Right (AstLabel name defaultValue)
-
-validateAndNormalizeFields :: [(String, MarylType, Ast)] -> Either String [Ast] -> Either String [Ast]
-validateAndNormalizeFields defFields labelFields = case labelFields of
-    Right labeledFields -> traverse (validateField labeledFields) defFields
-    Left err -> Left err
-
-normalizeStruct :: Ast -> Ast -> Either String Ast
-normalizeStruct (AstDefineStruct (Structure _ structProps)) (AstStruct instanceFields) =
-    let definedFields = map (\(AstDefineVar (Variable name varType defaultValue)) ->
-            (name, varType, defaultValue)) structProps
-        labeledFields = case instanceFields of
-            (AstLabel _ _ : _) -> Right instanceFields
-            _ -> matchPositionalFields definedFields instanceFields
-
-        validatedFields = validateAndNormalizeFields definedFields labeledFields
-     in case validatedFields of
-            Right normalized -> evalFinalStruct normalized (AstStruct normalized)
-            Left err -> Left err
-normalizeStruct _ _ = Left "Invalid struct definition or instance."
-
-evalFinalStruct :: [Ast] -> Ast -> Either String Ast -- check if there are extra values
-evalFinalStruct ((AstLabel label AstVoid) : _) _ =
-    Left ("Defining a structure requires no uninitialised values, expected value for field '" ++ label ++ "'.")
-evalFinalStruct ((AstLabel _ _) : xs) ast = evalFinalStruct xs ast
-evalFinalStruct [] ast = Right ast
-evalFinalStruct _ ast = Right ast
 
 evalListElemDef :: String -> [Int] -> MarylType -> Memory -> Either String Ast
 evalListElemDef listVar idx typeVar mem =
