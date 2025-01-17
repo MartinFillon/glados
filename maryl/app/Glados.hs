@@ -21,6 +21,7 @@ import VirtualMachine (vm)
 import Data.Functor ((<&>))
 import Debug.Trace (trace)
 import Control.Monad ((>=>))
+import Data.List (isSuffixOf)
 
 handleEvalResult :: [Ast] -> Either String ([Ast], Memory) -> IO ()
 handleEvalResult originalAst (Right (_, mem)) =
@@ -53,7 +54,21 @@ handleImports' (x:xs) = do
 handleImports :: [Ast] -> IO [Ast]
 handleImports asts = case filter isImport asts of
     [] -> return $ filter (not . isImport) asts
-    imports -> handleImports' (getImportFile <$> imports) <&> (\imported -> filter (not . isImport) imported ++ asts)
+    imports -> checkImports sImports >> handleImports' sImports <&> (\imported -> filter (not . isImport) imported ++ asts)
+        where
+            sImports = getImportFile <$> imports
+
+checkImports :: [String] -> IO ()
+checkImports [] = mempty
+checkImports (f:fs)
+    | isCorrectImport f = checkImports fs
+    | otherwise = pError ("*** ERROR *** with\n\tIncorrect import file \"" ++ f ++ "\"")
+    where
+        isCorrectImport :: String -> Bool
+        isCorrectImport "" = False
+        isCorrectImport file
+            | ".mrl" `isSuffixOf` file = True
+            | otherwise = False
 
 getImportFile :: Ast -> String
 getImportFile (AstImport file) = file
