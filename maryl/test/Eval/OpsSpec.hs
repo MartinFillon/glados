@@ -5,7 +5,7 @@
 -- OpsSpecs
 -}
 
-module Eval.OpsSpecs (spec) where
+module Eval.OpsSpec (spec) where
 
 import Eval.Evaluator (evalAST, evalNode)
 import Memory (initMemory)

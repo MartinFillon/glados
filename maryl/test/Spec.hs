@@ -26,5 +26,5 @@ main = hspec $ do
     describe "Compiler Translation spec" Compiler.TranslationSpec.spec
     describe "Compiler Serializing spec" Compiler.SerializeSpec.spec
     describe "Parsing spec" Parsing.ParsingSpec.spec
-    describe "Eval (for ops) spec" Eval.OpsSpecs.spec
+    describe "Eval (for ops) spec" Eval.OpsSpec.spec
     describe "Memory spec" MemorySpec.spec
