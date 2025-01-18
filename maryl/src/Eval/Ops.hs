@@ -6,6 +6,7 @@
 -}
 
 module Eval.Ops (
+    assocOpExpectation,
     boolTokens,
     evalAdd,
     evalSub,
@@ -32,6 +33,7 @@ module Eval.Ops (
 import Data.Bits (Bits (shiftL, shiftR, xor, (.|.)), (.&.))
 import Data.Data (typeOf)
 import Data.Fixed (mod')
+import qualified Data.Map as Map
 import Debug.Trace (trace)
 import GHC.Float (double2Int, int2Double)
 import Memory (Memory)
@@ -72,6 +74,29 @@ isBool (AstArg (AstBool _) _) = True
 isBool (AstDefineVar (Variable _ Bool _)) = True
 isBool (AstFunc (Function _ _ _ Bool)) = True
 isBool _ = False
+
+assocOpExpectation :: Map.Map String [MarylType]
+assocOpExpectation = Map.fromList [
+    ("+", [Int, Double]),
+    ("-", [Int, Double]),
+    ("*", [Int, Double]),
+    ("/", [Int, Double]),
+    ("%", [Int, Double]),
+    ("**", [Int, Double]),
+    ("<", [Bool]),
+    ("<=", [Bool]),
+    (">", [Bool]),
+    (">=", [Bool]),
+    ("==", [Bool]),
+    ("!=", [Bool]),
+    ("and", [Bool]),
+    ("or", [Bool]),
+    ("&", [Int]),
+    ("|", [Int]),
+    ("^", [Int]),
+    ("<<", [Int]),
+    (">>", [Int])
+    ]
 
 -- Logical
 

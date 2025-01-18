@@ -170,7 +170,7 @@ fi
 print_bold "Running basicstruct.mrl..."
 ./glados build test/test_files/basicstruct.mrl -o out.masm
 output=$(./glados run out.masm | tr -d '\n')
-result=$(echo -e "{\"a\" = 1,\"b\" = 2,\"c\" = 3}{\"a\" = 0,\"b\" = 0,\"c\" = 0}" | tr -d '\n')
+result=$(echo -e "{\"a\" = 1,\"b\" = 2,\"c\" = 3}{\"a\" = 1,\"b\" = 2,\"c\" = 3}" | tr -d '\n')
 if [ "$output" == "$result" ]; then
     print_green "✅ basicstruct.mrl passed!"
 else

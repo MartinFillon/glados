@@ -5,7 +5,7 @@
 -- Assignment
 -}
 
-module Eval.Structures (normalizeStruct, evalFinalStruct) where
+module Eval.Structures (evalFinalStruct, normalizeStruct) where
 
 import Data.List (find)
 import Debug.Trace (trace)
@@ -61,8 +61,21 @@ normalizeStruct (AstDefineStruct (Structure _ structProps)) (AstStruct instanceF
 
         validatedFields = mergeFields definedFields labeledFields
      in case validatedFields of
-            Right normalized -> evalFinalStruct normalized (AstStruct normalized)
-            Left err -> Left err
+        Right normalized -> evalFinalStruct normalized (AstStruct normalized)
+        Left err -> Left err
+normalizeStruct (AstDefineStruct (Structure _ structProps)) AstVoid =
+    let definedFields =
+            map
+                ( \(AstDefineVar (Variable name varType defaultValue)) ->
+                    (name, varType, defaultValue)
+                )
+                structProps
+        defaultLabeledFields = Right (map (\(name, _, defaultValue) -> AstLabel name defaultValue) definedFields)
+
+        validatedFields = mergeFields definedFields defaultLabeledFields
+     in case validatedFields of
+        Right normalized -> evalFinalStruct normalized (AstStruct normalized)
+        Left err -> Left err
 normalizeStruct _ _ = Left "Invalid struct definition or instance."
 
 evalFinalStruct :: [Ast] -> Ast -> Either String Ast -- check if there are extra values

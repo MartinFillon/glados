@@ -36,16 +36,14 @@ setMultipleIndexes [x] n baseVarName ast mem =
     )
 setMultipleIndexes (x : xs) 0 baseVarName ast mem =
     let (nestedInstructions, lastVarName) = setMultipleIndexes xs 1 baseVarName ast mem
-    in ( D.singleton (push Nothing (N (fromIntegral x)))
-            `D.append` D.singleton (call Nothing "get")
+    in ( D.fromList [push Nothing (N (fromIntegral x)), call Nothing "get"]
             `D.append` nestedInstructions,
           lastVarName
         )
 setMultipleIndexes (x : xs) n baseVarName ast mem =
     let (nestedInstructions, lastVarName) = setMultipleIndexes xs (n + 1) baseVarName ast mem
-     in ( D.singleton (push Nothing (N (fromIntegral x)))
-            `D.append` D.fromList [call Nothing "get", load Nothing (baseVarName ++ show n)]
-            `D.append` nestedInstructions,
+     in ( D.fromList [push Nothing (N (fromIntegral x)), call Nothing "get",
+            load Nothing (baseVarName ++ show n)] `D.append` nestedInstructions,
           lastVarName
         )
 setMultipleIndexes [] _ _ _ _ = (D.empty, "")
