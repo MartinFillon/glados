@@ -1,0 +1,7 @@
+int start(){
+    [][]int yo = [[1, 2], [3, 4]];
+    yo[0][0] = 0;
+
+    print(yo);
+    return 0;
+}
