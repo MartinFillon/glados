@@ -236,7 +236,7 @@ evalDefinition (AstTernary _ doState elseState) expect mem =
         _ -> Left (show doState ++ " in ternary isn't typed correctly, expected " ++ show expect ++ ".")
 evalDefinition ast varType _
     | isValidType ast varType = Right ast
-    | otherwise = trace ("@@@" ++ show ast)$
+    | otherwise =
         Left ("Value isn't typed correctly, expected " ++ show varType ++ ".")
 
 evalStructDecla :: [Ast] -> Memory -> Either String ()

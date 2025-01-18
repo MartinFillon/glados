@@ -1,5 +1,6 @@
 int start() {
     int a = 0;
+
     while (a < 10){
         if (i % 2 == 0) {
             print("continued\n");

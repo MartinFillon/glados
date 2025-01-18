@@ -202,4 +202,16 @@ else
     print_red "❌ lesseq.mrl failed"
 fi
 
+# weirdstruct.mrl
+print_bold "Running weirdstruct.mrl..."
+./glados build test/test_files/weirdstruct.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "{\"x\" = 2,\"y\" = 2,\"z\" = 7}here\nhere32\n{\"b\" = [\"a\",\"b\"],\"bum\" = 'a',\"poo\" = 2,\"um\" = [1,2]}" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ weirdstruct.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ weirdstruct.mrl failed"
+fi
+
 rm out.masm
