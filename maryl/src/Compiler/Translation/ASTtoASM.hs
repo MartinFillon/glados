@@ -83,15 +83,35 @@ handlePriority left (AstArg arg idx) mem = (fst (translateAST (AstArg arg idx) m
 handlePriority left right mem =
     (fst (translateAST left mem) `D.append` fst (translateAST right mem), mem)
 
+-- | Translation of comparison operator that considers equality in addition
+translateComparison :: String -> Ast -> Ast -> Memory -> (D.DList Instruction, Memory)
+translateComparison op left right mem =
+    ( fst (translateBinaryFunc op left right mem)
+        `D.append` D.singleton (load Nothing "lesstmp")
+        `D.append` fst (translateBinaryFunc "==" left right mem)
+        `D.append` D.fromList [get Nothing "lesstmp", call Nothing "or"],
+     mem
+    )
+
 {- | Handles the translation of an AST binary function:
  such as arithmetic or logical operations.
 -}
 translateBinaryFunc :: String -> Ast -> Ast -> Memory -> (D.DList Instruction, Memory)
+translateBinaryFunc "<=" left right mem = translateComparison "<" left right mem
+translateBinaryFunc ">=" left right mem = translateComparison ">" left right mem
 translateBinaryFunc op left right mem
     | isSingleOp op = (fst (handlePriority left right mem) `D.append` D.singleton (translateOpInst op), mem)
     | otherwise = updateAssignment op left right mem
 
 ------- Structures
+
+-- | Translates an 'Ast' type in a struct to a tuple (<fieldName>, <fieldValue>).
+toStructField :: Memory -> Ast -> Maybe (String, Value)
+toStructField mem (AstDefineVar (Variable fieldName _ fieldValue)) =
+    fmap (fieldName,) (associateTypes fieldValue mem)
+toStructField mem (AstLabel fieldName fieldValue) =
+    fmap (fieldName,) (associateTypes fieldValue mem)
+toStructField _ _ = Nothing
 
 {- | Translates evaluated structures to map of tuple of field name and its value:
 
@@ -99,29 +119,18 @@ translateBinaryFunc op left right mem
 -}
 translateStruct :: Ast -> Ast -> String -> Memory -> (D.DList Instruction, Memory)
 translateStruct (AstDefineStruct (Structure _ props)) AstVoid varName mem =
-    case mapM toStructField props of
-        Just fields ->
-            (D.singleton (push Nothing (St $ Map.fromList fields)), updateMemory mem varName (AstStruct props))
-        Nothing -> (D.empty, mem)
-  where
-    toStructField :: Ast -> Maybe (String, Value)
-    toStructField (AstDefineVar (Variable n _ v)) =
-        fmap (n,) (associateTypes v mem)
-    toStructField _ = Nothing
+    maybe (D.empty, mem) (\fields ->
+        (D.singleton (push Nothing (St $ Map.fromList fields)), 
+        updateMemory mem varName (AstStruct props))
+    ) (mapM (toStructField mem) props)
 translateStruct (AstDefineStruct struct) structValues nameStruct mem =
     case normalizeStruct (AstDefineStruct struct) structValues of
         Right (AstStruct eles) ->
-            case mapM toStructField eles of
-                Just fields ->
-                    ( D.fromList [push Nothing (St $ Map.fromList fields), load Nothing nameStruct],
-                      updateMemory mem nameStruct (AstStruct eles)
-                    )
-                Nothing -> (D.empty, mem)
-          where
-            toStructField :: Ast -> Maybe (String, Value)
-            toStructField (AstLabel fieldName fieldValue) =
-                fmap (fieldName,) (associateTypes fieldValue mem)
-            toStructField _ = Nothing
+            maybe (D.empty, mem) (\fields ->
+                ( D.fromList [push Nothing (St $ Map.fromList fields), load Nothing nameStruct],
+                    updateMemory mem nameStruct (AstStruct eles)
+                )
+            ) (mapM (toStructField mem) eles)
         _ -> (D.empty, mem)
 translateStruct _ _ _ mem = (D.empty, mem)
 
@@ -131,9 +140,6 @@ translateStruct _ _ _ mem = (D.empty, mem)
  Allows the use of jump/ jumpf instructions, to allow jumping past block.
 -}
 translateBlock' :: Ast -> Memory -> (D.DList Instruction, Int)
-translateBlock' (AstBlock block) mem =
-    let (instructions, _) = translateToASM block mem
-     in (fst (translateToASM block mem), length instructions)
 translateBlock' ast mem =
     let (instructions, _) = translateAST ast mem
      in (instructions, length instructions)
@@ -187,8 +193,7 @@ translateIf _ mem = (D.empty, mem)
 
 ------- Loops
 
-{-
--}
+-- | Translate while loop instance.
 translateLoop :: String -> Ast -> Ast -> Memory -> (D.DList Instruction, Memory)
 translateLoop loopName cond block mem =
     let (condInstructions, memAfterCond) = translateAST cond mem
@@ -231,17 +236,13 @@ translateArgs (x : xs) mem =
 translateAST :: Ast -> Memory -> (D.DList Instruction, Memory)
 translateAST (AstArg _ (Just n)) mem = (D.singleton (pushArg Nothing n), mem)
 translateAST (AstArg (AstDefineVar (Variable varName _ _)) Nothing) mem =
-    case readMemory mem varName of
-        Just val -> translateAST val mem
-        Nothing -> (D.empty, mem)
+    maybe (D.empty, mem) (`translateAST` mem) (readMemory mem varName)
 translateAST (AstDefineVar (Variable varName (Struct structName) ast)) mem =
-    case readMemory mem structName of
-        Just (AstDefineStruct struct) ->
-            translateStruct (AstDefineStruct struct) ast varName mem
-        _ -> (D.empty, mem)
+    maybe (D.empty, mem) (\(AstDefineStruct struct) ->
+        translateStruct (AstDefineStruct struct) ast varName mem) (readMemory mem structName)
 translateAST (AstDefineVar (Variable varName _ varValue)) mem =
-    let (instrs, updatedMem) = translateAST varValue mem
-     in (instrs `D.append` D.singleton (load Nothing varName), updateMemory updatedMem varName varValue)
+    (fst (translateAST varValue mem)
+        `D.append` D.singleton (load Nothing varName), updateMemory mem varName varValue)
 translateAST (AstVar varName) mem = (callArgs (AstVar varName) mem, mem)
 translateAST (AstDefineFunc (Function _ funcArgs funcBody _)) mem =
     let newMem = pushArgs funcArgs (freeMemory mem) 0

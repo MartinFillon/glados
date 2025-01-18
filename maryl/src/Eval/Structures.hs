@@ -9,7 +9,7 @@ module Eval.Structures (normalizeStruct, evalFinalStruct) where
 
 import Data.List (find)
 import Debug.Trace (trace)
-import Memory (Memory, readMemory)
+import Memory (readMemory)
 import Parsing.ParserAst (Ast (..), MarylType (..), Structure (..), Variable (..), isValidType)
 
 matchPositionalFields :: [(String, MarylType, Ast)] -> [Ast] -> Either String [Ast]
@@ -43,10 +43,9 @@ validateField labeledFields (name, expectedType, defaultValue) =
                         )
         _ -> Right (AstLabel name defaultValue)
 
-validateAndNormalizeFields :: [(String, MarylType, Ast)] -> Either String [Ast] -> Either String [Ast]
-validateAndNormalizeFields defFields labelFields = case labelFields of
-    Right labeledFields -> traverse (validateField labeledFields) defFields
-    Left err -> Left err
+mergeFields :: [(String, MarylType, Ast)] -> Either String [Ast] -> Either String [Ast]
+mergeFields defFields =
+    either Left ( \labeledFields -> traverse (validateField labeledFields) defFields)
 
 normalizeStruct :: Ast -> Ast -> Either String Ast
 normalizeStruct (AstDefineStruct (Structure _ structProps)) (AstStruct instanceFields) =
@@ -60,7 +59,7 @@ normalizeStruct (AstDefineStruct (Structure _ structProps)) (AstStruct instanceF
             (AstLabel _ _ : _) -> Right instanceFields
             _ -> matchPositionalFields definedFields instanceFields
 
-        validatedFields = validateAndNormalizeFields definedFields labeledFields
+        validatedFields = mergeFields definedFields labeledFields
      in case validatedFields of
             Right normalized -> evalFinalStruct normalized (AstStruct normalized)
             Left err -> Left err

@@ -30,8 +30,6 @@ translateOpInst "&" = call Nothing "band"
 translateOpInst "^" = call Nothing "xor"
 translateOpInst ">>" = call Nothing "shiftR"
 translateOpInst "<<" = call Nothing "shiftL"
--- ">=" =
--- "<=" =
 translateOpInst _ = noop Nothing
 
 -- | Takes an operator and evaluates it as a simple operator, as opposed to a compound assignment operator.

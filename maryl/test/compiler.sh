@@ -190,4 +190,16 @@ else
     print_red "❌ listlist.mrl failed"
 fi
 
+# lesseq.mrl
+print_bold "Running lesseq.mrl..."
+./glados build test/test_files/lesseq.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "6" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ lesseq.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ lesseq.mrl failed"
+fi
+
 rm out.masm
