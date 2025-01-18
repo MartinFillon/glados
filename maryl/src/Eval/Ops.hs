@@ -6,6 +6,7 @@
 -}
 
 module Eval.Ops (
+    boolTokens,
     evalAdd,
     evalSub,
     evalMul,
@@ -35,6 +36,9 @@ import Debug.Trace (trace)
 import GHC.Float (double2Int, int2Double)
 import Memory (Memory)
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
+
+boolTokens :: [Char]
+boolTokens = ['=', '!', '<', '>']
 
 isNumeric :: Ast -> Bool
 isNumeric (AstInt _) = True

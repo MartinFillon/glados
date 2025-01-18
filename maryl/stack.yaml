@@ -43,6 +43,7 @@ extra-deps:
   - megaparsec-9.6.1
   - hlint-3.8
   - optparse-applicative-0.18.1.0
+  - dlist-1.0
   # - fourmolu-0.16.2.0
 # Override default flag values for local packages and extra-deps
 # flags: {}
