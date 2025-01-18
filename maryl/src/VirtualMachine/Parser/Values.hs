@@ -20,6 +20,8 @@ module VirtualMachine.Parser.Values (
     parseList,
 ) where
 
+import Control.Monad (void)
+import qualified Data.Map as Map
 import Text.Megaparsec (
     between,
     choice,
@@ -59,10 +61,10 @@ parseDigit :: Parser Value
 parseDigit = lexeme $ N <$> L.signed sce L.decimal
 
 parseTrue :: Parser Value
-parseTrue = lexeme $ string "true" >> return (B True)
+parseTrue = lexeme $ string "True" >> return (B True)
 
 parseFalse :: Parser Value
-parseFalse = lexeme $ string "false" >> return (B False)
+parseFalse = lexeme $ string "False" >> return (B False)
 
 parseString' :: Parser String
 parseString' =
@@ -108,6 +110,15 @@ parseList =
     L
         <$> between (char '[') (char ']') (parseVal `sepBy` lexeme ",")
 
+parseStruct' :: Parser (String, Value)
+parseStruct' = (,) <$> parseString' <*> lexeme (void (char '=') >> lexeme parseVal)
+
+parseStruct :: Parser Value
+parseStruct =
+    St . Map.fromList
+        <$> between (char '{') (char '}') (parseStruct' `sepBy` lexeme ",")
+        <?> "Structure"
+
 parseVal :: Parser Value
 parseVal =
     lexeme $
@@ -117,5 +128,6 @@ parseVal =
               try parseBool,
               try parseDigit,
               try parseChar,
-              try parseString
+              try parseString,
+              try parseStruct
             ]

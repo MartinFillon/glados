@@ -15,5 +15,9 @@ glados
 .hpc
 *.html
 *.asm
+*.masm
+*.mrl
+target
 
 test.txt
+maryl-colors.conf

@@ -8,6 +8,7 @@
 module VirtualMachine.ParserSpec (spec) where
 
 import Data.Either (isLeft)
+import qualified Data.Map as Map
 import Test.Hspec (Spec, describe, it, shouldBe)
 import VirtualMachine.Instructions (
     Value (..),
@@ -27,10 +28,10 @@ spec = do
     describe "VirtualMachine Parser Spec" $ do
         it "should parse push with arg Int" $ do
             parseAssembly "push 1" `shouldBe` Right [Left $ push Nothing $ N 1]
-        it "should parse push with arg Bool true" $ do
-            parseAssembly "push true" `shouldBe` Right [Left $ push Nothing $ B True]
-        it "should parse push with arg Bool false" $ do
-            parseAssembly "push false" `shouldBe` Right [Left $ push Nothing $ B False]
+        it "should parse push with arg Bool True" $ do
+            parseAssembly "push True" `shouldBe` Right [Left $ push Nothing $ B True]
+        it "should parse push with arg Bool False" $ do
+            parseAssembly "push False" `shouldBe` Right [Left $ push Nothing $ B False]
         it "should parse ret" $ do
             parseAssembly "ret" `shouldBe` Right [Left $ ret Nothing]
         it "should parse jumpf with arg int" $ do
@@ -45,8 +46,8 @@ spec = do
                 `shouldBe` Right [Left $ jump Nothing (Right ".test")]
         it "should parse pushArg with arg" $ do
             parseAssembly "pushArg 64" `shouldBe` Right [Left $ pushArg Nothing 64]
-        -- it "should parse push with char" $ do
-        -- parseAssembly "push a" `shouldBe` Right [Left $ push Nothing $ C 'a']
+        it "should parse push with char" $ do
+            parseAssembly "push \'a\'" `shouldBe` Right [Left $ push Nothing $ C 'a']
         it "should parse push with string" $ do
             parseAssembly "push \"42\"" `shouldBe` Right [Left $ push Nothing $ S "42"]
         it "should parse push with arg Int and label" $ do
@@ -72,21 +73,18 @@ spec = do
         it "should parse a push list with no elem" $ do
             parseAssembly "push []" `shouldBe` Right [Left $ push Nothing $ L []]
         it "should parse a push list bool" $ do
-            parseAssembly "push [true, false]"
+            parseAssembly "push [True, False]"
                 `shouldBe` Right [Left $ push Nothing $ L [B True, B False]]
         it "shoudl parse a get" $ do
             parseAssembly "get \"hello\"" `shouldBe` Right [Left $ get Nothing "hello"]
         it "shoudl parse a load" $ do
-            parseAssembly "load \"hello\" 1"
-                `shouldBe` Right [Left $ load Nothing "hello" $ N 1]
+            parseAssembly "load \"hello\""
+                `shouldBe` Right [Left $ load Nothing "hello"]
         it "shoudl parse a load with a label" $ do
-            parseAssembly ".test load \"hello\" 1"
-                `shouldBe` Right [Left $ load (Just ".test") "hello" $ N 1]
-        it "shoudl parse a get with a label" $ do
-            parseAssembly ".test get \"hello\""
-                `shouldBe` Right [Left $ get (Just ".test") "hello"]
-        it "should fail on a load with int int" $ do
-            isLeft (parseAssembly "load 1 1") `shouldBe` True
+            parseAssembly ".test load \"hello\""
+                `shouldBe` Right [Left $ load (Just ".test") "hello"]
+        it "should fail on a load with int" $ do
+            isLeft (parseAssembly "load 1") `shouldBe` True
         it "should fail on a get with int" $ do
             isLeft (parseAssembly "get 1") `shouldBe` True
         it "should parse a call to a string" $ do
@@ -116,3 +114,6 @@ spec = do
         it "should fail on appendFile with non-string arguments" $ do
             isLeft (parseAssembly "appendFile 42 \"World\"") `shouldBe` True
             isLeft (parseAssembly "appendFile \"test.txt\" 42") `shouldBe` True
+
+        it "should parse a struct with a int and a char" $ do
+            parseAssembly ".start push {\"a\"=\'1\', \"b\"=2}" `shouldBe` Right [Left $ push (Just ".start") (St (Map.fromList [("a", C '1'), ("b", N 2)]))]

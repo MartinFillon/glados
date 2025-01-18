@@ -1,3 +1,10 @@
+##
+## EPITECH PROJECT, 2025
+## gladdos
+## File description:
+## Makefile
+##
+
 all: lisp maryl
 
 lisp:
@@ -16,4 +23,7 @@ fclean:
 
 re: fclean all
 
-PHONY: all lisp maryl clean fclean re
+docs:
+	make docs -C maryl
+
+.PHONY: all lisp maryl clean fclean re

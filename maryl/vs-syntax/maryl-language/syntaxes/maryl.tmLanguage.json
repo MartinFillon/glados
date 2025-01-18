@@ -1,0 +1,81 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Maryl",
+  "patterns": [
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#number"
+    },
+    {
+      "include": "#chars"
+    },
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#boolean"
+    },
+    {
+      "include": "#function"
+    }
+  ],
+  "repository": {
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.maryl",
+          "match": "\\b(if|while|for|return|int|string|char|while|void|float|bool|else|double|break|continue|import|and|or|const|struct)\\b"
+        }
+      ]
+    },
+    "number": {
+      "name": "constant.numeric.maryl",
+      "patterns": [
+        {
+          "name": "constant.numeric.maryl",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.maryl",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.maryl",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "chars": {
+      "name": "string.quoted.single.maryl",
+      "begin": "'",
+      "end": "'",
+      "patterns": [
+        {
+          "name": "constant.character.escape.maryl",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "comment": {
+      "name": "comment.line.maryl",
+      "match": "//.*$"
+    },
+    "boolean": {
+      "name": "constant.language.maryl",
+      "match": "\\b(true|false)\\b"
+    },
+    "function": {
+      "name": "entity.name.function.maryl",
+      "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\s*\\("
+    }
+  },
+  "scopeName": "source.mrl"
+}

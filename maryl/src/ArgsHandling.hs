@@ -16,16 +16,20 @@ module ArgsHandling (
 
 import Data.Text (pack, splitOn)
 import Options.Applicative (
+    Alternative (many),
     Parser,
     ParserResult (Success),
     bashCompleter,
+    command,
     completer,
-    flag,
     help,
+    hsubparser,
+    info,
     long,
-    many,
     metavar,
     optional,
+    progDesc,
+    short,
     strArgument,
     strOption,
  )
@@ -33,23 +37,43 @@ import Printer (Color, parseColor')
 import System.Exit (ExitCode (ExitFailure), exitWith)
 import System.IO (hPutStrLn, stderr)
 
-data Mode = Vm | Compile deriving (Show)
+data Mode = Vm String [String] | Compile (Maybe String) (Maybe FilePath) deriving (Show)
 
 data Options = Options
-    { filepath :: [FilePath],
-      setupColors :: Maybe String,
+    { setupColors :: Maybe String,
       mode :: Mode
     }
     deriving (Show)
 
+parseMode :: Parser Mode
+parseMode =
+    hsubparser
+        ( command "build" (info parseCompile (progDesc "Build maryl asm from maryl file."))
+            <> command "run" (info parseVm (progDesc "Execute the maryl asm built."))
+        )
+
+parseCompile :: Parser Mode
+parseCompile =
+    Compile
+        <$> optional
+            ( strArgument
+                (metavar "File")
+            )
+        <*> optional
+            ( strOption
+                ( long "option"
+                    <> short 'o'
+                    <> metavar "FILEPATH"
+                )
+            )
+
+parseVm :: Parser Mode
+parseVm = Vm <$> strArgument (metavar "File") <*> many (strArgument (metavar "Args..."))
+
 parseOptions :: Parser Options
 parseOptions =
     Options
-        <$> many
-            ( strArgument
-                (metavar "FILEPATH" <> help "Maryl files to compile or Maryl asm files to execute")
-            )
-        <*> optional
+        <$> optional
             ( strOption
                 ( long "setup-colors"
                     <> metavar "\"warnings:R;G;B errors:R;G;B infos:R;G;B\""
@@ -60,11 +84,7 @@ parseOptions =
                     <> completer (bashCompleter "file")
                 )
             )
-        <*> flag
-            Compile
-            Vm
-            ( long "vm" <> help "Enable vm mode instead of compile mode"
-            )
+        <*> parseMode
 
 parsePart :: [String] -> String -> Maybe Color
 parsePart [] _ = Nothing

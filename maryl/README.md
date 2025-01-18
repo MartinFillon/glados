@@ -1,6 +1,7 @@
 # Maryl (Part 2)
 
 More advanced language based on four axis:
+
 - Language-based security and robustness (skill: **security**)
 - Its syntax, grammar and semantics (skill: **parsing**)
 - The way and how fast it executes code (skill: **evaluation / compilation**)
@@ -25,6 +26,20 @@ stack build
 This will trigger the build process using `stack`, which will compile all necessary Haskell files and their dependencies based on the `stack.yaml` configuration.
 
 This command ensures that all the modules are correctly compiled and linked.
+
+## Usage
+
+To compile a maryl file into maryl asm use:
+
+```sh
+./glados build <file.mrl> -o <output file>
+```
+
+To run maryl asm use:
+
+```sh
+./glados run <file.masm> [args]
+```
 
 ### Clean Project
 
@@ -83,3 +98,109 @@ This command will generate the `hpc_index.html` files at root with coverage on *
 ## Features
 
 For a detailed list of features, please refer to the [FEATURES.md](FEATURES.md) file.
+
+## Syntax Highlighting
+
+In order to have syntax highlighing and colors in a maryl file (.mrl) or maryl-asm file (.masm) you need to manually install the extension.
+Todo that you can use a command like this:
+
+```sh
+cd $HOME/.vscode/extensions
+ln -s maryl-language <path to the repository>/maryl/vs-syntax/maryl-language
+```
+
+## Maryl Syntax (BNF notation)
+
+```bnf
+<type> ::= "int"
+        | "float"
+        | "double"
+        | "string"
+        | "char"
+        | "bool"
+        | "void"
+        | <list-type>
+        | <const-type>
+        | <struct-type>
+
+<list-type> ::= "[]" <type>
+<const-type> ::= "const" <type>
+<struct-type> ::= "struct" <identifier> <block>
+<expression> ::= <variable>
+             | <literal>
+             | <function-call>
+             | <binary-expr>
+             | <prefix-expr>
+             | <postfix-expr>
+             | <ternary-expr>
+             | <grouped-expr>
+             | <assignment>
+             | <label>
+
+<label> ::= <identifier> ":"
+<variable> ::= <identifier>
+<identifier> ::= <letter> <alphanumeric>*
+             | "_" <alphanumeric>+
+
+<literal> ::= <integer>
+          | <double>
+          | <bool>
+          | <string>
+          | <char>
+          | <list>
+
+<integer> ::= <digit>+
+<double> ::= <digit>* "." <digit>+
+<bool> ::= "true" | "false"
+<string> ::= '"' <char>* '"'
+<char> ::= "'" <char> "'"
+<list> ::= "[" <expression> ("," <expression>)* "]"
+<struct> ::= "{" <expression> ("," <expression>)* "}"
+
+<function-call> ::= <identifier> "(" <expression-list>? ")"
+<expression-list> ::= <expression> ("," <expression>)*
+
+<binary-expr> ::= <expression> <binary-operator> <expression>
+<binary-operator> ::= "+" | "-" | "|" | "&" | ">>" | "<<" | "^" | "*" | "**" | "/" | "%" | "==" | "!=" | ">" | ">=" | "<" | "<=" | "and" | "or"
+
+<prefix-expr> ::= <prefix-operator> <expression>
+<prefix-operator> ::= "!" | "-" | "++" | "--" | "~"
+
+<postfix-expr> ::= <expression> <postfix-operator>
+<postfix-operator> ::= "++" | "--"
+
+<ternary-expr> ::= <expression> "?" <expression> ":" <expression>
+
+<grouped-expr> ::= "(" <expression> ")"
+<assignment> ::= <variable> <assign-operator> <expression>
+<assign-operator> ::= "=" | "+=" | "-=" | "**=" | "*=" | "/=" | "%=" | "|=" | "&=" | "^=" | ">>=" | "<<="
+<statement> ::= <declaration>
+            | <expression-statement>
+            | <if-statement>
+            | <while-statement>
+            | <return-statement>
+            | <break-statement>
+            | <continue-statement>
+
+<declaration> ::= <variable-declaration> | <function-declaration>
+<variable-declaration> ::= <type> <identifier> ("=" <expression>)? ";"
+<function-declaration> ::= <type> <identifier> "(" <parameter-list>? ")" <block>
+<parameter-list> ::= <type> <identifier> ("," <type> <identifier>)*
+<function-body> ::= <block>
+<block> ::= "{" <statement>* "}"
+
+<expression-statement> ::= <expression> ";"
+
+<if-statement> ::= "if" "(" <expression> ")" <block> <else-if>* <else>?
+<else-if> ::= "else if" "(" <expression> ")" <block>
+<else> ::= "else" <block>
+
+<while-statement> ::= "while" "(" <expression> ")" <block>
+
+<return-statement> ::= "return" <expression>? ";"
+
+<break-statement> ::= "break" ";"
+<continue-statement> ::= "continue" ";"
+
+<import-statement> ::= "import" <string> ";"
+```

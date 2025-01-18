@@ -24,8 +24,9 @@ print_red() {
 
 # add.mrl
 print_bold "Running add.mrl..."
-./glados test/test_files/add.mrl
-output=$(./glados out.s --vm)
+./glados build test/test_files/add.mrl -o out.masm
+./glados run out.masm
+output=$(echo $?)
 if [ "$output" == "8" ]; then
     print_green "✅ add.mrl passed!"
 else
@@ -35,8 +36,9 @@ fi
 
 # mixupadd.mrl
 print_bold "Running mixupadd.mrl..."
-./glados test/test_files/mixupadd.mrl
-output=$(./glados out.s --vm)
+./glados build test/test_files/mixupadd.mrl -o out.masm
+./glados run out.masm
+output=$(echo $?)
 if [ "$output" == "6" ]; then
     print_green "✅ mixupadd.mrl passed!"
 else
@@ -46,8 +48,9 @@ fi
 
 # ifbasic.mrl
 print_bold "Running ifbasic.mrl..."
-./glados test/test_files/ifbasic.mrl
-output=$(./glados out.s --vm)
+./glados build test/test_files/ifbasic.mrl -o out.masm
+./glados run out.masm
+output=$(echo $?)
 if [ "$output" == "2" ]; then
     print_green "✅ ifbasic.mrl passed!"
 else
@@ -57,8 +60,9 @@ fi
 
 # elseifelse.mrl
 print_bold "Running elseifelse.mrl..."
-./glados test/test_files/elseifelse.mrl
-output=$(./glados out.s --vm)
+./glados build test/test_files/elseifelse.mrl -o out.masm
+./glados run out.masm
+output=$(echo $?)
 if [ "$output" == "3" ]; then
     print_green "✅ elseifelse.mrl passed!"
 else
@@ -68,11 +72,134 @@ fi
 
 # basiclist.mrl
 print_bold "Running basiclist.mrl..."
-./glados test/test_files/basiclist.mrl
-output=$(./glados out.s --vm)
+./glados build test/test_files/basiclist.mrl -o out.masm
+./glados run out.masm
+output=$(echo $?)
 if [ "$output" == "4" ]; then
     print_green "✅ basiclist.mrl passed!"
 else
     print_yellow "got '$output'"
     print_red "❌ basiclist.mrl failed"
 fi
+
+# print.mrl
+print_bold "Running print.mrl..."
+./glados build test/test_files/print.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "sooo\n1\n5\n['h','e','l','l','o']" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ print.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ print.mrl failed"
+fi
+
+# ops.mrl
+print_bold "Running ops.mrl..."
+./glados build test/test_files/ops.mrl -o out.masm
+./glados run out.masm
+output=$(echo $?)
+if [ "$output" == '1' ]; then
+    print_green "✅ ops.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ ops.mrl failed"
+fi
+
+# ternary.mrl
+print_bold "Running ternary.mrl..."
+./glados build test/test_files/ternary.mrl -o out.masm
+./glados run out.masm
+output=$(echo $?)
+if [ "$output" == '4' ]; then
+    print_green "✅ ternary.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ ternary.mrl failed"
+fi
+
+# fact.mrl
+print_bold "Running fact.mrl..."
+./glados build test/test_files/fact.mrl -o out.masm
+./glados run out.masm
+output=$(echo $?)
+if [ "$output" == '120' ]; then
+    print_green "✅ fact.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ fact.mrl failed"
+fi
+
+# loop.mrl
+print_bold "Running loop.mrl..."
+./glados build test/test_files/loop.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "5" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ loop.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ loop.mrl failed"
+fi
+
+# closeevalerror.mrl
+print_bold "Running closeevalerror.mrl..."
+./glados build test/test_files/closeevalerror.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "p['h','a','r','r','o']" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ closeevalerror.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ closeevalerror.mrl failed"
+fi
+
+# builtin.mrl
+print_bold "Running builtin.mrl..."
+./glados build test/test_files/builtin.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "hello world" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ builtin.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ builtin.mrl failed"
+fi
+
+# basicstruct.mrl
+print_bold "Running basicstruct.mrl..."
+./glados build test/test_files/basicstruct.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "{\"a\" = 1,\"b\" = 2,\"c\" = 3}{\"a\" = 0,\"b\" = 0,\"c\" = 0}" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ basicstruct.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ basicstruct.mrl failed"
+fi
+
+# listlist.mrl
+print_bold "Running listlist.mrl..."
+./glados build test/test_files/listlist.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "[[0,2],[3,4]]" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ listlist.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ listlist.mrl failed"
+fi
+
+# lesseq.mrl
+print_bold "Running lesseq.mrl..."
+./glados build test/test_files/lesseq.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "6" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ lesseq.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ lesseq.mrl failed"
+fi
+
+rm out.masm

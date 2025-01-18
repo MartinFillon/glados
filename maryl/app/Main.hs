@@ -37,7 +37,7 @@ handleArgs args = case execParserPure
     defaultPrefs
     (info (parseOptions <**> helper) fullDesc)
     args of
-    Success opts -> handleColorsSetup opts >> glados (mode opts) (filepath opts)
+    Success opts -> handleColorsSetup opts >> glados (mode opts)
     Failure res -> hPutStrLn stderr display >> exitWith exit
       where
         (display, exitCode) = renderFailure res ""

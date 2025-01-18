@@ -15,7 +15,7 @@ import VirtualMachine.State (VmState, eitherS)
 binaryOp ::
     (Int64 -> Int64 -> Int64) -> Value -> Value -> Either String Value
 binaryOp op (N x) (N y) = Right $ N (op x y)
-binaryOp _ _ _ = Left "Invalid numeric op"
+binaryOp _ _ _ = Left "Invalid binary op"
 
 binaryAnd :: [Value] -> VmState [Value]
 binaryAnd (y : x : xs) = eitherS $ (: xs) <$> binaryOp (.&.) x y

@@ -1,0 +1,17 @@
+int start() {
+    int a = 0;
+    while (a < 10){
+        if (i % 2 == 0) {
+            print("continued\n");
+            continue;
+        }
+        if (a == 8){
+            break;
+        }
+        print(a);
+        a++;
+    }
+    print("end\n");
+    print(a);
+    return 0;
+}

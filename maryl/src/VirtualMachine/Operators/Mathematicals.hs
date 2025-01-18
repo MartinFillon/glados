@@ -50,4 +50,4 @@ operatorMod :: [Value] -> VmState [Value]
 operatorMod (N y : N x : xs)
     | y == 0 = fail "modulo by zero"
     | otherwise = return $ N (x `mod` y) : xs
-operatorMod _ = fail "xpects two int"
+operatorMod _ = fail "expects two int"

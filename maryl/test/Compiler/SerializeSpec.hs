@@ -13,7 +13,9 @@ import Compiler.WriteASM (
     serializeInstruction,
     serializeInstructions,
     serializeMemoryFunctions,
+    writeInstructionsToFile,
  )
+import Control.Exception (bracket_)
 import qualified Data.Map as Map
 import Parsing.ParserAst (
     Ast (..),
@@ -21,7 +23,8 @@ import Parsing.ParserAst (
     MarylType (..),
     Variable (..),
  )
-import System.IO ()
+import System.Directory (doesFileExist, removeFile)
+import System.IO (readFile)
 import Test.Hspec (Spec, describe, it, shouldBe)
 import VirtualMachine.Instructions (Inst (..), Value (..), call)
 
@@ -42,6 +45,9 @@ spec = do
         it "serializes Push \"hello\"" $ do
             serializeInstArgs (Push (S "hello")) `shouldBe` " \"hello\""
 
+        it "serializes Push list ['a', 'b', 'c']" $ do
+            serializeInstArgs (Push (L [C 'a', C 'b', C 'c'])) `shouldBe` " ['a','b','c']"
+
         it "serializes Push 0.2" $ do
             serializeInstArgs (Push (D 0.2)) `shouldBe` " 0.2"
 
@@ -58,11 +64,9 @@ spec = do
             serializeInstArgs (JumpIfFalse (Right "label")) `shouldBe` " .label"
 
     describe "serializeInstruction" $ do
-        -- it "serializes instruction with label" $ do
-
-        it "serializes instruction without label" $ do
-            let instr = call Nothing "add"
-            serializeInstruction instr `shouldBe` "call \"add\""
+        it "serializes instruction with label" $ do
+            let instr = call (Just ".end") "add"
+            serializeInstruction instr `shouldBe` ".end call \"add\""
 
     --   describe "serializeInstructions" $ do
     --     it "serializes a list of instructions" $ do
@@ -87,7 +91,7 @@ spec = do
                               AstDefineFunc
                                 ( Function
                                     "add"
-                                    [AstVar "x", AstVar "y"]
+                                    [AstDefineVar (Variable "x" Int AstVoid), AstDefineVar (Variable "y" Int AstVoid)]
                                     [AstReturn (AstBinaryFunc "+" (AstVar "x") (AstVar "y"))]
                                     Int
                                 )
@@ -96,7 +100,7 @@ spec = do
                               AstDefineFunc
                                 ( Function
                                     "add"
-                                    [AstVar "x"]
+                                    [AstDefineVar (Variable "x" Int AstVoid)]
                                     [AstReturn (AstBinaryFunc "+" (AstVar "x") (AstInt 1))]
                                     Int
                                 )
@@ -105,3 +109,42 @@ spec = do
                 expected = definedFuncsTest
                 actual = serializeMemoryFunctions memory
             actual `shouldBe` expected
+
+    describe "writeInstructionsToFile" $ do
+        it "writes serialized memory to a file" $ do
+            let filePath = "test_output.txt"
+            let memory =
+                    Map.fromList
+                        [   ( "boo",
+                              AstDefineFunc
+                                ( Function
+                                    "boo"
+                                    []
+                                    [AstReturn (AstInt 69)]
+                                    Int
+                                )
+                            ),
+                            ( "mysucc",
+                              AstDefineFunc
+                                ( Function
+                                    "add"
+                                    []
+                                    [ AstDefineVar (Variable "a" Int (AstInt 4)),
+                                      AstDefineVar (Variable "b" Int (AstInt 1)),
+                                      AstReturn (AstFunc (Function "boo" [] [] Parsing.ParserAst.Void))
+                                    ]
+                                    Int
+                                )
+                            )
+                        ]
+            let expectedContent = serializeMemoryFunctions memory
+            bracket_
+                (pure ())
+                (removeFile filePath) -- cleanup
+                ( do
+                    writeInstructionsToFile filePath memory
+                    fileExists <- doesFileExist filePath
+                    fileExists `shouldBe` True
+                    content <- readFile filePath
+                    content `shouldBe` expectedContent
+                )

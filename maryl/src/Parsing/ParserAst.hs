@@ -4,6 +4,7 @@
 -- File description:
 -- Parser
 -}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Parsing.ParserAst (
@@ -12,15 +13,26 @@ module Parsing.ParserAst (
     MarylType (..),
     Function (..),
     Variable (..),
+    Structure (..),
+
     -- * Types
     Parser,
     ParserError,
+
     -- * Functions
+
+    -- ** Utility
+    isSameType,
+    isValidType,
+    getMarylType,
+
     -- ** Main parsing functions
     parseAST,
+    types,
     pAst,
     pTerm,
     pExpr,
+    pImport,
     pIf,
     pElseIf,
     pElse,
@@ -29,13 +41,17 @@ module Parsing.ParserAst (
     pBreak,
     pList,
     pListElem,
+    pEqual,
+    pLabel,
     variable,
     pDeclarationVar,
     pFunc,
     pDeclarationFunc,
+    pDeclarationStruct,
     operatorTable,
     convertValue,
     getType,
+
     -- ** Megaparsec functions wrappers
     binary,
     prefix,
@@ -48,7 +64,7 @@ import Control.Monad.Combinators.Expr (
     Operator (..),
     makeExprParser,
  )
-import Data.List (isPrefixOf, stripPrefix)
+import Data.List (intercalate, isPrefixOf, stripPrefix)
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Void (Void)
 import Text.Megaparsec (
@@ -67,15 +83,11 @@ import Text.Megaparsec (
     (<?>),
     (<|>),
  )
-import Text.Megaparsec.Char (alphaNumChar, char, letterChar, space1, string)
+import Text.Megaparsec.Char (alphaNumChar, char, letterChar, string)
 import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = Parsec Void String
 type ParserError = ParseErrorBundle String Void
-
--- | Types handled by the program.
-data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Undefined
-    deriving (Eq, Ord, Show)
 
 -- | Function structure containing the name of the function, its arguments, the content of the function, and the return value of the function.
 data Function = Function
@@ -94,6 +106,13 @@ data Variable = Variable
     }
     deriving (Eq, Ord, Show)
 
+-- | Structure structure containing the name of the structure, its type and its values in a block.
+data Structure = Structure
+    { sName :: String,
+      sProperties :: [Ast]
+    }
+    deriving (Eq, Ord, Show)
+
 -- | AST values parsed by the program.
 data Ast
     = AstVar String
@@ -103,22 +122,128 @@ data Ast
     | AstString String
     | AstChar Char
     | AstDouble Double
+    | AstGlobal Ast
     | AstBinaryFunc String Ast Ast
     | AstPostfixFunc String Ast
     | AstPrefixFunc String Ast
     | AstFunc Function
-    | AstIf Ast Ast [Ast] (Maybe Ast) -- ^ if condition do [else if] (Maybe else)
-    | AstTernary Ast Ast Ast -- ^ condition ? do : else
+    | -- | if condition do [else if] (Maybe else)
+      AstIf Ast Ast [Ast] (Maybe Ast)
+    | -- | condition ? do : else
+      AstTernary Ast Ast Ast
     | AstReturn Ast
     | AstBlock [Ast]
-    | AstLoop Ast Ast -- ^ condition (AstBlock to loop in)
-    | AstBreak -- ^ break statement
-    | AstContinue -- ^ continue statement
+    | AstStruct [Ast]
+    | -- | loopName condition (AstBlock to loop in)
+      AstLoop (Maybe String) Ast Ast
+    | -- | break statement
+      AstBreak (Maybe String)
+    | -- | continue statement
+      AstContinue (Maybe String)
     | AstDefineVar Variable
     | AstDefineFunc Function
+    | AstArg Ast (Maybe Int)
+    | AstDefineStruct Structure
     | AstList [Ast]
-    | AstListElem String [Int] -- ^ variable indexes
+    | -- | variable indexes (must be AstInt or AstVar)
+      AstListElem String [Ast]
+    | -- | label-name value
+      AstLabel String Ast
+    | -- | file to import, must be .mrl extension
+      AstImport String
+    deriving (Eq, Ord)
+
+instance Show Ast where
+    show :: Ast -> String
+    show (AstVar s) = s
+    show AstVoid = "Void"
+    show (AstInt n) = show n
+    show (AstBool b) = show b
+    show (AstString s) = show s
+    show (AstChar c) = show c
+    show (AstDouble d) = show d
+    show (AstGlobal ast) = "Global value [" ++ show ast ++ "]"
+    show (AstBinaryFunc op left right) = show left ++ " " ++ op ++ " " ++ show right
+    show (AstPostfixFunc f ast) = show ast ++ tail (init (show f))
+    show (AstPrefixFunc f ast) = tail (init (show f)) ++ show ast
+    show (AstFunc (Function funcName funcArgs funcBody _)) = "call " ++ show funcName ++ "(" ++ show funcArgs ++ "){" ++ show funcBody ++ "}"
+    show (AstIf cond ifBlock elseIf maybeElse) = "if (" ++ show cond ++ "){" ++ show ifBlock ++ "} " ++ show elseIf ++ " else {" ++ show maybeElse ++ "}"
+    show (AstTernary cond terBlock elseBlock) = show cond ++ " ? " ++ show terBlock ++ " : " ++ show elseBlock
+    show (AstReturn ast) = "return " ++ show ast
+    show (AstBlock blocks) = show blocks
+    show (AstLoop loopName cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "} --> [" ++ maybe "" show loopName ++ "]"
+    show (AstBreak loopName) = "break(" ++ show loopName ++ ")"
+    show (AstContinue loopName) = "continue(" ++ show loopName ++ ")"
+    show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
+    show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
+    show (AstArg arg idx) = "(Arg " ++ show arg ++ " (" ++ show idx ++ "))"
+    show (AstList asts) = "List" ++ show asts
+    show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
+    show (AstStruct s) = "Struct " ++ show s
+    show (AstDefineStruct s) = "DefStruct " ++ sName s ++ " " ++ show (sProperties s)
+    show (AstLabel n v) = "Label " ++ n ++ ": " ++ show v
+    show (AstImport f) = "Import " ++ f
+
+-- | Types handled by the program.
+data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
     deriving (Eq, Ord, Show)
+
+-- | Checks if both Ast are the same without comparing their value if they have one
+isSameType :: Ast -> Ast -> Bool
+isSameType AstBool {} AstBool {} = True
+isSameType AstVar {} AstVar {} = True
+isSameType AstVoid AstVoid = True
+isSameType AstInt {} AstInt {} = True
+isSameType AstString {} AstString {} = True
+isSameType AstChar {} AstChar {} = True
+isSameType AstDouble {} AstDouble {} = True
+isSameType AstBinaryFunc {} AstBinaryFunc {} = True
+isSameType AstPostfixFunc {} AstPostfixFunc {} = True
+isSameType AstPrefixFunc {} AstPrefixFunc {} = True
+isSameType AstFunc {} AstFunc {} = True
+isSameType AstIf {} AstIf {} = True
+isSameType AstTernary {} AstTernary {} = True
+isSameType AstReturn {} AstReturn {} = True
+isSameType AstBlock {} AstBlock {} = True
+isSameType AstStruct {} AstStruct {} = True
+isSameType AstLoop {} AstLoop {} = True
+isSameType AstBreak {} AstBreak {} = True
+isSameType AstContinue {} AstContinue {} = True
+isSameType AstArg {} AstArg {} = True
+isSameType AstDefineVar {} AstDefineVar {} = True
+isSameType AstDefineFunc {} AstDefineFunc {} = True
+isSameType AstDefineStruct {} AstDefineStruct {} = True
+isSameType AstList {} AstList {} = True
+isSameType AstListElem {} AstListElem {} = True
+isSameType AstLabel {} AstLabel {} = True
+isSameType AstImport {} AstImport {} = True
+isSameType _ _ = False
+
+-- | Compare AST to a MarylType and evaluates with Boolean
+isValidType :: Ast -> MarylType -> Bool
+isValidType AstVoid Void = True
+isValidType (AstInt _) Int = True
+isValidType (AstBool _) Bool = True
+isValidType (AstString _) String = True
+isValidType (AstChar _) Char = True
+isValidType (AstDouble _) Double = True
+isValidType _ _ = False
+{- ^ ^^
+ doesn't handle AstStruct
+                AstList
+                AstListElem
+                AstArg
+-}
+
+-- | Obtain suggested MarylType from an AST
+getMarylType :: Ast -> MarylType
+getMarylType AstVoid = Void
+getMarylType (AstInt _) = Int
+getMarylType (AstBool _) = Bool
+getMarylType (AstString _) = String
+getMarylType (AstChar _) = Char
+getMarylType (AstDouble _) = Double
+getMarylType _ = Undefined
 
 lineComment :: Parser ()
 lineComment = L.skipLineComment "//"
@@ -149,24 +274,27 @@ bonusChar :: Parser Char
 bonusChar = choice $ char <$> bonusChar'
 
 rWords :: [String]
-rWords = types' ++
-    [ "while",
-      "if",
-      "else",
-      "true",
-      "false",
-      "return",
-      "null",
-      "const",
-      "break",
-      "continue"
-    ]
+rWords =
+    types'
+        ++ [ "while",
+             "if",
+             "else",
+             "true",
+             "false",
+             "return",
+             "null",
+             "const",
+             "struct",
+             "break",
+             "continue"
+           ]
 
 -- | Variable names must start with a letter or an underscore ([_a-zA-Z]), and can be followed by any alphanumerical character or underscore ([_a-zA-Z0-9])
 variable :: Parser String
 variable = variable' >>= check
-    where
-        check x = if x `elem` rWords
+  where
+    check x =
+        if x `elem` rWords
             then fail $ show x ++ " is a reserved identifier"
             else return x
 
@@ -191,11 +319,30 @@ bool =
               True <$ string "true"
             ]
 
-listElem :: Parser Int
-listElem = between (symbol "[") (symbol "]") integer
+{- | Parsing labels like so: name:
 
-listElem' :: Parser [Int]
-listElem' = between (symbol "[") (symbol "]") (integer `sepBy` lexeme ",")
+>>> struct vector vect = {x: 42, y:1};
+-}
+pLabel :: Parser Ast
+pLabel = do
+    n <- variable
+    sc
+    _ <- symbol ":"
+    sc
+    AstLabel n <$> convertValue
+
+{- | Parsing import statement to import another Maryl file content, must be formatted: import "filepath";
+
+>>> import "toto.mrl";
+-}
+pImport :: Parser Ast
+pImport = lexeme $ string "import" >> sc >> AstImport <$> stringLiteral
+
+listElem :: Parser Ast
+listElem = between (symbol "[") (symbol "]") (AstInt <$> integer <|> AstVar <$> variable)
+
+listElem' :: Parser [Ast]
+listElem' = between (symbol "[") (symbol "]") ((AstInt <$> integer <|> AstVar <$> variable) `sepBy` lexeme ",")
 
 -- | Parsing access to an element of a list formatted: foo[index]. Multiple dimensions can be accessed by adding the index after, formatted like so: foo[i][j] or foo[i,j].
 pListElem :: Parser Ast
@@ -230,13 +377,15 @@ pListElem = do
 convertValue :: Parser Ast
 convertValue =
     choice
-        [ AstDouble <$> try double,
+        [ try pLabel,
+          AstDouble <$> try double,
           AstInt <$> integer,
           try pListElem,
           AstList <$> try pList,
           AstBool <$> bool,
           AstChar <$> charLiteral,
           AstString <$> stringLiteral,
+          AstStruct <$> try struct,
           AstBlock <$> block,
           try pFunc,
           AstVoid <$ try (lexeme $ string "null"),
@@ -254,7 +403,7 @@ list' :: Parser Ast -> Parser Ast
 list' = between (symbol "(") (symbol ")")
 
 listVariables :: Parser [Ast]
-listVariables = between (symbol "(") (symbol ")") (convertValue `sepBy` lexeme ",")
+listVariables = between (symbol "(") (symbol ")") (pExpr `sepBy` lexeme ",")
 
 listVariables' :: Parser [Ast]
 listVariables' =
@@ -266,30 +415,62 @@ listVariables' =
 block :: Parser [Ast]
 block = between (symbol "{") (symbol "}") (many pTerm)
 
+struct :: Parser [Ast]
+struct = between (symbol "{") (symbol "}") (convertValue `sepBy` lexeme ",")
+
 types' :: [String]
 types' =
     [ "int",
       "float",
+      "double",
       "string",
       "char",
       "bool",
       "void"
     ]
 
+pType :: Parser String
+pType = choice (string <$> types')
+
+pStructType :: Parser String
+pStructType = lexeme $ do
+    s <- string "struct "
+    sc
+    n <- variable
+    return $ s ++ " " ++ n
+
+typesLookahead :: String -> Parser String
+typesLookahead pfx = lexeme $ do
+    s <- string pfx
+    sc
+    t <- types
+    return $ s ++ " " ++ t
+
 types :: Parser String
-types = choice (map string (("[]" ++) <$> types')) <|> choice (map string types')
+types =
+    choice
+        [ pStructType,
+          try $ typesLookahead "[]",
+          typesLookahead "const ",
+          pType
+        ]
+
+trimFront :: String -> String -> String
+trimFront toTrim str = dropWhile (\x -> x == ' ' || x == '\t') (fromJust $ stripPrefix toTrim str)
 
 -- | Returns a 'MarylType' based on string given as parameter. If the string is not supported, returns 'Undefined'.
 getType :: String -> MarylType
 getType "int" = Int
 getType "float" = Double
+getType "double" = Double
 getType "string" = String
 getType "char" = Char
 getType "bool" = Bool
 getType "void" = Void
 getType str
-    | "[]" `isPrefixOf` str = List $ getType (fromJust $ stripPrefix "[]" str)
-    | "const" `isPrefixOf` str = Const $ getType (dropWhile (\x -> x == ' ' || x == '\t') (fromJust $ stripPrefix "const" str))
+    | "[]" `isPrefixOf` str = List $ getType $ trimFront "[]" str
+    | "const " `isPrefixOf` str = Const $ getType $ trimFront "const" str
+    | "struct " `isPrefixOf` str = Struct $ takeWhile (\x -> x /= ' ' && x /= '\t') $ trimFront "struct" str
     | otherwise = Undefined
 
 optionalValue :: Parser (Maybe Ast)
@@ -329,6 +510,18 @@ pDeclarationFunc = do
     return $
         AstDefineFunc (Function {fName = n, fArgs = a, fBody = b, fType = getType t})
 
+{- | Parsing 'pStruct' declaration, formatted: struct name {}
+
+>>> struct vector {int x; int y;}
+-}
+pDeclarationStruct :: Parser Ast
+pDeclarationStruct = do
+    symbol "struct" >> sc
+    n <- variable
+    sc
+    b <- block
+    return $ AstDefineStruct (Structure {sName = n, sProperties = b})
+
 {- | Function names must be formatted like a 'variable', followed by parenthesis: foo()
 
 >>> foo();
@@ -352,7 +545,7 @@ pLoop = do
     string "while" >> sc
     cond <- list
     toDo <- AstBlock <$> block
-    return $ AstLoop cond toDo
+    return $ AstLoop Nothing cond toDo
 
 pVoid :: Parser Ast
 pVoid = list' pVoid' <|> pVoid'
@@ -402,15 +595,69 @@ pIf = do
 >>> while (true) {break;}
 -}
 pBreak :: Parser Ast
-pBreak = lexeme $ AstBreak <$ string "break"
+pBreak = lexeme $ AstBreak Nothing <$ string "break"
 
 {- | Parsing continue statement (just a "continue" keyword).
 
 >>> while (true) {continue;}
 -}
 pContinue :: Parser Ast
-pContinue = lexeme $ AstContinue <$ string "continue"
+pContinue = lexeme $ AstContinue Nothing <$ string "continue"
 
+eqSymbol :: Parser String
+eqSymbol =
+    choice
+        ( symbol
+            <$> [ "=",
+                  "+=",
+                  "-=",
+                  "**=",
+                  "*=",
+                  "/=",
+                  "%=",
+                  "|=",
+                  "&=",
+                  "^=",
+                  ">>=",
+                  "<<="
+                ]
+        )
+
+{- | Parsing equal symbols for variable value assignation, syntax being: variable = value;
+
+    Assignations handled:
+
+    = -> standard assignation
+
+    += -> addition assignation
+
+    -= -> subtraction assignation
+
+    *= -> multiplication assignation
+
+    /= -> division assignation
+
+    **= -> power assignation
+
+    %= -> modulo assignation
+
+    |= -> bitwise OR assignation
+
+    &= -> bitwise AND assignation
+
+    ^= -> bitwise XOR assignation
+
+    >>= -> bitshift right assignation
+
+    <<= -> bitshift left assignation
+-}
+pEqual :: Parser Ast
+pEqual = do
+    var <- try pListElem <|> (AstVar <$> lexeme variable)
+    sc
+    eq <- eqSymbol
+    sc
+    AstBinaryFunc eq var <$> pExpr
 
 {- |
     Parsing statements
@@ -433,12 +680,15 @@ pTerm :: Parser Ast
 pTerm =
     choice
         [ AstReturn <$> (pReturn <* semi),
-          try pIf,
-          try pLoop,
+          pImport <* semi,
+          pIf,
+          pLoop,
           try pDeclarationFunc,
-          try pDeclarationVar <* semi,
-          try pBreak <* semi,
-          try pContinue <* semi,
+          try pDeclarationStruct,
+          pDeclarationVar <* semi,
+          pBreak <* semi,
+          pContinue <* semi,
+          try pEqual <* semi,
           pExpr <* semi
         ]
 
@@ -462,7 +712,8 @@ ternary f = TernR ((f <$ lexeme (char ':')) <$ lexeme (char '?'))
 -- | Operator table containing every operator handled by the program.
 operatorTable :: [[Operator Parser Ast]]
 operatorTable =
-    [   [ prefix "--" (AstPrefixFunc "--"),
+    [ [binary "." (AstBinaryFunc ".")],
+        [ prefix "--" (AstPrefixFunc "--"),
           prefix "-" (AstPrefixFunc "-"),
           prefix "++" (AstPrefixFunc "++"),
           prefix "+" id,
@@ -472,7 +723,7 @@ operatorTable =
         [ postfix "++" (AstPostfixFunc "++"),
           postfix "--" (AstPostfixFunc "--")
         ],
-        [ binary' "**" (AstBinaryFunc "**") ],
+      [binary' "**" (AstBinaryFunc "**")],
         [ binary "*" (AstBinaryFunc "*"),
           binary "/" (AstBinaryFunc "/"),
           binary "%" (AstBinaryFunc "%")
@@ -487,26 +738,15 @@ operatorTable =
         ],
         [ binary "==" (AstBinaryFunc "=="),
           binary "!=" (AstBinaryFunc "!="),
-          binary ">" (AstBinaryFunc ">"),
           binary ">=" (AstBinaryFunc ">="),
-          binary "<" (AstBinaryFunc "<"),
-          binary "<=" (AstBinaryFunc "<=")
+          binary ">" (AstBinaryFunc ">"),
+          binary "<=" (AstBinaryFunc "<="),
+          binary "<" (AstBinaryFunc "<")
         ],
         [ binary "or" (AstBinaryFunc "or"),
           binary "and" (AstBinaryFunc "and")
         ],
-      [ternary AstTernary],
-        [ binary "=" (AstBinaryFunc "="),
-          binary "+=" (AstBinaryFunc "+="),
-          binary "-=" (AstBinaryFunc "-="),
-          binary "*=" (AstBinaryFunc "*="),
-          binary "/=" (AstBinaryFunc "/="),
-          binary "|=" (AstBinaryFunc "|="),
-          binary "&=" (AstBinaryFunc "&="),
-          binary "^=" (AstBinaryFunc "^="),
-          binary ">>=" (AstBinaryFunc ">>="),
-          binary "<<=" (AstBinaryFunc "<<=")
-        ]
+      [ternary AstTernary]
     ]
 
 -- | Megaparsec Expr parser call with 'convertValue' defining the types to parse and 'operatorTable' containing all operators handled.
@@ -518,9 +758,10 @@ pExpr' = list' pExpr <|> convertValue
 
 -- | 'parseAST' entry function parsing multiple AST as defined by 'pTerm'
 pAst :: Parser [Ast]
-pAst = many $ try pTerm
+pAst = many pTerm
 
--- | Main parsing function returning a list of parsed AST, or a Megaparsec formatted error.
--- Takes the string to parse as parameter.
+{-  | Main parsing function returning a list of parsed AST, or a Megaparsec formatted error.
+  Takes the string to parse as parameter.
+-}
 parseAST :: String -> Either ParserError [Ast]
 parseAST = parse (between sc eof pAst) ""

@@ -7,14 +7,20 @@
 
 module VirtualMachine.Operators.MathematicalSpec (spec) where
 
-import Test.Hspec (Spec, describe, it, shouldReturn)
+import Control.Exception (IOException)
+import Test.Hspec (Spec, describe, it, shouldReturn, shouldThrow)
 import VirtualMachine.Instructions (
     Value (..),
     call,
     push,
     ret,
  )
-import VirtualMachine.TestUtils (execTest)
+import VirtualMachine.TestUtils (execTest, userError')
+
+notEnoughArgM :: String -> (IOException -> Bool) -> Spec
+notEnoughArgM s f =
+    it ("should fail cause not enough arg on " ++ s) $
+        execTest [push Nothing (N 10), call Nothing s] `shouldThrow` f
 
 spec :: Spec
 spec =
@@ -76,6 +82,7 @@ spec =
                     [push Nothing (D 5.0), push Nothing (N 2), call Nothing "div", ret Nothing]
                 `shouldReturn` D
                     2.5
+
         it "should execute modulo 10 % 3" $
             do
                 execTest
@@ -117,3 +124,33 @@ spec =
                 execTest
                     [push Nothing (N 10), push Nothing (N 3), call Nothing "mod", ret Nothing]
                 `shouldReturn` N 1
+
+        it "should fail on division of by 0" $
+            do
+                execTest
+                    [push Nothing (N 10), push Nothing (N 0), call Nothing "div", ret Nothing]
+                `shouldThrow` userError' "division by zero"
+
+        it "should fail on division of by 0.0" $
+            do
+                execTest
+                    [push Nothing (D 10.0), push Nothing (D 0.0), call Nothing "div", ret Nothing]
+                `shouldThrow` userError' "division by zero"
+
+        it "should do 10.0 / 5.0" $
+            do
+                execTest
+                    [push Nothing (D 10.0), push Nothing (D 5.0), call Nothing "div", ret Nothing]
+                `shouldReturn` D 2
+
+        it "should fail on modulo by 0" $
+            do
+                execTest
+                    [push Nothing (N 10), push Nothing (N 0), call Nothing "mod", ret Nothing]
+                `shouldThrow` userError' "modulo by zero"
+
+        notEnoughArgM "add" $ userError' "expects two number"
+        notEnoughArgM "sub" $ userError' "expects two number"
+        notEnoughArgM "mul" $ userError' "expects two number"
+        notEnoughArgM "div" $ userError' "expects two number"
+        notEnoughArgM "mod" $ userError' "expects two int"
