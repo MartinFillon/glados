@@ -38,6 +38,9 @@ coverage:
 	$(RM) $(TEST_PATH)
 	stack test --coverage
 
+docs:
+	stack haddock
+
 report:
 	$(RM) $(TEST_PATH)
 	stack test

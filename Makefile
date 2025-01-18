@@ -23,4 +23,7 @@ fclean:
 
 re: fclean all
 
+docs:
+	make docs -C maryl
+
 .PHONY: all lisp maryl clean fclean re
