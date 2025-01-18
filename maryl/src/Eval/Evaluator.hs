@@ -60,7 +60,8 @@ evalAssignType (AstStruct eles) right mem =
             Left err -> Left err
         _ -> Left ("Can't assign " ++ show evaluatedR ++ " as struct.")
 evalAssignType ast right mem
-    | getMarylType ast == Undefined = Left ("Can't assign " ++ show ast)
+    | getMarylType ast == Undefined =
+        Left ("Can't assign " ++ show ast ++ ", type isn't recognised")
     | otherwise =
         either Left (\_ -> Right (ast, mem)) (evalDefinition right (getMarylType ast) mem)
 evalAssignType _ _ mem = Right (AstVoid, mem)
@@ -131,7 +132,7 @@ evalBinaryRet op expectedType mem =
             if expectedType `elem` expectedTypes
                 then Right ()
                 else Left $ "Operation \"" ++ op ++ "\" does not justify expected type " ++ show expectedType ++ "."
-        Nothing -> Left $ "Unknown operator: \"" ++ op ++ "\"."
+        Nothing -> Left $ "Unknown operator \"" ++ op ++ "\"."
 evalBinaryRet op expectedType mem =
     Left ("Operation " ++ op ++ " doesn't justify to expected " ++ show expectedType ++ ".")
 
@@ -204,7 +205,7 @@ evalLoops (AstLoop (Just loopName) cond block) mem =
 evalDefinition :: Ast -> MarylType -> Memory -> Either String Ast
 evalDefinition AstVoid (Struct expectedType) mem =
     case readMemory mem expectedType of
-        Just (AstDefineStruct struct) -> normalizeStruct (AstDefineStruct struct) AstVoid
+        Just (AstDefineStruct struct) -> normalizeStruct (AstDefineStruct struct) AstVoid mem
         _ -> Left ("Struct of type " ++ expectedType ++ " can't be found.")
 evalDefinition AstVoid _ _ = Right AstVoid
 evalDefinition (AstArg ast _) typeVar mem = evalDefinition ast typeVar mem
@@ -220,8 +221,10 @@ evalDefinition (AstDefineVar origVar@(Variable varName varType _)) expectedType 
     | otherwise = Left (varName ++ " isn't of proper type, expected " ++ show varType ++ ".")
 evalDefinition ast (Struct structType) mem =
     case readMemory mem structType of
-        Just (AstDefineStruct struct) -> normalizeStruct (AstDefineStruct struct) ast
+        Just (AstDefineStruct struct) -> normalizeStruct (AstDefineStruct struct) ast mem
         _ -> Left ("Struct of type " ++ structType ++ " can't be found.")
+evalDefinition (AstBinaryFunc "." left right) expectedType mem =
+    either Left Right (evalCallStructEle left right expectedType mem)
 evalDefinition (AstBinaryFunc op left right) expectedType mem =
     either Left (\() -> Right (AstBinaryFunc op left right)) (evalBinaryRet op expectedType mem)
 evalDefinition (AstFunc funcName) _ _ =
@@ -241,6 +244,10 @@ evalStructDecla ((AstDefineVar var@(Variable _ varType varValue)) : xs) mem =
     either Left (const (evalStructDecla xs mem)) (evalDefinition varValue varType mem)
 evalStructDecla [] _ = Right ()
 evalStructDecla _ _ = Left "Invalid definition of structure."
+
+evalCallStructEle :: Ast -> Ast -> MarylType -> Memory -> Either String Ast
+evalCallStructEle left right expectedType mem =
+    Left "Evaluator doesn't handle \".\" operator (call to structure element) at the moment."
 
 ----- Memory-based definitions
 

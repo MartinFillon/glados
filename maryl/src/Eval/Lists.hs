@@ -5,24 +5,41 @@
 -- Lists
 -}
 
-module Eval.Lists (checkIndices, checkListType, evalList, evalListElemDef, getIndexes, updateList) where
+module Eval.Lists (checkIndices, checkListType, evalList, evalListElemDef, getAtIdx, getIndexes, updateList) where
 
 import Data.List (intercalate, foldl')
 import Memory (Memory, readMemory)
 import Parsing.ParserAst (Ast (..), MarylType (..), getMarylType)
 
-changeAtIdx :: Ast -> [Int] -> Ast -> Ast
+getAtIdx :: Ast -> [Int] -> Either String Ast
+getAtIdx (AstList elements) [idx]
+    | idx >= 0 && idx < length elements = Right (elements !! idx)
+    | otherwise = Left ("Index " ++ show idx ++ " out of bounds for list of size " ++ show (length elements) ++ ".")
+getAtIdx (AstList elements) (x : xs)
+    | x >= 0 && x < length elements =
+        let current = elements !! x
+         in getAtIdx current xs
+    | otherwise = Left ("Index " ++ show x ++ " out of bounds for list of size " ++ show (length elements) ++ ".")
+getAtIdx ast _ =
+    Left ("Invalid operation: expected a list but got " ++ show ast ++ ".")
+
+changeAtIdx :: Ast -> [Int] -> Ast -> Either String Ast
 changeAtIdx (AstList elements) [idx] newVal
     | idx >= 0 && idx < length elements =
-        AstList (take idx elements ++ [newVal] ++ drop (idx + 1) elements)
-    | otherwise = AstList elements
+        Right (AstList (take idx elements ++ [newVal] ++ drop (idx + 1) elements))
+    | otherwise =
+        Left ("Index " ++ show idx ++ " out of bounds for list of size " ++ show (length elements) ++ ".")
 changeAtIdx (AstList elements) (x : xs) newVal
     | x >= 0 && x < length elements =
         let current = elements !! x
-            updated = changeAtIdx current xs newVal
-         in AstList (take x elements ++ [updated] ++ drop (x + 1) elements)
-    | otherwise = AstList elements
-changeAtIdx ast _ _ = ast
+         in case changeAtIdx current xs newVal of
+                Right updated ->
+                    Right (AstList (take x elements ++ [updated] ++ drop (x + 1) elements))
+                Left err -> Left err
+    | otherwise =
+        Left ("Index " ++ show x ++ " out of bounds for list of size " ++ show (length elements) ++ ".")
+changeAtIdx ast _ _ =
+    Left (" expected a list but got " ++ show ast ++ ".")
 
 getIndexFromAst' :: Memory -> (Memory -> Ast -> Maybe Int) -> String -> Maybe Int
 getIndexFromAst' mem f n = case readMemory mem n of
@@ -47,7 +64,10 @@ updateList :: String -> Ast -> Memory -> Ast -> Either String (Ast, Memory)
 updateList listName (AstListElem _ idxs) mem newVal =
     case readMemory mem listName of
         Just (AstList elements) ->
-            getIndexes mem idxs >>= \idxs' -> Right (changeAtIdx (AstList elements) idxs' newVal, mem)
+            getIndexes mem idxs >>= \idxs' -> 
+                case changeAtIdx (AstList elements) idxs' newVal of
+                    Right updatedList -> Right (updatedList, mem)
+                    Left err -> Left ("Error updating list: " ++ err)
         _ -> Left ("Unable to update " ++ show (AstListElem listName idxs) ++ " with " ++ show newVal ++ ".")
 updateList _ ast mem _ = Right (ast, mem)
 
@@ -73,11 +93,11 @@ checkListType ((AstList x) : xs) (List eleType) mem
     | otherwise = False
 checkListType (AstVar var : xs) expectedType mem =
     maybe False (\val -> checkListType (val : xs) expectedType mem) (readMemory mem var)
+-- checkListType (AstListElem var idxs) expectedType mem =
 checkListType (x : xs) expectedType mem
     | getMarylType x == expectedType = checkListType xs expectedType mem
     | otherwise = False
 checkListType [] _ _ = True
--- handle list elem
 
 evalListElemDef :: String -> [Ast] -> MarylType -> Memory -> Either String Ast
 evalListElemDef listVar idx typeVar mem =

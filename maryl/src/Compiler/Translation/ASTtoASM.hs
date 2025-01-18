@@ -128,7 +128,7 @@ translateStruct (AstDefineStruct (Structure _ props)) AstVoid varName mem =
         updateMemory mem varName (AstStruct props))
     ) (mapM (toStructField mem) props)
 translateStruct (AstDefineStruct struct) structValues nameStruct mem =
-    case normalizeStruct (AstDefineStruct struct) structValues of
+    case normalizeStruct (AstDefineStruct struct) structValues mem of
         Right (AstStruct eles) ->
             maybe (D.empty, mem) (\fields ->
                 ( D.fromList [push Nothing (St $ Map.fromList fields), load Nothing nameStruct],
