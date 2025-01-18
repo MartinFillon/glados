@@ -5,20 +5,12 @@
 -- Lists
 -}
 
-module Compiler.Translation.ListsStructures (associateTypes, translateList, translateMultIndexes) where
+module Compiler.Translation.ListsStructures (associateTypes, translateList) where
 
 import qualified Data.DList as D
 import Memory (Memory, readMemory)
 import Parsing.ParserAst (Ast (..))
 import VirtualMachine.Instructions (Instruction (..), Value (..), call, push)
-
--- | Translates multiple 'get' calls to access elements in a multi-dimensional list.
-translateMultIndexes :: [Int] -> Memory -> D.DList Instruction
-translateMultIndexes (x : xs) mem =
-    D.singleton (push Nothing (N (fromIntegral x)))
-        `D.append` D.singleton (call Nothing "get")
-        `D.append` translateMultIndexes xs mem
-translateMultIndexes [] _ = D.empty
 
 {- | Translates a List of 'Ast' to a List of 'Value'.
  'Value' is the recognised type in VM.

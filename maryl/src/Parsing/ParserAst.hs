@@ -145,8 +145,8 @@ data Ast
     | AstArg Ast (Maybe Int)
     | AstDefineStruct Structure
     | AstList [Ast]
-    | -- | variable indexes
-      AstListElem String [Int]
+    | -- | variable indexes (must be AstInt or AstVar)
+      AstListElem String [Ast]
     | -- | label-name value
       AstLabel String Ast
     | -- | file to import, must be .mrl extension
@@ -163,7 +163,7 @@ instance Show Ast where
     show (AstChar c) = show c
     show (AstDouble d) = show d
     show (AstGlobal ast) = "Global value [" ++ show ast ++ "]"
-    show (AstBinaryFunc op left right) = show left ++ " " ++ show op ++ " " ++ show right
+    show (AstBinaryFunc op left right) = show left ++ " " ++ op ++ " " ++ show right
     show (AstPostfixFunc f ast) = show ast ++ tail (init (show f))
     show (AstPrefixFunc f ast) = tail (init (show f)) ++ show ast
     show (AstFunc (Function funcName funcArgs funcBody _)) = "call " ++ show funcName ++ "(" ++ show funcArgs ++ "){" ++ show funcBody ++ "}"
@@ -338,11 +338,11 @@ pLabel = do
 pImport :: Parser Ast
 pImport = lexeme $ string "import" >> sc >> AstImport <$> stringLiteral
 
-listElem :: Parser Int
-listElem = between (symbol "[") (symbol "]") integer
+listElem :: Parser Ast
+listElem = between (symbol "[") (symbol "]") (AstInt <$> integer <|> AstVar <$> variable)
 
-listElem' :: Parser [Int]
-listElem' = between (symbol "[") (symbol "]") (integer `sepBy` lexeme ",")
+listElem' :: Parser [Ast]
+listElem' = between (symbol "[") (symbol "]") ((AstInt <$> integer <|> AstVar <$> variable) `sepBy` lexeme ",")
 
 -- | Parsing access to an element of a list formatted: foo[index]. Multiple dimensions can be accessed by adding the index after, formatted like so: foo[i][j] or foo[i,j].
 pListElem :: Parser Ast

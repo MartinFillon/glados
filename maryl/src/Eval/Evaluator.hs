@@ -13,7 +13,7 @@ import Data.Either (fromRight)
 import qualified Data.Map as Map
 import Debug.Trace (trace)
 import Eval.Functions (checkBuiltins, evalArgs)
-import Eval.Lists (checkListType, evalList, evalListElemDef, updateList)
+import Eval.Lists (checkListType, evalList, evalListElemDef, getIndexes, updateList)
 import Eval.Ops (
     boolTokens,
     evalAdd,
@@ -50,8 +50,10 @@ evalAssignType (AstDefineVar var@(Variable varName varType varValue)) right mem 
     either
         (\err -> Left (varName ++ " can't be reassigned: " ++ err))
         (\_ -> Right (AstVar varName, mem)) (evalDefinition right varType mem)
+evalAssignType (AstArg ast _) right mem =
+    evalNode mem ast >>= \(evaluatedR, updatedMem) -> evalAssignType ast right mem
 evalAssignType ast right mem
-    | getMarylType ast == Undefined = Left ("Can't assign " ++ show ast)
+    | getMarylType ast == Undefined = Left ("Can't assign " ++ show ast) --handle here
     | otherwise =
         either Left (\_ -> Right (ast, mem)) (evalDefinition right (getMarylType ast) mem)
 evalAssignType _ _ mem = Right (AstVoid, mem)
@@ -61,7 +63,7 @@ evalAssign :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
 evalAssign mem (AstVar var) right = evalNode mem right >>= \(evaluatedR, updatedMem) ->
     let newMem = updateMemory updatedMem var evaluatedR
      in maybe (Left ("Failed to assign \"" ++ var ++ "\", variable is out of scope."))
-        (\val -> evalAssignType val right mem >> Right (AstBinaryFunc "=" (AstVar var) evaluatedR, newMem))
+        (\val -> evalAssignType val evaluatedR mem >> Right (AstBinaryFunc "=" (AstVar var) evaluatedR, newMem))
         (readMemory mem var)
 evalAssign mem (AstListElem var idxs) right =
     evalNode mem right >>= \(evaluatedAst, updatedMem) ->
@@ -147,9 +149,9 @@ evalIfConditions (AstIf cond doBlock elseifs elseBlock) (AstBool False) mem =
 evalIfConditions _ _ _ = Left "Condition in if statement is not a boolean"
 
 evalLoopNode :: String -> Ast -> Memory -> Either String Ast
-evalLoopNode loopName (AstBreak _) _ = trace "1" Right (AstBreak (Just loopName))
-evalLoopNode loopName (AstContinue _) _ = trace "2" Right (AstContinue (Just loopName))
-evalLoopNode _ node _ = trace ("else " ++ show node) $ Right node
+evalLoopNode loopName (AstBreak _) _ = Right (AstBreak (Just loopName))
+evalLoopNode loopName (AstContinue _) _ = Right (AstContinue (Just loopName))
+evalLoopNode _ node _ = Right node
 
 evalLoopBlock :: String -> [Ast] -> Memory -> Either String [Ast]
 evalLoopBlock loopName [] _ = Right []
@@ -163,7 +165,7 @@ evalLoopBlock loopName (x:xs) mem =
 evalLoops :: Ast -> Memory -> Either String (Ast, Memory)
 evalLoops (AstLoop (Just loopName) cond block) mem =
     case evalLoopBlock loopName (extractBlock block) mem of
-        Right newBlock -> trace ("??? " ++ show newBlock) $ Right (AstLoop (Just loopName) cond (AstBlock newBlock), mem)
+        Right newBlock -> Right (AstLoop (Just loopName) cond (AstBlock newBlock), mem)
         Left err -> Left err
 -- evalNode mem (AstLoop cond body) = do
 --     let loop mem' = do
@@ -234,7 +236,7 @@ addDefineVar mem var@(Variable varName _ vVal) =
         case addMemory updatedMem varName evaluatedExpr of
             Right finalMem ->
                 Right (AstDefineVar var, finalMem)
-            Left err -> Left ("Failed to define var (" ++ err ++ ").")
+            Left err -> Left ("Failed to define variable (" ++ err ++ ").")
 
 -----
 
@@ -266,11 +268,8 @@ evalNode mem (AstLoop Nothing cond block) =
 evalNode mem (AstIf cond trueBranch elseIfBranches elseBranch) =
     evalNode mem cond >>= uncurry
         (evalIfConditions (AstIf cond trueBranch elseIfBranches elseBranch))
-evalNode mem (AstTernary cond trueBranch elseBranch) =
-    if isSameType trueBranch elseBranch
-        then evalNode mem (AstIf cond trueBranch [] (Just elseBranch)) >>
-            Right (AstTernary cond trueBranch elseBranch, mem)
-        else Left "Mismatching types in ternary operation"
+evalNode mem (AstTernary cond left right) =
+    evalNode mem (AstIf cond left [] (Just right)) >> Right (AstTernary cond left right, mem)
 evalNode mem (AstListElem var idxs) = evalList var idxs mem
 evalNode mem (AstDefineStruct struct@(Structure name properties)) =
     either (\err -> Left ("Failed to define structure (" ++ err ++ ").")) (\newMem ->

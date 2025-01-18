@@ -9,14 +9,17 @@
 module Compiler.Translation.ASTtoASM (translateToASM, translateAST) where
 
 import Compiler.Translation.Functions (isBuiltin, isSingleOp, pushArgs, translateOpInst)
-import Compiler.Translation.ListsStructures (associateTypes, translateList, translateMultIndexes)
+import Compiler.Translation.ListsStructures (associateTypes, translateList)
 import qualified Data.DList as D
 import qualified Data.Map as Map
 import Debug.Trace (trace)
+import Eval.Lists (getIndexes)
 import Eval.Structures (normalizeStruct)
 import Memory (Memory, addMemory, freeMemory, generateUniqueElseName, readMemory, updateMemory)
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Structure (..), Variable (..))
 import VirtualMachine.Instructions (Instruction (..), Value (..), call, get, jump, jumpf, load, noop, push, pushArg, ret)
+import Data.Either (fromRight)
+import Data.Maybe (fromJust)
 
 ------- Operators
 
@@ -33,13 +36,15 @@ setMultipleIndexes [x] n baseVarName ast mem =
     )
 setMultipleIndexes (x : xs) 0 baseVarName ast mem =
     let (nestedInstructions, lastVarName) = setMultipleIndexes xs 1 baseVarName ast mem
-    in ( D.fromList [push Nothing (N (fromIntegral x)), call Nothing "get"]
+    in ( D.singleton (push Nothing (N (fromIntegral x)))
+            `D.append` D.singleton (call Nothing "get")
             `D.append` nestedInstructions,
           lastVarName
         )
 setMultipleIndexes (x : xs) n baseVarName ast mem =
     let (nestedInstructions, lastVarName) = setMultipleIndexes xs (n + 1) baseVarName ast mem
-     in ( D.fromList [push Nothing (N (fromIntegral x)), call Nothing "get", load Nothing (baseVarName ++ show n)]
+     in ( D.singleton (push Nothing (N (fromIntegral x)))
+            `D.append` D.fromList [call Nothing "get", load Nothing (baseVarName ++ show n)]
             `D.append` nestedInstructions,
           lastVarName
         )
@@ -53,14 +58,15 @@ handleAssignment :: Ast -> Ast -> Memory -> (D.DList Instruction, Memory)
 handleAssignment (AstVar var) right mem =
     (fst (translateAST right mem) `D.append` D.singleton (load Nothing var), mem)
 handleAssignment (AstListElem var [x]) right mem =
-    let prefixInstrs = D.fromList [get Nothing var, push Nothing (N (fromIntegral x))]
-        (rightInstrs, updatedMem) = translateAST right mem
-        postfixInstrs = D.fromList [call Nothing "set", load Nothing var]
-     in (prefixInstrs `D.append` rightInstrs `D.append` postfixInstrs, updatedMem)
+    (D.fromList [get Nothing var, push Nothing (N (fromIntegral (head $ fromRight [0] (getIndexes mem [x]))))]
+        `D.append` fst (translateAST right mem)
+        `D.append` D.fromList [call Nothing "set", load Nothing var], mem)
 handleAssignment (AstListElem var list) right mem =
     let prefixInstrs = D.singleton (get Nothing var)
-        (indexInstrs, lastVarName) = setMultipleIndexes list 0 var right mem
-        postfixInstrs = D.fromList [get Nothing var, push Nothing (N 0), get Nothing lastVarName, call Nothing "set", load Nothing var]
+        list' = fromRight [0] (getIndexes mem list)
+        (indexInstrs, lastVarName) = setMultipleIndexes list' 0 var right mem
+        postfixInstrs = D.fromList
+            [get Nothing var, push Nothing (N (fromIntegral (head list'))), get Nothing lastVarName, call Nothing "set", load Nothing var]
      in (prefixInstrs `D.append` indexInstrs `D.append` postfixInstrs, mem)
 -- handleAssignment (AstArg arg (Just idx)) right mem =
 --     (fst (translateAST right mem))
@@ -133,6 +139,14 @@ translateStruct (AstDefineStruct struct) structValues nameStruct mem =
             ) (mapM (toStructField mem) eles)
         _ -> (D.empty, mem)
 translateStruct _ _ _ mem = (D.empty, mem)
+
+-- | Translates multiple 'get' calls to access elements in a multi-dimensional list.
+translateMultIndexes :: [Ast] -> Memory -> D.DList Instruction
+translateMultIndexes (x : xs) mem =
+    fst (translateAST x mem)
+        `D.append` D.singleton (call Nothing "get")
+        `D.append` translateMultIndexes xs mem
+translateMultIndexes [] _ = D.empty
 
 ------- AstIf / Ternary
 

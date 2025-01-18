@@ -4,6 +4,7 @@
 -- File description:
 -- Gladdos
 -}
+{-# LANGUAGE LambdaCase #-}
 
 module Glados (glados) where
 
@@ -22,6 +23,12 @@ import Data.Functor ((<&>))
 import Debug.Trace (trace)
 import Control.Monad ((>=>))
 import Data.List (isSuffixOf)
+import Printer (getColorsFromConf, reset, Style (..))
+
+displayError :: String -> IO ()
+displayError str = getColorsFromConf >>= \case
+    Just (_,e,_) -> pError $ show e ++ show Bold ++ "*** ERROR *** with\n\t" ++ reset ++ show Bold ++ str ++ reset
+    Nothing -> pError $ "*** ERROR *** with\n\t" ++ str
 
 handleEvalResult :: [Ast] -> Either String ([Ast], Memory) -> Maybe FilePath -> IO ()
 handleEvalResult originalAst (Right (_, mem)) (Just o) =
@@ -32,8 +39,7 @@ handleEvalResult originalAst (Right (_, mem)) Nothing =
     let (_, updatedMem) = translateToASM originalAst mem
      in writeInstructionsToFile "out.masm" updatedMem
             >> putStrLn "Maryl ASM produced in out.masm"
-handleEvalResult _ (Left err) _ =
-    pError ("*** ERROR *** with\n\t" ++ err)
+handleEvalResult _ (Left err) _ = displayError err
 
 parseAstCode :: Memory -> Maybe FilePath -> [Ast] -> IO Memory
 parseAstCode mem out asts =
@@ -67,7 +73,7 @@ checkImports :: [String] -> IO ()
 checkImports [] = mempty
 checkImports (f:fs)
     | isCorrectImport f = checkImports fs
-    | otherwise = pError ("*** ERROR *** with\n\tIncorrect import file \"" ++ f ++ "\"")
+    | otherwise = displayError $ "Incorrect import file \"" ++ f ++ "\""
     where
         isCorrectImport :: String -> Bool
         isCorrectImport "" = False

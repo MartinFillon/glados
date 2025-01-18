@@ -5,9 +5,9 @@
 -- Lists
 -}
 
-module Eval.Lists (checkIndices, checkListType, evalList, evalListElemDef, updateList) where
+module Eval.Lists (checkIndices, checkListType, evalList, evalListElemDef, getIndexes, updateList) where
 
-import Data.List (intercalate)
+import Data.List (intercalate, foldl')
 import Memory (Memory, readMemory)
 import Parsing.ParserAst (Ast (..), MarylType (..), getMarylType)
 
@@ -24,10 +24,30 @@ changeAtIdx (AstList elements) (x : xs) newVal
     | otherwise = AstList elements
 changeAtIdx ast _ _ = ast
 
+getIndexFromAst' :: Memory -> (Memory -> Ast -> Maybe Int) -> String -> Maybe Int
+getIndexFromAst' mem f n = case readMemory mem n of
+    Just ast -> f mem ast
+    Nothing -> Nothing
+
+getIndexFromAst :: Memory -> Ast -> Maybe Int
+getIndexFromAst _ (AstInt i) = Just i
+getIndexFromAst mem (AstVar v) = getIndexFromAst' mem getIndexFromAst v
+getIndexFromAst _ _ = Nothing
+
+getIndexes :: Memory -> [Ast] -> Either String [Int]
+getIndexes mem = foldl' (\acc ast -> case getIndexFromAst mem ast of
+    Just i -> accumulate acc i
+    Nothing -> Left $ "Couldn't find index for " ++ show ast
+    ) (Right [])
+    where
+        accumulate :: Either String [Int] -> Int -> Either String [Int]
+        accumulate acc i = acc >>= \curr -> return $ curr ++ [i]
+
 updateList :: String -> Ast -> Memory -> Ast -> Either String (Ast, Memory)
 updateList listName (AstListElem _ idxs) mem newVal =
     case readMemory mem listName of
-        Just (AstList elements) -> Right (changeAtIdx (AstList elements) idxs newVal, mem)
+        Just (AstList elements) ->
+            getIndexes mem idxs >>= \idxs' -> Right (changeAtIdx (AstList elements) idxs' newVal, mem)
         _ -> Left ("Unable to update " ++ show (AstListElem listName idxs) ++ " with " ++ show newVal ++ ".")
 updateList _ ast mem _ = Right (ast, mem)
 
@@ -59,7 +79,7 @@ checkListType (x : xs) expectedType mem
 checkListType [] _ _ = True
 -- handle list elem
 
-evalListElemDef :: String -> [Int] -> MarylType -> Memory -> Either String Ast
+evalListElemDef :: String -> [Ast] -> MarylType -> Memory -> Either String Ast
 evalListElemDef listVar idx typeVar mem =
     case readMemory mem listVar of
         Just (AstList eles) ->
@@ -69,10 +89,10 @@ evalListElemDef listVar idx typeVar mem =
         Just _ -> Left ("Variable " ++ listVar ++ " isn't referencing to type List.")
         Nothing -> Left ("Variable " ++ listVar ++ " out of scope.")
 
-evalList :: String -> [Int] -> Memory -> Either String (Ast, Memory)
+evalList :: String -> [Ast] -> Memory -> Either String (Ast, Memory)
 evalList var idxs mem = case readMemory mem var of
-    Just (AstList list) ->
-        case checkIndices idxs list of
+    Just (AstList list) -> getIndexes mem idxs
+        >>= \idxs' -> case checkIndices idxs' list of
             Right () -> Right (AstListElem var idxs, mem)
             Left err -> Left (var ++ ": " ++ err)
     Just _ -> Left ("Index call of variable \"" ++ var ++ "\" isn't available; only supported by type list.")
