@@ -116,7 +116,7 @@ spec = do
 
       it "foo[0] = 2" $ do
         parseAST' "foo[0] = 2;"
-          `shouldBe` Right [AstBinaryFunc "=" (AstListElem "foo" [0]) (AstInt 2)]
+          `shouldBe` Right [AstBinaryFunc "=" (AstListElem "foo" [AstInt 0]) (AstInt 2)]
 
     -- context "Math priorities" $ do
 
@@ -135,7 +135,7 @@ spec = do
 
       it "char getFirstChar(string s) { return s[0]; }" $ do
         parseAST' "char getFirstChar(string s) { return s[0]; }"
-          `shouldBe` Right [AstDefineFunc (Function "getFirstChar" [AstDefineVar (Variable "s" String AstVoid)] [AstReturn (AstListElem "s" [0])] Char)]
+          `shouldBe` Right [AstDefineFunc (Function "getFirstChar" [AstDefineVar (Variable "s" String AstVoid)] [AstReturn (AstListElem "s" [AstInt 0])] Char)]
 
       it "void emptyFunction() { }" $ do
         parseAST' "void emptyFunction() { }"

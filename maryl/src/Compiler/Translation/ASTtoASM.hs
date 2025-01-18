@@ -13,6 +13,9 @@ import Debug.Trace (trace)
 import Memory (Memory, addMemory, freeMemory, generateUniqueElseName, readMemory, updateMemory)
 import Parsing.ParserAst (Ast (..), Function (..), Structure (..), Variable (..))
 import VirtualMachine.Instructions (Instruction (..), Value (..), call, get, jump, jumpf, load, noop, push, pushArg, ret)
+import Eval.Assignment (getIndexes)
+import Data.Either (fromRight)
+import Data.Maybe (fromJust)
 
 ------- Operators
 
@@ -21,7 +24,7 @@ handleAssignment :: Ast -> Ast -> Memory -> ([Instruction], Memory)
 handleAssignment (AstVar var) right mem =
     (fst (translateAST right mem) ++ [load Nothing var], mem)
 handleAssignment (AstListElem var [x]) right mem =
-    ([get Nothing var, push Nothing (N (fromIntegral x))] ++ fst (translateAST right mem) ++
+    ([get Nothing var, push Nothing (N (fromIntegral (head $ fromRight [0] (getIndexes mem [x]))))] ++ fst (translateAST right mem) ++
         [call Nothing "set", load Nothing var], mem)
 -- handleAssignment (AstListElem var (x : xs)) right mem =
 -- handleAssignment (AstArg arg (Just idx)) right mem =
@@ -51,7 +54,7 @@ translateBinaryFunc op left right mem
 -- translateStructLabels :: [Ast] -> Memory -> ([Instruction], Memory)
 -- translateStructLabels [] mem = ([], mem)
 -- translateStructLabels (AstLabel fieldName fieldValue: xs) mem =
-    
+
 -- translateStruct :: [Ast] -> Ast -> Memory -> ([Instruction], Memory)
 -- translateStruct [] (AstDefineStruct struct) mem = ([], mem)
 -- translateStruct
@@ -81,9 +84,9 @@ translateList (x : xs) mem = case associateTypes x mem of
     Just val -> val : translateList xs mem
     _ -> []
 
-translateMultIndexes :: [Int] -> Memory -> [Instruction]
+translateMultIndexes :: [Ast] -> Memory -> [Instruction]
 translateMultIndexes (x : xs) mem =
-    fst (translateAST (AstInt x) mem) ++ [call Nothing "get"] ++ translateMultIndexes xs mem
+    fst (translateAST x mem) ++ [call Nothing "get"] ++ translateMultIndexes xs mem
 translateMultIndexes [] _ = []
 
 ------- AstIf / Ternary
@@ -139,7 +142,7 @@ translateLoop loopName cond block mem =
         (blockInstructions, _) = translateAST block memAfterCond
      in ([noop (Just $ "." ++ loopName)] ++ condInstructions ++ [jumpf Nothing (Right ("end" ++ loopName))] ++
         blockInstructions ++ [jump Nothing (Right loopName), noop (Just $ ".end" ++ loopName)], memAfterCond)
- 
+
 ------- Functions
 
 translateBuiltin :: String -> [Ast] -> Memory -> ([Instruction], Memory)

@@ -5,9 +5,10 @@ char foo() {
 int start() {
     []char str = ['h', 'e', 'l', 'l', 'o'];
     char fooi = str[1];
+    int one = 1;
     str[3] = 'r';
     str[2] = 'r';
-    str[1] = 'a';
+    str[one] = 'a';
     char a = (true) ? foo(): fooi;
     print(a);
 

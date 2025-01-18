@@ -12,7 +12,7 @@ import Compiler.Translation.Functions (isBuiltin)
 import Data.List (find, intercalate)
 import qualified Data.Map as Map
 import Debug.Trace (trace)
-import Eval.Assignment (updateList)
+import Eval.Assignment (updateList, getIndexes)
 import Eval.Ops (
     evalAdd,
     evalAnd,
@@ -143,7 +143,7 @@ evalFinalStruct ((AstLabel _ _) : xs) ast = evalFinalStruct xs ast
 evalFinalStruct [] ast = Right ast
 evalFinalStruct _ ast = Right ast
 
-evalListElemDef :: String -> [Int] -> MarylType -> Memory -> Either String Ast
+evalListElemDef :: String -> [Ast] -> MarylType -> Memory -> Either String Ast
 evalListElemDef listVar idx typeVar mem =
     case readMemory mem listVar of
         Just (AstList eles) ->
@@ -252,10 +252,10 @@ checkIndices (i : idxs) list
                 then Right ()
                 else Left ("Invalid indexing at depth, cannot be applied for [" ++ intercalate "][" (map show idxs) ++ "].")
 
-evalList :: String -> [Int] -> Memory -> Either String (Ast, Memory)
+evalList :: String -> [Ast] -> Memory -> Either String (Ast, Memory)
 evalList var idxs mem = case readMemory mem var of
-    Just (AstList list) ->
-        case checkIndices idxs list of
+    Just (AstList list) -> getIndexes mem idxs
+        >>= \idxs' -> case checkIndices idxs' list of
             Right () -> Right (AstListElem var idxs, mem)
             Left err -> Left (var ++ ": " ++ err)
     Just _ -> Left ("Index call of variable \"" ++ var ++ "\" isn't available; only supported by type list.")
@@ -322,9 +322,7 @@ evalNode mem (AstIf cond trueBranch elseIfBranches elseBranch) =
                     Nothing -> Right (AstIf cond trueBranch elseIfBranches elseBranch, mem')
                 _ -> Left "Invalid else-if structure"
         _ -> Left "Condition in if statement is not a boolean"
-evalNode mem (AstTernary cond trueBranch elseBranch) = if isSameType trueBranch elseBranch
-    then evalNode mem (AstIf cond trueBranch [] (Just elseBranch)) >> Right (AstTernary cond trueBranch elseBranch, mem)
-    else Left "Mismatching types in ternary operation"
+evalNode mem (AstTernary cond trueBranch elseBranch) = evalNode mem (AstIf cond trueBranch [] (Just elseBranch)) >> Right (AstTernary cond trueBranch elseBranch, mem)
 evalNode mem (AstListElem var idxs) = evalList var idxs mem
 evalNode mem (AstDefineStruct struct@(Structure name properties)) =
     case addMemory mem name (AstDefineStruct struct) of
