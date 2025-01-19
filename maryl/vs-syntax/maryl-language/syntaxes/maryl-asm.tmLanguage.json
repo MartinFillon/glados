@@ -80,5 +80,5 @@
       "match": "\\b.\\w+\\b"
     }
   },
-  "scopeName": "source.mrl"
+  "scopeName": "source.masm"
 }

@@ -12,7 +12,7 @@ import VirtualMachine.Operators.Mathematicals (
     operatorDiv,
     operatorMod,
     operatorMul,
-    operatorSub,
+    operatorSub, operatorPow,
  )
 
 import VirtualMachine.Operators.Logical (
@@ -67,6 +67,7 @@ operators =
       ("mul", Op operatorMul),
       ("div", Op operatorDiv),
       ("mod", Op operatorMod),
+      ("pow", Op operatorPow),
       ("eq", Op operatorEq),
       ("not", Op logicalNot),
       ("neq", Op operatorNEq),

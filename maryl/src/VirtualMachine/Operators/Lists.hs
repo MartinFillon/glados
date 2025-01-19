@@ -20,7 +20,7 @@ operatorGet :: [Value] -> VmState [Value]
 operatorGet (N idx : L lst : xs)
     | idx >= 0 && idx < fromIntegral (length lst) =
         return $ (lst !! fromIntegral idx) : xs
-    | otherwise = fail "Index out of bound"
+    | otherwise = fail $ "Index out of bound " ++ show idx ++ " " ++ show lst
 operatorGet (N idx : S str : xs)
     | idx >= 0 && idx < fromIntegral (length str) =
         return $ C (str !! fromIntegral idx) : xs

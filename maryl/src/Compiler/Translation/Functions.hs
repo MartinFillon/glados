@@ -15,6 +15,7 @@ import VirtualMachine.Operators (operators)
 -- | Translates an operator to its corresponding instruction call.
 translateOpInst :: String -> Instruction
 translateOpInst "*" = call Nothing "mul"
+translateOpInst "**" = call Nothing "pow"
 translateOpInst "/" = call Nothing "div"
 translateOpInst "%" = call Nothing "mod"
 translateOpInst "+" = call Nothing "add"

@@ -9,12 +9,11 @@ module VirtualMachine.Operators.String (
     strcat,
     strlen,
     substr,
-    strcmp
+    strcmp,
 ) where
 
-import Data.Int (Int64)
 import VirtualMachine.Instructions (Value (..))
-import VirtualMachine.State (VmState, eitherS)
+import VirtualMachine.State (VmState)
 
 strcat :: [Value] -> VmState [Value]
 strcat (S y : S x : xs) = return $ S (x ++ y) : xs
@@ -27,13 +26,17 @@ strlen _ = fail "strlen expects a string"
 substr :: [Value] -> VmState [Value]
 substr (N len : N start : S str : xs)
     | start < 0 || len < 0 || start > fromIntegral (length str) = fail "substr: invalid range"
-    | otherwise = return $ S (take (fromIntegral len) $ drop (fromIntegral start) str) : xs
+    | otherwise = return (S (take (fromIntegral len) $ drop (fromIntegral start) str) : xs)
 substr _ = fail "substr expects a string and two numbers"
 
 strcmp :: [Value] -> VmState [Value]
-strcmp (S y : S x : xs) = return $ N (case compare x y of
-    LT -> -1
-    EQ -> 0
-    GT -> 1) : xs
+strcmp (S y : S x : xs) =
+    return $
+        N
+            ( case compare x y of
+                LT -> -1
+                EQ -> 0
+                GT -> 1
+            )
+            : xs
 strcmp _ = fail "strcmp expects two strings"
-
