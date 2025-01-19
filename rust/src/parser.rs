@@ -8,7 +8,7 @@
 use std::{iter::Peekable, str::Chars};
 
 use crate::instructions::{
-    call, dup, jump, jump_if_false, push, push_arg, ret, void, Instructions, JumpValue, Value,
+    call, dup, jump, jump_if_false, noop, push, push_arg, ret, void, Instructions, JumpValue, Value,
 };
 
 #[derive(Debug)]
@@ -55,6 +55,10 @@ impl<'a> Parser<'a> {
                 self.parse_jumpf(label)
             } else if self.r#match("jump")? {
                 self.parse_jump(label)
+            } else if self.r#match("noop")? {
+                self.consume("noop")?;
+                self.instructions.push(noop(label));
+                Ok(())
             } else {
                 Err(ParseError::UnexpectedChar(self.current.next()))
             }?;
@@ -85,12 +89,71 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    fn parse_bool(&mut self) -> Result<Value, ParseError> {
+        if self.r#match("true")? {
+            self.consume("true")?;
+            Ok(Value::Bool(true))
+        } else if self.r#match("false")? {
+            self.consume("false")?;
+            Ok(Value::Bool(false))
+        } else {
+            Err(ParseError::UnexpectedChar(self.current.next()))
+        }
+    }
+
+    fn parse_array(&mut self) -> Result<Value, ParseError> {
+        self.consume("[")?;
+        let mut count = 1;
+        let mut count_ = 0;
+        let mut buf = String::new();
+        let mut buf_array: Vec<String> = Vec::new();
+        while let Some(&c) = self.current.peek() {
+            match c {
+                ']' if count_ + 1 == count => {
+                    buf_array.push(buf.clone());
+                    self.current.next();
+                    break;
+                }
+                '[' => {
+                    count += 1;
+                    buf.push(c);
+                    self.current.next();
+                }
+                ']' => {
+                    count_ += 1;
+                    buf.push(c);
+                    self.current.next();
+                }
+                ',' => {
+                    buf_array.push(buf.clone());
+                    buf.clear();
+                    self.current.next();
+                }
+                c => {
+                    buf.push(c);
+                    self.current.next();
+                }
+            }
+        }
+        let array: Vec<Value> = buf_array
+            .iter()
+            .flat_map(|s| {
+                let mut parser = Parser::new(s);
+
+                parser.parse_value()
+            })
+            .collect();
+        Ok(Value::Array(array))
+    }
+
     fn parse_value(&mut self) -> Result<Value, ParseError> {
         self.skip_whitespace();
         match self.current.peek() {
             Some('0'..='9') => self.parse_number(),
             Some('\'') => self.parse_char(),
             Some('\"') => self.parse_string(),
+            Some('[') => self.parse_array(),
+            Some('t' | 'f') => self.parse_bool(),
             _ => Err(ParseError::UnexpectedChar(self.current.next())),
         }
     }
@@ -175,6 +238,7 @@ impl<'a> Parser<'a> {
                     decimal = true;
                     self.current.next();
                 }
+                ',' => break,
                 ca if ca.is_whitespace() => break,
                 ca => {
                     number.push(ca);
@@ -293,7 +357,7 @@ impl<'a> Parser<'a> {
     fn parse_jump_val(&mut self) -> Result<JumpValue, ParseError> {
         match self.current.peek() {
             Some('0'..='9') => Ok(JumpValue::Index(self.parse_int()?)),
-            Some('\"') => Ok(JumpValue::Label(self.parse_str()?)),
+            Some('.') => Ok(JumpValue::Label(self.parse_label()?.unwrap())),
             _ => Err(ParseError::UnexpectedChar(self.current.next())),
         }
     }
