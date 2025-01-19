@@ -8,7 +8,6 @@
 
 module Compiler.Translation.ListsStructures (associateTypes, toStructField, translateList) where
 
-import Data.Map (fromList)
 import qualified Data.Map as Map
 import Memory (Memory, readMemory)
 import Parsing.ParserAst (Ast (..), Variable (..))

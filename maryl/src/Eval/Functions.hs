@@ -7,7 +7,6 @@
 
 module Eval.Functions (checkBuiltins, evalArgs, furtherEvalFunc) where
 
-import qualified Data.Map as Map
 import Compiler.Translation.Functions (isBuiltin)
 import Memory (Memory, addMemory)
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
@@ -29,7 +28,7 @@ evalArgs _ mem = Right mem
 
 -- | Evaluate further function definition for builtin option
 furtherEvalFunc :: Ast -> MarylType -> Memory -> Either String Ast
-furtherEvalFunc (AstFunc func@(Function funcName _ _ newReturn)) expectedType mem
+furtherEvalFunc (AstFunc func@(Function funcName _ _ newReturn)) expectedType _
     | expectedType == newReturn = Right (AstFunc func)
     | otherwise =
         if isBuiltin funcName

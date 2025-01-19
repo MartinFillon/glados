@@ -5,10 +5,10 @@
 -- Evaluator for Maryl AST
 --}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Eval.Evaluator (evalAST, evalNode) where
 
-import Compiler.Translation.Functions (isBuiltin)
 import Data.Bifunctor (first)
 import qualified Data.DList as D
 import Data.Either (fromRight)
@@ -138,7 +138,7 @@ evalLoopElseIf _ (ast : _) _ =
 
 -- | Evaluate else branch within blocks of loop.
 evalLoopElse :: String -> Maybe Ast -> Memory -> Either String (Maybe Ast)
-evalLoopElse loopName Nothing _ = Right Nothing
+evalLoopElse _ Nothing _ = Right Nothing
 evalLoopElse loopName (Just branch) mem =
     case evalLoopBlock loopName (extractBlock branch) mem of
         Right (updatedElseBranch, _) ->
@@ -254,25 +254,30 @@ evalStructDecla ((AstDefineVar (Variable _ varType varValue)) : xs) mem =
 evalStructDecla [] _ = Right ()
 evalStructDecla _ _ = Left "Invalid definition of structure."
 
+-- | Evaluate call of . operator for a struct element.
 evalCallStructEle :: Ast -> Ast -> Maybe MarylType -> Memory -> Either String Ast
-evalCallStructEle (AstVar left) (AstVar right) (Just expectedType) mem =
-    case readMemory mem left of
-        Just (AstStruct eles) -> case find (\(AstLabel name _) -> name == right) eles of
-                Just (AstLabel _ value)
-                    | isValidType value expectedType -> Right (AstBinaryFunc "." (AstVar left) (AstVar right))
-                    | otherwise -> Left ("Type mismatch: expected " ++ show expectedType ++ ", got " ++ show (getMarylType value))
-                Nothing -> Left ("Field \"" ++ right ++ "\" not found in structure \"" ++ left ++ "\".")
-        Just _ -> Left ("Structure \"" ++ left ++ "\" is not a structure.")
-        Nothing -> Left ("Structure \"" ++ left ++ "\" not found in memory.")
-evalCallStructEle (AstVar left) (AstVar right) Nothing mem =
-    case readMemory mem left of
-        Just (AstStruct eles) -> case find (\(AstLabel name _) -> name == right) eles of
-                Just (AstLabel _ _) -> Right (AstBinaryFunc "." (AstVar left) (AstVar right))
-                Nothing -> Left ("Field \"" ++ right ++ "\" not found in structure \"" ++ left ++ "\".")
-        Just _ -> Left ("Structure \"" ++ left ++ "\" is not a structure.")
-        Nothing -> Left ("Structure \"" ++ left ++ "\" not found in memory.")
+evalCallStructEle (AstVar structName) (AstVar fieldName) mExpectedType mem =
+    case readMemory mem structName of
+        Just (AstStruct eles) ->
+            case findField eles fieldName of
+                Just (AstLabel _ value) -> validateType structName fieldName value mExpectedType
+                _ -> Left ("Field \"" ++ fieldName ++ "\" not found in structure \"" ++ structName ++ "\".")
+        Just ast -> Left ("\"" ++ structName ++ "\" is not a structure. Found: " ++ show (getMarylType ast))
+        Nothing -> Left ("Structure \"" ++ structName ++ "\" not found in memory.")
 evalCallStructEle _ _ _ _ =
     Left "\".\" operator isn't called correctly, expecting a reference to structure."
+
+-- | Helper function to find a field in a list of `Ast`.
+findField :: [Ast] -> String -> Maybe Ast
+findField eles fieldName = find (\case (AstLabel name _) -> name == fieldName; _ -> False) eles
+
+-- | Helper function to validate type and build the result.
+validateType :: String -> String -> Ast -> Maybe MarylType -> Either String Ast
+validateType structName fieldName value (Just expectedType)
+    | isValidType value expectedType = Right (AstBinaryFunc "." (AstVar structName) (AstVar fieldName))
+    | otherwise = Left ("Type mismatch for field \"" ++ fieldName ++ "\": expected " ++ show expectedType ++ ", got " ++ show (getMarylType value))
+validateType structName fieldName _ Nothing =
+    Right (AstBinaryFunc "." (AstVar structName) (AstVar fieldName))
 
 -- | Evaluate the expected arguments of a function call.
 evalCallArgs :: [Ast] -> Function -> Memory -> Either String ()

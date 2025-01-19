@@ -71,6 +71,13 @@ updateList listName (AstListElem _ idxs) mem newVal =
                 case changeAtIdx (AstList elements) idxs' newVal of
                     Right updatedList -> Right (updatedList, mem)
                     Left err -> Left ("Error updating list: " ++ err)
+        Just (AstString s) ->
+            getIndexes mem idxs >>= \idxs' ->
+                case changeAtIdx (AstList (convertStringToList (AstString s))) idxs' newVal of
+                    Right updatedList -> case convertListToString updatedList of
+                        Right newS -> Right (newS, mem)
+                        Left err -> Left err 
+                    Left err -> Left ("Error updating string: " ++ err)
         _ -> Left ("Unable to update " ++ show (AstListElem listName idxs) ++ " with " ++ show newVal ++ ".")
 updateList _ ast mem _ = Right (ast, mem)
 
@@ -115,14 +122,37 @@ evalListElemDef listVar idx typeVar mem =
             if getMarylType (head eles) == typeVar
                 then Right (AstListElem listVar idx)
                 else Left ("List element isn't of proper type, expected " ++ show typeVar ++ ".")
+        Just (AstString _) ->
+            if Char == typeVar
+                then Right (AstListElem listVar idx)
+                else Left "Elements within strings can only be characters."
         Just _ -> Left ("Variable " ++ listVar ++ " isn't referencing to type List.")
         Nothing -> Left ("Variable " ++ listVar ++ " out of scope.")
+
+-- | Transform a string into a list of AstChar.
+convertStringToList :: Ast -> [Ast]
+convertStringToList (AstString s) = map AstChar s
+convertStringToList _ = []
+
+-- | Transform an AstList of AstChar into a string
+convertListToString :: Ast -> Either String Ast
+convertListToString (AstList astList) =
+    let extractChar (AstChar c) = Right c
+        extractChar _ = Left "List contains a non-AstChar element."
+     in case traverse extractChar astList of
+            Right chars -> Right $ AstString chars
+            Left err -> Left err
+convertListToString _ = Left "Invalid input, expecting a AstList."
 
 -- | Evaluate index(es) call of a list.
 evalList :: String -> [Ast] -> Memory -> Either String (Ast, Memory)
 evalList var idxs mem = case readMemory mem var of
     Just (AstList list) -> getIndexes mem idxs
         >>= \idxs' -> case checkIndices idxs' list of
+            Right () -> Right (AstListElem var idxs, mem)
+            Left err -> Left (var ++ ": " ++ err)
+    Just (AstString s) -> getIndexes mem idxs
+        >>= \idxs' -> case checkIndices idxs' (convertStringToList (AstString s)) of
             Right () -> Right (AstListElem var idxs, mem)
             Left err -> Left (var ++ ": " ++ err)
     Just _ -> Left ("Index call of variable \"" ++ var ++ "\" isn't available; only supported by type list.")
