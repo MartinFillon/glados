@@ -4,12 +4,11 @@
 -- File description:
 -- ASTtoASM
 -}
-{-# LANGUAGE TupleSections #-}
 
 module Compiler.Translation.ASTtoASM (translateToASM, translateAST) where
 
 import Compiler.Translation.Functions (isBuiltin, isSingleOp, pushArgs, translateOpInst)
-import Compiler.Translation.ListsStructures (associateTypes, translateList)
+import Compiler.Translation.ListsStructures (associateTypes, translateList, toStructField)
 import qualified Data.DList as D
 import Data.Either (fromRight)
 import qualified Data.Map as Map
@@ -72,9 +71,6 @@ handleAssignment (AstListElem var list) right mem =
             D.fromList
                 [get Nothing var, push Nothing (N (fromIntegral (head list'))), get Nothing lastVarName, call Nothing "set", load Nothing var]
      in (prefixInstrs `D.append` indexInstrs `D.append` postfixInstrs, mem)
--- handleAssignment (AstArg arg (Just idx)) right mem =
---     (fst (translateAST right mem))
--- !! TO DO struct
 handleAssignment _ _ mem = (D.empty, mem)
 
 {- | Handles compound assignment operators such as '+=', '-=', etc.,
@@ -114,14 +110,6 @@ translateBinaryFunc op left right mem
     | otherwise = updateAssignment op left right mem
 
 ------- Structures
-
--- | Translates an 'Ast' type in a struct to a tuple (<fieldName>, <fieldValue>).
-toStructField :: Memory -> Ast -> Maybe (String, Value)
-toStructField mem (AstDefineVar (Variable fieldName _ fieldValue)) =
-    fmap (fieldName,) (associateTypes fieldValue mem)
-toStructField mem (AstLabel fieldName fieldValue) =
-    fmap (fieldName,) (associateTypes fieldValue mem)
-toStructField _ _ = Nothing
 
 {- | Translates evaluated structures to map of tuple of field name and its value:
 
@@ -264,12 +252,10 @@ translateAST (AstArg _ (Just n)) mem = (D.singleton (pushArg Nothing n), mem)
 translateAST (AstArg (AstDefineVar (Variable varName _ _)) Nothing) mem =
     maybe (D.empty, mem) (`translateAST` mem) (readMemory mem varName)
 translateAST (AstDefineVar (Variable varName (Struct structName) ast)) mem =
-    maybe
-        (D.empty, mem)
-        ( \(AstDefineStruct struct) ->
-            translateStruct (AstDefineStruct struct) ast varName mem
-        )
-        (readMemory mem structName)
+    case readMemory mem structName of
+        Just (AstDefineStruct struct) -> translateStruct (AstDefineStruct struct) ast varName mem
+        Just (AstGlobal (AstDefineStruct struct)) -> translateStruct (AstDefineStruct struct) ast varName mem
+        _ -> (D.empty, mem)
 translateAST (AstDefineVar (Variable varName _ varValue)) mem =
     ( fst (translateAST varValue mem)
         `D.append` D.singleton (load Nothing varName),

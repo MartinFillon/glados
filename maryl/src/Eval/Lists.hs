@@ -89,9 +89,12 @@ checkIndices (i : idxs) list
 
 -- | Checkouts a whole list with an expectedType to validate it.
 checkListType :: [Ast] -> MarylType -> Memory -> Bool
-checkListType (x : xs) (Struct typeStruct) mem = -- !! fix this
+checkListType (x : xs) (Struct typeStruct) mem = -- !!  TO DO fix this
     case readMemory mem typeStruct of
-        Just (AstDefineStruct _) -> checkListType xs (Struct typeStruct) mem
+        Just (AstDefineStruct _) ->
+            checkListType xs (Struct typeStruct) mem
+        Just (AstGlobal (AstDefineStruct _)) ->
+            checkListType xs (Struct typeStruct) mem
         _ -> False
 checkListType ((AstList x) : xs) (List eleType) mem
     | checkListType x eleType mem = checkListType xs (List eleType) mem

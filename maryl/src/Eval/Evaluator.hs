@@ -33,12 +33,12 @@ evalAssignType (AstDefineVar (Variable varName varType _)) right mem =
         (evalDefinition right varType mem)
 evalAssignType (AstArg ast _) right mem =
     evalNode mem right >>= uncurry (evalAssignType ast)
+    -- Left ("Failed to define " ++ show ast ++ ", can't reassign value that is an argument.")
 evalAssignType (AstStruct _) right mem =
-    evalNode mem right >>= \(evaluatedR, updatedMem) -> case evaluatedR of
-        (AstStruct newEles) -> case evalFinalStruct newEles (AstStruct newEles) of
-            Right _ -> Right (AstStruct newEles, updatedMem)
-            Left err -> Left err
-        _ -> Left ("Can't assign " ++ show evaluatedR ++ " as struct.")
+    case evalNode mem right of
+        Right (AstStruct newEles, updatedMem) -> Right (AstStruct newEles, updatedMem)
+        Left err -> Left err
+        _ -> Left ("Can't assign " ++ show right ++ " as struct.")
 evalAssignType (AstBinaryFunc op left right) rightExpr mem =
     evalOpExpr op >>= \expectedTypes ->
         either
@@ -209,6 +209,7 @@ evalDefinition :: Ast -> MarylType -> Memory -> Either String Ast
 evalDefinition AstVoid (Struct expectedType) mem =
     case readMemory mem expectedType of
         Just (AstDefineStruct struct) -> normalizeStruct (AstDefineStruct struct) AstVoid mem
+        Just (AstGlobal (AstDefineStruct struct)) -> normalizeStruct (AstDefineStruct struct) AstVoid mem
         _ -> Left ("Struct of type " ++ expectedType ++ " can't be found.")
 evalDefinition AstVoid _ _ = Right AstVoid
 evalDefinition (AstArg ast _) expectedType mem = evalDefinition ast expectedType mem
@@ -225,6 +226,7 @@ evalDefinition (AstDefineVar origVar@(Variable varName varType _)) expectedType 
 evalDefinition ast (Struct structType) mem =
     case readMemory mem structType of
         Just (AstDefineStruct struct) -> normalizeStruct (AstDefineStruct struct) ast mem
+        Just (AstGlobal (AstDefineStruct struct)) -> normalizeStruct (AstDefineStruct struct) ast mem
         _ -> Left ("Struct of type " ++ structType ++ " can't be found.")
 evalDefinition (AstBinaryFunc "." left right) expectedType mem =
     either Left Right (evalCallStructEle left right expectedType mem)
@@ -349,11 +351,14 @@ evalNode mem (AstDefineVar var@(Variable varName varType varValue))
             Right (AstStruct eles) -> addDefineVar mem (Variable varName varType (AstStruct eles))
             Right _ -> addDefineVar mem var
             Left err -> Left (varName ++ " can't be defined: " ++ err)
-evalNode mem (AstDefineFunc func@(Function "start" [] _ _)) = addDefineFunc mem func
-evalNode mem (AstDefineFunc func@(Function "start" [AstDefineVar (Variable _ Int _), AstDefineVar (Variable _ (List String) _)] _ _)) =
-    addDefineFunc mem func
+evalNode mem (AstDefineFunc func@(Function "start" [] _ typeRet))
+    | typeRet == Int = addDefineFunc mem func
+    | otherwise = Left "Entrypoint function 'start' is expected to return an int."
+evalNode mem (AstDefineFunc func@(Function "start" [AstDefineVar (Variable _ Int _), AstDefineVar (Variable _ (List String) _)] _ typeRet))
+    | typeRet == Int = addDefineFunc mem func
+    | otherwise = Left "Entrypoint function 'start' is expected to return an int."
 evalNode _ (AstDefineFunc (Function "start" _ _ _)) =
-    Left "Entrypoint function 'start' is expected to have no arguments or an int and a []string."
+    Left "Entrypoint function 'start' is expected to have either no arguments or an int and a []string."
 evalNode mem (AstDefineFunc func) = addDefineFunc mem func
 evalNode mem (AstFunc func@(Function funcName funcArgs _ _)) =
     case readMemory mem funcName of
@@ -380,6 +385,8 @@ evalNode mem (AstDefineStruct struct@(Structure name properties)) =
                 Right (AstDefineStruct struct, newMem)
         )
         (addMemory mem name (AstDefineStruct struct))
+evalNode mem (AstStruct eles) =
+    either Left (\_ -> Right (AstStruct eles, mem)) (evalFinalStruct eles (AstStruct eles))
 evalNode mem (AstReturn expr) = evalNode mem expr >>= \(_, mem') -> Right (AstReturn expr, mem')
 evalNode mem node = Right (node, mem)
 
@@ -409,7 +416,7 @@ evalAST' mem (AstDefineStruct struct@(Structure name properties) : asts) acc =
         (\err -> Left (show (AstDefineStruct struct) ++ "\n    ^ Failed to define structure (" ++ err ++ ")."))
         ( \newMem ->
             evalStructDecla properties newMem >>= \() ->
-                evalAST' newMem asts (acc `D.snoc` AstDefineStruct struct)
+                evalAST' newMem asts (acc `D.snoc` AstGlobal (AstDefineStruct struct))
         )
         (addMemory mem name (AstGlobal (AstDefineStruct struct)))
 evalAST' mem (AstDefineVar var@(Variable _ (Const _) _) : asts) acc =
@@ -419,6 +426,8 @@ evalAST' mem (AstDefineVar var@(Variable _ (Const _) _) : asts) acc =
             evalAST' updatedMem asts (acc `D.snoc` transformedAst)
         )
         (addGlobalVar mem var)
+evalAST' mem (AstImport s : asts) acc =
+    evalAST' mem asts (acc `D.snoc` AstImport s)
 evalAST' _ (ast : _) _ = Left (show ast ++ "\n    ^ Can't define a global value that isn't const.")
 
 -- | Helper to extract block contents.

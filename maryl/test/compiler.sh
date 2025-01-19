@@ -238,4 +238,16 @@ else
     print_red "❌ global.mrl failed"
 fi
 
+# evaltest.mrl
+print_bold "Running evaltest.mrl..."
+./glados build test/test_files/evaltest.mrl -o out.masm
+./glados run out.masm
+output=$(echo $?)
+if [ "$output" == "84" ]; then
+    print_green "✅ evaltest.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ evaltest.mrl failed"
+fi
+
 rm out.masm

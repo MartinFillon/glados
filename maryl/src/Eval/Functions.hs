@@ -27,12 +27,6 @@ evalArgs ((AstDefineVar (Variable var varType val)) : xs) mem =
         (addMemory mem var (AstArg (AstDefineVar (Variable var varType val)) Nothing))
 evalArgs _ mem = Right mem
 
--- checkBuiltin :: Map.Map String Function
--- checkBuiltin = [
---     "add", (Function "add" [AstDefinedVar (Variable "a" Int AstVoid), AstDefinedVar (Variable "b" Int AstVoid)])
---     "sub", (Function "sub" [AstDefinedVar (Variable "a" Int AstVoid), AstDefinedVar (Variable "b" Int AstVoid)])
--- ]
-
 -- | Evaluate further function definition for builtin option
 furtherEvalFunc :: Ast -> MarylType -> Memory -> Either String Ast
 furtherEvalFunc (AstFunc func@(Function funcName _ _ newReturn)) expectedType mem
