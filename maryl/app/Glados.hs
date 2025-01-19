@@ -16,11 +16,9 @@ import qualified Control.Monad as Monad
 import Data.Functor ((<&>))
 import Data.List (isSuffixOf)
 import Eval.Evaluator (evalAST)
-import GHC.GHCi.Helpers (flushAll)
 import Memory (Memory, initMemory)
 import Parsing.ParserAst (Ast (..), parseAST)
 import Printer (Style (..), getColorsFromConf, reset)
-import System.IO (hIsTerminalDevice, isEOF, stdin)
 import Utils (handleParseError, pError)
 import VirtualMachine (vm)
 
@@ -111,46 +109,7 @@ getContentFromFile :: Memory -> String -> Maybe FilePath -> IO Memory
 getContentFromFile mem filepath out =
     readFile filepath >>= handleInput mem out
 
-countChar :: Char -> String -> Int
-countChar c s = length (filter (== c) s)
-
-countBrackets :: String -> Bool
-countBrackets s = countChar '{' s == countChar '}' s
-
-checkBuf' :: Memory -> String -> IO (String, Memory)
-checkBuf' mem s
-    | countBrackets s = handleInput mem Nothing s >>= \newMem -> return ("", newMem)
-    | otherwise = return (s, mem)
-
-checkBuf :: Memory -> String -> String -> IO (String, Memory)
-checkBuf mem s i
-    | s /= "" = checkBuf' mem (s ++ '\n' : i)
-    | otherwise = checkBuf' mem i
-
--- Prints prompt if it's a TTY
-getLineFromStdin' :: Memory -> String -> Bool -> Bool -> IO ()
-getLineFromStdin' _ _ _ True = return ()
-getLineFromStdin' mem s b False =
-    getLine
-        >>= ( checkBuf mem s
-                Monad.>=> (\(newBuf, newMem) -> getLineFromStdin newMem newBuf b)
-            )
-
-getLineFromStdin :: Memory -> String -> Bool -> IO ()
-getLineFromStdin mem s True =
-    putStr "> "
-        >> flushAll
-        >> isEOF
-        >>= getLineFromStdin' mem s True
-getLineFromStdin mem s False =
-    isEOF >>= getLineFromStdin' mem s False
-
-getContentFromStdin :: Memory -> IO ()
-getContentFromStdin mem =
-    hIsTerminalDevice stdin
-        >>= getLineFromStdin mem ""
-
 glados :: Mode -> IO ()
 glados (Compile (Just path) out) = Monad.void (getContentFromFile initMemory path out)
-glados (Compile Nothing _) = getContentFromStdin initMemory
+glados (Compile Nothing _) = pError "No file provided"
 glados (Vm path a) = vm path a
