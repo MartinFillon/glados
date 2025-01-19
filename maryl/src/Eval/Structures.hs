@@ -11,12 +11,19 @@ import Data.List (find)
 import Data.Maybe (mapMaybe)
 import Eval.Lists (checkListType, getAtIdx, getIndexes)
 import Memory (Memory, readMemory)
-import Parsing.ParserAst (Ast (..), MarylType (..), Structure (..), Variable (..), isValidType)
+import Parsing.ParserAst (
+    Ast (..),
+    MarylType (..),
+    Structure (..),
+    Variable (..),
+    isValidType,
+ )
 
 {- | Match the definition of fields within a structure based on position, with no label as so:
 >>> struct vector s = {1, 2, 5}
 -}
-matchPositionalFields :: [(String, MarylType, Ast)] -> [Ast] -> Either String [Ast]
+matchPositionalFields ::
+    [(String, MarylType, Ast)] -> [Ast] -> Either String [Ast]
 matchPositionalFields defFields newFields
     | length newFields == length defFields =
         Right (zipWith (\(name, _, _) value -> AstLabel name value) defFields newFields)
@@ -43,13 +50,17 @@ exhaustTypes _ expectedType (AstListElem var idxs) mem =
         _ -> Left "invalid list call."
 exhaustTypes name expectedType (AstArg ast _) mem = exhaustTypes name expectedType ast mem
 exhaustTypes name expectedType (AstVar var) mem =
-    maybe (Left var) (\val -> exhaustTypes name expectedType val mem) (readMemory mem var) 
+    maybe
+        (Left var)
+        (\val -> exhaustTypes name expectedType val mem)
+        (readMemory mem var)
 exhaustTypes _ expectedType ast _
     | isValidType ast expectedType = Right ast
     | otherwise = Left (show ast)
 
 -- | Validate a single structure's field and its value.
-validateField :: [Ast] -> (String, MarylType, Ast) -> Memory -> Either String Ast
+validateField ::
+    [Ast] -> (String, MarylType, Ast) -> Memory -> Either String Ast
 validateField labeledFields (name, fieldType, defaultValue) mem =
     case findField labeledFields name of
         Just (AstLabel _ value) -> validateValue name fieldType value mem
@@ -69,28 +80,48 @@ validateValue :: String -> MarylType -> Ast -> Memory -> Either String Ast -- !!
 validateValue name (List expectedType) (AstList value) mem
     | checkListType value expectedType mem = Right (AstLabel name (AstList value))
     | otherwise =
-        Left ("Type mismatch for field '" ++ name ++ "', expected "
-            ++ show expectedType ++ " but got an invalid list.")
+        Left
+            ( "Type mismatch for field '"
+                ++ name
+                ++ "', expected "
+                ++ show expectedType
+                ++ " but got an invalid list."
+            )
 validateValue name (List expectedType) (AstVar var) mem =
-    maybe (Left (var ++ " doesn't exits.")) (\val ->
-        validateValue name (List expectedType) val mem) (readMemory mem var)
+    maybe
+        (Left (var ++ " doesn't exits."))
+        ( \val ->
+            validateValue name (List expectedType) val mem
+        )
+        (readMemory mem var)
 validateValue name expectedType value mem
     | isValidType value expectedType = Right (AstLabel name value)
     | otherwise = case exhaustTypes name expectedType value mem of
         Right ast -> Right (AstLabel name ast)
         Left err ->
-            Left ("Type mismatch for field '" ++ name ++ "', expected "
-                ++ show expectedType ++ " but got (" ++ err ++ ").")
+            Left
+                ( "Type mismatch for field '"
+                    ++ name
+                    ++ "', expected "
+                    ++ show expectedType
+                    ++ " but got ("
+                    ++ err
+                    ++ ")."
+                )
 
 -- | Truncate initialised structure with its newly defined fields.
-mergeFields :: [(String, MarylType, Ast)] -> Either String [Ast] -> Memory -> Either String [Ast]
+mergeFields ::
+    [(String, MarylType, Ast)] ->
+    Either String [Ast] ->
+    Memory ->
+    Either String [Ast]
 mergeFields defFields (Right labeledFields) mem =
     let definedFieldNames = map (\(name, _, _) -> name) defFields
         labelFieldNames = mapMaybe extractLabelName labeledFields
         extraFields = filter (`notElem` definedFieldNames) labelFieldNames
      in if not (null extraFields)
-           then Left ("Unexpected fields in structure: " ++ show extraFields ++ ".")
-           else traverse (\field -> validateField labeledFields field mem) defFields
+            then Left ("Unexpected fields in structure: " ++ show extraFields ++ ".")
+            else traverse (\field -> validateField labeledFields field mem) defFields
   where
     extractLabelName :: Ast -> Maybe String
     extractLabelName (AstLabel name _) = Just name
@@ -107,16 +138,18 @@ normalizeStruct (AstDefineStruct (Structure _ structProps)) (AstStruct instanceF
 
         validatedFields = mergeFields definedFields labeledFields mem
      in case validatedFields of
-        Right normalized -> evalFinalStruct normalized (AstStruct normalized)
-        Left err -> Left err
+            Right normalized -> evalFinalStruct normalized (AstStruct normalized)
+            Left err -> Left err
 normalizeStruct (AstDefineStruct (Structure _ structProps)) AstVoid mem =
     let definedFields = mapMaybe extractDefinedVar structProps
-        defaultLabeledFields = Right (map (\(name, _, defaultValue) -> AstLabel name defaultValue) definedFields)
+        defaultLabeledFields =
+            Right
+                (map (\(name, _, defaultValue) -> AstLabel name defaultValue) definedFields)
 
         validatedFields = mergeFields definedFields defaultLabeledFields mem
      in case validatedFields of
-        Right normalized -> evalFinalStruct normalized (AstStruct normalized)
-        Left err -> Left err
+            Right normalized -> evalFinalStruct normalized (AstStruct normalized)
+            Left err -> Left err
 normalizeStruct _ _ _ = Left "Invalid struct definition or instance."
 
 -- Helper function to extract `AstDefineVar` safely
@@ -127,7 +160,11 @@ extractDefinedVar _ = Nothing
 -- | Evaluate the final normalized struct, ensuring all labels are valid and no extra fields are present.
 evalFinalStruct :: [Ast] -> Ast -> Either String Ast
 evalFinalStruct ((AstLabel label AstVoid) : _) _ =
-    Left ("Defining a structure requires no uninitialised values, expected value for field '" ++ label ++ "'.")
+    Left
+        ( "Defining a structure requires no uninitialised values, expected value for field '"
+            ++ label
+            ++ "'."
+        )
 evalFinalStruct ((AstLabel _ _) : xs) ast = evalFinalStruct xs ast
 evalFinalStruct [] ast = Right ast
 evalFinalStruct _ ast = Right ast

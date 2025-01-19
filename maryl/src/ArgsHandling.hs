@@ -37,7 +37,8 @@ import Printer (Color, parseColor')
 import System.Exit (ExitCode (ExitFailure), exitWith)
 import System.IO (hPutStrLn, stderr)
 
-data Mode = Vm String [String] | Compile (Maybe String) (Maybe FilePath) deriving (Show)
+data Mode = Vm String [String] | Compile (Maybe String) (Maybe FilePath)
+    deriving (Show)
 
 data Options = Options
     { setupColors :: Maybe String,
@@ -48,7 +49,9 @@ data Options = Options
 parseMode :: Parser Mode
 parseMode =
     hsubparser
-        ( command "build" (info parseCompile (progDesc "Build maryl asm from maryl file."))
+        ( command
+            "build"
+            (info parseCompile (progDesc "Build maryl asm from maryl file."))
             <> command "run" (info parseVm (progDesc "Execute the maryl asm built."))
         )
 
@@ -68,7 +71,8 @@ parseCompile =
             )
 
 parseVm :: Parser Mode
-parseVm = Vm <$> strArgument (metavar "File") <*> many (strArgument (metavar "Args..."))
+parseVm =
+    Vm <$> strArgument (metavar "File") <*> many (strArgument (metavar "Args..."))
 
 parseOptions :: Parser Options
 parseOptions =

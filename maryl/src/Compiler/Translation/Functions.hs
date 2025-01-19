@@ -58,6 +58,10 @@ isBuiltin s = any (\(n, _) -> n == s) operators
 pushArgs :: [Ast] -> Memory -> Int -> Memory
 pushArgs [] mem _ = mem
 pushArgs (AstDefineVar (Variable varName varType varValue) : xs) mem idx =
-    let updatedMem = updateMemory mem varName (AstArg (AstDefineVar (Variable varName varType varValue)) (Just idx))
+    let updatedMem =
+            updateMemory
+                mem
+                varName
+                (AstArg (AstDefineVar (Variable varName varType varValue)) (Just idx))
      in pushArgs xs updatedMem (idx + 1)
 pushArgs _ mem _ = mem

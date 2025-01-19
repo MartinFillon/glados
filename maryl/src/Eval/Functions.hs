@@ -9,7 +9,12 @@ module Eval.Functions (checkBuiltins, evalArgs, furtherEvalFunc) where
 
 import Compiler.Translation.Functions (isBuiltin)
 import Memory (Memory, addMemory)
-import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
+import Parsing.ParserAst (
+    Ast (..),
+    Function (..),
+    MarylType (..),
+    Variable (..),
+ )
 
 checkBuiltins :: String -> Ast -> Memory -> Either String (Ast, Memory)
 checkBuiltins func ast mem
@@ -35,13 +40,19 @@ furtherEvalFunc (AstFunc func@(Function funcName _ _ newReturn)) expectedType _
             then Right (AstFunc func)
             else
                 Left
-                (  "Call to function "
-                    ++ fName func
-                    ++ " is invalid, function returns "
-                    ++ show newReturn
-                    ++ " but expecting "
-                    ++ show expectedType
-                    ++ "."
-                )
+                    ( "Call to function "
+                        ++ fName func
+                        ++ " is invalid, function returns "
+                        ++ show newReturn
+                        ++ " but expecting "
+                        ++ show expectedType
+                        ++ "."
+                    )
 furtherEvalFunc ast expectedType _ =
-    Left ("Call to function " ++ show ast ++ " is invalid, expecting " ++ show expectedType ++ " as return value.")
+    Left
+        ( "Call to function "
+            ++ show ast
+            ++ " is invalid, expecting "
+            ++ show expectedType
+            ++ " as return value."
+        )

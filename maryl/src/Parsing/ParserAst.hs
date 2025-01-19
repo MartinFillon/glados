@@ -170,20 +170,20 @@ instance Show Ast where
     show (AstPrefixFunc f ast) = f ++ show ast
     show (AstFunc (Function funcName funcArgs funcBody _)) =
         "call "
-          ++ funcName
-          ++ "("
-          ++ intercalate ", " (map show funcArgs)
-          ++ ") {"
-          ++ indent (unlines (map show funcBody))
-          ++ "}"
+            ++ funcName
+            ++ "("
+            ++ intercalate ", " (map show funcArgs)
+            ++ ") {"
+            ++ indent (unlines (map show funcBody))
+            ++ "}"
     show (AstIf cond ifBlock elseIf maybeElse) =
         "if "
-          ++ show cond
-          ++ "{\n"
-          ++ indent (show ifBlock)
-          ++ "} "
-          ++ showElseIf elseIf
-          ++ showMaybeElse maybeElse
+            ++ show cond
+            ++ "{\n"
+            ++ indent (show ifBlock)
+            ++ "} "
+            ++ showElseIf elseIf
+            ++ showMaybeElse maybeElse
       where
         showElseIf [] = ""
         showElseIf elifs = "else if {\n" ++ indent (unlines (map show elifs)) ++ "}"
@@ -227,7 +227,17 @@ indent :: String -> String
 indent = unlines . map ("    " ++) . lines
 
 -- | Types handled by the program.
-data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
+data MarylType
+    = String
+    | Int
+    | Double
+    | Char
+    | Bool
+    | Void
+    | List MarylType
+    | Const MarylType
+    | Struct String
+    | Undefined
     deriving (Eq, Ord, Show)
 
 -- | Checks if both Ast are the same without comparing their value if they have one
@@ -392,10 +402,15 @@ pImport :: Parser Ast
 pImport = lexeme $ string "import" >> sc >> AstImport <$> stringLiteral
 
 listElem :: Parser Ast
-listElem = between (symbol "[") (symbol "]") (AstInt <$> integer <|> AstVar <$> variable)
+listElem =
+    between (symbol "[") (symbol "]") (AstInt <$> integer <|> AstVar <$> variable)
 
 listElem' :: Parser [Ast]
-listElem' = between (symbol "[") (symbol "]") ((AstInt <$> integer <|> AstVar <$> variable) `sepBy` lexeme ",")
+listElem' =
+    between
+        (symbol "[")
+        (symbol "]")
+        ((AstInt <$> integer <|> AstVar <$> variable) `sepBy` lexeme ",")
 
 -- | Parsing access to an element of a list formatted: foo[index]. Multiple dimensions can be accessed by adding the index after, formatted like so: foo[i][j] or foo[i,j].
 pListElem :: Parser Ast
@@ -523,7 +538,8 @@ getType "void" = Void
 getType str
     | "[]" `isPrefixOf` str = List $ getType $ trimFront "[]" str
     | "const " `isPrefixOf` str = Const $ getType $ trimFront "const" str
-    | "struct " `isPrefixOf` str = Struct $ takeWhile (\x -> x /= ' ' && x /= '\t') $ trimFront "struct" str
+    | "struct " `isPrefixOf` str =
+        Struct $ takeWhile (\x -> x /= ' ' && x /= '\t') $ trimFront "struct" str
     | otherwise = Undefined
 
 optionalValue :: Parser (Maybe Ast)

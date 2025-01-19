@@ -38,11 +38,13 @@ associateTypes (AstString s) _ = Just (S s)
 associateTypes (AstDouble d) _ = Just (D d)
 associateTypes (AstChar c) _ = Just (C c)
 associateTypes (AstList list) mem = Just (L (translateList list mem))
-associateTypes (AstStruct list) mem = Just (
-    maybe  -- !! TO DO Check
-        (St Map.empty) ( St . Map.fromList)
-        (mapM (toStructField mem) list)
-    )
+associateTypes (AstStruct list) mem =
+    Just
+        ( maybe -- !! TO DO Check
+            (St Map.empty)
+            (St . Map.fromList)
+            (mapM (toStructField mem) list)
+        )
 associateTypes (AstListElem var _) mem = case readMemory mem var of -- !! TODO Check
     Just (AstList (x : _)) -> associateTypes x mem
     _ -> Nothing

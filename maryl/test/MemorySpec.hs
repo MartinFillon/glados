@@ -7,10 +7,10 @@
 
 module MemorySpec (spec) where
 
-import Test.Hspec
 import qualified Data.Map as Map
 import Memory
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..))
+import Test.Hspec
 
 spec :: Spec
 spec = do
@@ -50,13 +50,15 @@ spec = do
             generateUniqueElseName mem `shouldBe` "else4"
 
         it "frees memory by filtering out non-keepable Ast types" $ do
-            let mem = Map.fromList
+            let mem =
+                    Map.fromList
+                        [ ("var1", AstDefineFunc (Function "f" [] [] Void)),
+                          ("var2", AstString "value"),
+                          ("var4", AstIf (AstString "cond") (AstString "then") [] Nothing)
+                        ]
+                freedMem = freeMemory mem
+            freedMem
+                `shouldBe` Map.fromList
                     [ ("var1", AstDefineFunc (Function "f" [] [] Void)),
-                      ("var2", AstString "value"),
                       ("var4", AstIf (AstString "cond") (AstString "then") [] Nothing)
                     ]
-                freedMem = freeMemory mem
-            freedMem `shouldBe` Map.fromList
-                [ ("var1", AstDefineFunc (Function "f" [] [] Void)),
-                  ("var4", AstIf (AstString "cond") (AstString "then") [] Nothing)
-                ]

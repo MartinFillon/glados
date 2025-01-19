@@ -26,10 +26,18 @@ displayError :: String -> IO ()
 displayError str =
     getColorsFromConf >>= \case
         Just (_, e, _) ->
-            pError $ show e ++ show Bold ++ "*** ERROR *** with\n" ++ reset ++ show Bold ++ str ++ reset
+            pError $
+                show e
+                    ++ show Bold
+                    ++ "*** ERROR *** with\n"
+                    ++ reset
+                    ++ show Bold
+                    ++ str
+                    ++ reset
         Nothing -> pError $ "*** ERROR *** with\n" ++ str
 
-handleEvalResult :: [Ast] -> Either String ([Ast], Memory) -> Maybe FilePath -> IO ()
+handleEvalResult ::
+    [Ast] -> Either String ([Ast], Memory) -> Maybe FilePath -> IO ()
 handleEvalResult _ (Right (newAst, mem)) (Just o) =
     let (_, updatedMem) = translateToASM newAst mem
      in writeInstructionsToFile o updatedMem
@@ -64,7 +72,10 @@ handleImports' (x : xs) =
 handleImports :: [Ast] -> IO [Ast]
 handleImports asts = case filter isImport asts of
     [] -> return $ filter (not . isImport) asts
-    imports -> checkImports sImports >> handleImports' sImports <&> (\imported -> filter (not . isImport) imported ++ asts)
+    imports ->
+        checkImports sImports
+            >> handleImports' sImports
+            <&> (\imported -> filter (not . isImport) imported ++ asts)
       where
         sImports = getImportFile <$> imports
 

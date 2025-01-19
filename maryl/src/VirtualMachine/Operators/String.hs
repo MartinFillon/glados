@@ -25,8 +25,10 @@ strlen _ = fail "strlen expects a string"
 
 substr :: [Value] -> VmState [Value]
 substr (N len : N start : S str : xs)
-    | start < 0 || len < 0 || start > fromIntegral (length str) = fail "substr: invalid range"
-    | otherwise = return (S (take (fromIntegral len) $ drop (fromIntegral start) str) : xs)
+    | start < 0 || len < 0 || start > fromIntegral (length str) =
+        fail "substr: invalid range"
+    | otherwise =
+        return (S (take (fromIntegral len) $ drop (fromIntegral start) str) : xs)
 substr _ = fail "substr expects a string and two numbers"
 
 strcmp :: [Value] -> VmState [Value]

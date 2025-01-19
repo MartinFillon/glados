@@ -116,4 +116,6 @@ spec = do
             isLeft (parseAssembly "appendFile \"test.txt\" 42") `shouldBe` True
 
         it "should parse a struct with a int and a char" $ do
-            parseAssembly ".start push {\"a\"=\'1\', \"b\"=2}" `shouldBe` Right [Left $ push (Just ".start") (St (Map.fromList [("a", C '1'), ("b", N 2)]))]
+            parseAssembly ".start push {\"a\"=\'1\', \"b\"=2}"
+                `shouldBe` Right
+                    [Left $ push (Just ".start") (St (Map.fromList [("a", C '1'), ("b", N 2)]))]

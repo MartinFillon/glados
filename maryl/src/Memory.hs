@@ -6,7 +6,16 @@
 -}
 {-# LANGUAGE LambdaCase #-}
 
-module Memory (Memory, addMemory, initMemory, generateUniqueElseName, generateUniqueLoopName, updateMemory, readMemory, freeMemory) where
+module Memory (
+    Memory,
+    addMemory,
+    initMemory,
+    generateUniqueElseName,
+    generateUniqueLoopName,
+    updateMemory,
+    readMemory,
+    freeMemory,
+) where
 
 import Data.List (isPrefixOf)
 import qualified Data.Map as Map

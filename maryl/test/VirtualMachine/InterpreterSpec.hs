@@ -22,11 +22,11 @@ import VirtualMachine.Instructions (
 import VirtualMachine.Operators (operators)
 import VirtualMachine.State (V (..))
 
-import qualified VirtualMachine.Operators.StructsSpec as StructsSpec
 import qualified VirtualMachine.Operators.IOSpec as IOSpec
 import qualified VirtualMachine.Operators.LogicSpec as LogicSpec
 import qualified VirtualMachine.Operators.MathematicalSpec as MathematicalSpec
 import qualified VirtualMachine.Operators.StringSpec as StringSpec
+import qualified VirtualMachine.Operators.StructsSpec as StructsSpec
 import VirtualMachine.TestUtils (execTest, execTest')
 
 factCode :: [Instruction]

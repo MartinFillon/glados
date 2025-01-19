@@ -20,7 +20,12 @@ import Data.Fixed (mod')
 import qualified Data.Map as Map
 import GHC.Float (double2Int, int2Double)
 import Memory (Memory)
-import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
+import Parsing.ParserAst (
+    Ast (..),
+    Function (..),
+    MarylType (..),
+    Variable (..),
+ )
 
 type FunctionRegistry =
     Map.Map String (Memory -> Ast -> Ast -> Either String (Ast, Memory))
@@ -66,7 +71,14 @@ evalBinaryRet op expectedType _ =
         Just expectedTypes ->
             if expectedType `elem` expectedTypes
                 then Right ()
-                else Left ("Operation \"" ++ op ++ "\" does not justify expected type " ++ show expectedType ++ ".")
+                else
+                    Left
+                        ( "Operation \""
+                            ++ op
+                            ++ "\" does not justify expected type "
+                            ++ show expectedType
+                            ++ "."
+                        )
         Nothing -> Left ("Unknown operator \"" ++ op ++ "\".")
 
 defaultRegistry :: FunctionRegistry
@@ -123,7 +135,14 @@ evalLessThan mem (AstDouble d) (AstInt i) = Right (AstBool (d < int2Double i), m
 evalLessThan mem l r
     | isNumeric l && isNumeric r =
         Right (AstBinaryFunc "<" l r, mem)
-    | otherwise = Left ("Arguments " ++ show l ++ " or/and " ++ show r ++ " is of invalid type for \"<\".")
+    | otherwise =
+        Left
+            ( "Arguments "
+                ++ show l
+                ++ " or/and "
+                ++ show r
+                ++ " is of invalid type for \"<\"."
+            )
 
 -- | >
 evalGreaterThan :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
@@ -134,7 +153,14 @@ evalGreaterThan mem (AstDouble d) (AstInt i) = Right (AstBool (d > int2Double i)
 evalGreaterThan mem l r
     | isNumeric l && isNumeric r =
         Right (AstBinaryFunc ">" l r, mem)
-    | otherwise = Left ("Arguments " ++ show l ++ " or/and " ++ show r ++ " is of invalid type for \">\".")
+    | otherwise =
+        Left
+            ( "Arguments "
+                ++ show l
+                ++ " or/and "
+                ++ show r
+                ++ " is of invalid type for \">\"."
+            )
 
 -- | >=
 evalGreatThanEq :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
@@ -145,7 +171,14 @@ evalGreatThanEq mem (AstDouble d) (AstInt i) = Right (AstBool (d >= int2Double i
 evalGreatThanEq mem l r
     | isNumeric l && isNumeric r =
         Right (AstBinaryFunc ">=" l r, mem)
-    | otherwise = Left ("Arguments " ++ show l ++ " or/and " ++ show r ++ " is of invalid type for \">=\".")
+    | otherwise =
+        Left
+            ( "Arguments "
+                ++ show l
+                ++ " or/and "
+                ++ show r
+                ++ " is of invalid type for \">=\"."
+            )
 
 -- | <=
 evalLessThanEq :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
@@ -156,7 +189,14 @@ evalLessThanEq mem (AstDouble d) (AstInt i) = Right (AstBool (d <= int2Double i)
 evalLessThanEq mem l r
     | isNumeric l && isNumeric r =
         Right (AstBinaryFunc "<=" l r, mem)
-    | otherwise = Left ("Arguments " ++ show l ++ " or/and " ++ show r ++ " is of invalid type for \"<=\".")
+    | otherwise =
+        Left
+            ( "Arguments "
+                ++ show l
+                ++ " or/and "
+                ++ show r
+                ++ " is of invalid type for \"<=\"."
+            )
 
 -- Binary
 
@@ -170,17 +210,29 @@ evalBinaryOp ::
 evalBinaryOp _ op mem (AstInt i1) (AstInt i2) = Right (AstInt (op i1 i2), mem)
 evalBinaryOp opname _ mem (AstArg var idx) (AstInt i)
     | isInt var = Right (AstBinaryFunc opname (AstArg var idx) (AstInt i), mem)
-    | otherwise = Left (show var ++ " isn't of valid type for " ++ opname ++ ", expected Int.")
+    | otherwise =
+        Left (show var ++ " isn't of valid type for " ++ opname ++ ", expected Int.")
 evalBinaryOp opname _ mem (AstInt i) (AstArg var idx)
     | isInt var = Right (AstBinaryFunc opname (AstInt i) (AstArg var idx), mem)
-    | otherwise = Left (show var ++ " isn't of valid type for " ++ opname ++ ", expected Int.")
+    | otherwise =
+        Left (show var ++ " isn't of valid type for " ++ opname ++ ", expected Int.")
 evalBinaryOp opname _ mem (AstArg v1 i1) (AstArg v2 i2)
-    | isInt v1 && isInt v2 = Right (AstBinaryFunc opname (AstArg v1 i1) (AstArg v2 i2), mem)
-    | otherwise = Left (show v1 ++ " and/or " ++ show v2 ++ " aren't of valid type for " ++ opname ++ ", expected Int.")
+    | isInt v1 && isInt v2 =
+        Right (AstBinaryFunc opname (AstArg v1 i1) (AstArg v2 i2), mem)
+    | otherwise =
+        Left
+            ( show v1
+                ++ " and/or "
+                ++ show v2
+                ++ " aren't of valid type for "
+                ++ opname
+                ++ ", expected Int."
+            )
 evalBinaryOp op _ _ a b
     | typeOf a == typeOf AstInt =
         Left ("Argument \"" ++ show b ++ "\" invalid for binary " ++ show op ++ ".")
-    | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for binary " ++ show op ++ ".")
+    | otherwise =
+        Left ("Argument \"" ++ show a ++ "\" invalid for binary " ++ show op ++ ".")
 
 -- | &
 evalBAnd :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
@@ -214,17 +266,29 @@ evalBooleanOp ::
 evalBooleanOp _ op mem (AstBool b1) (AstBool b2) = Right (AstBool (op b1 b2), mem)
 evalBooleanOp opname _ mem (AstArg var idx) (AstBool b)
     | isBool var = Right (AstBinaryFunc opname (AstArg var idx) (AstBool b), mem)
-    | otherwise = Left (show var ++ " isn't of valid type for " ++ opname ++ ", expected Bool.")
+    | otherwise =
+        Left (show var ++ " isn't of valid type for " ++ opname ++ ", expected Bool.")
 evalBooleanOp opname _ mem (AstBool b) (AstArg var idx)
     | isBool var = Right (AstBinaryFunc opname (AstBool b) (AstArg var idx), mem)
-    | otherwise = Left (show var ++ " isn't of valid type for " ++ opname ++ ", expected Bool.")
+    | otherwise =
+        Left (show var ++ " isn't of valid type for " ++ opname ++ ", expected Bool.")
 evalBooleanOp opname _ mem (AstArg v1 i1) (AstArg v2 i2)
-    | isBool v1 && isBool v2 = Right (AstBinaryFunc opname (AstArg v1 i1) (AstArg v2 i2), mem)
-    | otherwise = Left (show v1 ++ " and/or " ++ show v2 ++ " aren't of valid type for " ++ opname ++ ", expected Bool.")
+    | isBool v1 && isBool v2 =
+        Right (AstBinaryFunc opname (AstArg v1 i1) (AstArg v2 i2), mem)
+    | otherwise =
+        Left
+            ( show v1
+                ++ " and/or "
+                ++ show v2
+                ++ " aren't of valid type for "
+                ++ opname
+                ++ ", expected Bool."
+            )
 evalBooleanOp opname _ _ a b
     | typeOf a == typeOf AstBool =
         Left ("Argument \"" ++ show b ++ "\" invalid for " ++ show opname ++ ".")
-    | otherwise = Left ("Argument \"" ++ show a ++ "\" invalid for " ++ show opname ++ ".")
+    | otherwise =
+        Left ("Argument \"" ++ show a ++ "\" invalid for " ++ show opname ++ ".")
 
 -- | and (&&)
 evalAnd :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
@@ -251,7 +315,16 @@ evalMath _ f mem (AstDouble d) (AstInt i) = Right (AstDouble (f d (int2Double i)
 evalMath opname _ mem l r
     | isNumeric l && isNumeric r =
         Right (AstBinaryFunc opname l r, mem)
-    | otherwise = Left ("Arguments " ++ show l ++ " or/and " ++ show r ++ " is of invalid type for operation " ++ opname ++ ".")
+    | otherwise =
+        Left
+            ( "Arguments "
+                ++ show l
+                ++ " or/and "
+                ++ show r
+                ++ " is of invalid type for operation "
+                ++ opname
+                ++ "."
+            )
 
 evalAdd :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
 evalAdd = evalMath "+" (+)
@@ -282,7 +355,14 @@ evalDiv mem (AstDouble d) (AstInt i)
 evalDiv mem l r
     | isNumeric l && isNumeric r =
         Right (AstBinaryFunc "/" l r, mem)
-    | otherwise = Left ("Arguments " ++ show l ++ " or/and " ++ show r ++ " is of invalid type for division.")
+    | otherwise =
+        Left
+            ( "Arguments "
+                ++ show l
+                ++ " or/and "
+                ++ show r
+                ++ " is of invalid type for division."
+            )
 
 -- | %
 evalMod :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
@@ -300,7 +380,14 @@ evalMod mem (AstDouble d) (AstInt i)
     | otherwise = Left "Modulo by zero."
 evalMod mem l r
     | isNumeric l && isNumeric r = Right (AstBinaryFunc "%" l r, mem)
-    | otherwise = Left ("Arguments " ++ show l ++ " or/and " ++ show r ++ " is of invalid type for modulo.")
+    | otherwise =
+        Left
+            ( "Arguments "
+                ++ show l
+                ++ " or/and "
+                ++ show r
+                ++ " is of invalid type for modulo."
+            )
 
 isNumeric :: Ast -> Bool
 isNumeric (AstInt _) = True
