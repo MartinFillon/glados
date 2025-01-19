@@ -1,0 +1,54 @@
+bool isAlphanum(char c) {
+    int i = 0;
+    []char valid = [
+            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+            'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
+        ];
+
+    while (i < 62) {
+        if (c == valid[i]) {
+            return true;
+        }
+        i++;
+    }
+    return false;
+}
+
+int countWordLen(string str) {
+    int i = 0;
+    int len = strlen(str);
+
+    while (i < len) {
+        if (isAlphanum(str[i]) == false) {
+            break;
+        }
+        i++;
+    }
+    return i;
+}
+
+[]string strToWordArray(string str) {
+    []string tab = [];
+    int lenStr = strlen(str);
+    int i = 0;
+
+    while (i < lenStr) {
+        int lenSubstr = countWordLen(substr(str, i, lenStr));
+        if (lenSubstr == 0) {
+            i++;
+            continue;
+        }
+        tab = listPush(tab, substr(str, i, lenSubstr));
+        i += lenSubstr;
+    }
+    return tab;
+}
+
+int start() {
+    []string tab = strToWordArray("     Hello,    World! ");
+
+    print(tab[0]);
+    print(tab[1]);
+    return 0;
+}

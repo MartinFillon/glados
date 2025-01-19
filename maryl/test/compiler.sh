@@ -226,4 +226,17 @@ else
     print_red "❌ breakcontinue.mrl failed"
 fi
 
+# str_to_word_array.mrl
+print_bold "Running str_to_word_array.mrl..."
+./glados build test/test_files/str_to_word_array.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "HelloWorld" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ str_to_word_array.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ str_to_word_array.mrl failed"
+fi
+
+
 rm out.masm
