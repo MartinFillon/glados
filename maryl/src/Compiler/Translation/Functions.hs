@@ -15,6 +15,7 @@ import VirtualMachine.Operators (operators)
 -- | Translates an operator to its corresponding instruction call.
 translateOpInst :: String -> Instruction
 translateOpInst "*" = call Nothing "mul"
+translateOpInst "**" = call Nothing "pow"
 translateOpInst "/" = call Nothing "div"
 translateOpInst "%" = call Nothing "mod"
 translateOpInst "+" = call Nothing "add"
@@ -30,6 +31,7 @@ translateOpInst "&" = call Nothing "band"
 translateOpInst "^" = call Nothing "xor"
 translateOpInst ">>" = call Nothing "shiftR"
 translateOpInst "<<" = call Nothing "shiftL"
+-- translateOpInst "**" = call Nothing "pow" ?
 translateOpInst _ = noop Nothing
 
 -- | Takes an operator and evaluates it as a simple operator, as opposed to a compound assignment operator.
@@ -56,6 +58,10 @@ isBuiltin s = any (\(n, _) -> n == s) operators
 pushArgs :: [Ast] -> Memory -> Int -> Memory
 pushArgs [] mem _ = mem
 pushArgs (AstDefineVar (Variable varName varType varValue) : xs) mem idx =
-    let updatedMem = updateMemory mem varName (AstArg (AstDefineVar (Variable varName varType varValue)) (Just idx))
+    let updatedMem =
+            updateMemory
+                mem
+                varName
+                (AstArg (AstDefineVar (Variable varName varType varValue)) (Just idx))
      in pushArgs xs updatedMem (idx + 1)
 pushArgs _ mem _ = mem

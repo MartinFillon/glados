@@ -13,7 +13,7 @@ module VirtualMachine.Interpreter (
     exec,
 ) where
 
-import Control.Monad.State.Lazy (MonadState (get), evalStateT, void)
+import Control.Monad.State.Lazy (MonadState (get), evalStateT)
 import VirtualMachine.Instructions (
     Inst (..),
     Instruction (..),
@@ -21,7 +21,6 @@ import VirtualMachine.Instructions (
  )
 import VirtualMachine.State (
     V (..),
-    Vm (..),
     VmState,
     appendStack,
     copyVm,
@@ -34,7 +33,6 @@ import VirtualMachine.State (
     getNextInstruction,
     getOperator,
     getStack,
-    handles,
     incPc,
     io,
     modifyPc,
@@ -66,7 +64,7 @@ execCall s =
                         >>= ( \r -> case r of
                                 Just idx ->
                                     (copyVm' idx <$> (reverse <$> getStack) <*> get >>= (io . evalStateT exec))
-                                        >>= appendStack
+                                        >>= (\v -> modifyStack [v])
                                 Nothing -> fail $ "could not find an element with label: " ++ s
                             )
                 (Just t) -> fail $ "call unimplemented for " ++ show t
@@ -132,22 +130,22 @@ execInstruction (Instruction _ _ (Load n) _) = execLoad n >> return Nothing
 execInstruction (Instruction _ _ (Get n) _) = execGet n >> return Nothing
 execInstruction i = fail $ "Not handled" ++ name i
 
-dbg :: VmState ()
-dbg = get >>= (io . printVM)
+-- dbg :: VmState ()
+-- dbg = get >>= (io . printVM)
 
-printVM :: Vm -> IO ()
-printVM (Vm s i m p _ _) =
-    putStrLn "==============================\nStack :"
-        >> print s
-        >> putStrLn "==============================\nStack :"
-        >> print s
-        >> putStrLn "==============================\nHandles :"
-        >> mapM print (handles m)
-        >> putStrLn "\n\nInsts :"
-        >> mapM print i
-        >> putStrLn "\nCurrent: "
-        >> print (i !! p)
-        >> void getLine
+-- printVM :: Vm -> IO ()
+-- printVM (Vm s i m p a _) =
+--     putStrLn "==============================\nStack :"
+--         >> print s
+--         >> putStrLn "==============================\nArgs :"
+--         >> print a
+--         >> putStrLn "==============================\nHandles :"
+--         >> mapM print (handles m)
+--         >> putStrLn "\n\nInsts :"
+--         >> mapM print i
+--         >> putStrLn "\nCurrent: "
+--         >> print (i !! p)
+--         >> void getLine
 
 exec' :: Maybe Instruction -> VmState Value
 exec' (Just i) =

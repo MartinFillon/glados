@@ -48,7 +48,11 @@ execParsed a i m =
     withExit
         ( evalStateT
             exec
-            (initialState (jump Nothing (Right ".start") : i) (initialMemory m) [N (fromIntegral (length a)), L $ map S a])
+            ( initialState
+                (jump Nothing (Right ".start") : i)
+                (initialMemory m)
+                [N (fromIntegral (length a)), L $ map S a]
+            )
         )
         >>= exit
 

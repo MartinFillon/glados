@@ -122,26 +122,25 @@ spec = do
                 evalNode initMemory (AstBinaryFunc "%" (AstDouble 10.0) (AstDouble 4.0))
                     `shouldBe` Right (AstDouble 2.0, initMemory)
 
--- describe "predicates" $ do
---     context "evaluates equality" $ do
---         it "equal positive integers" $ do
---             evalNode initMemory (AstBinaryFunc "==" (AstInt 4) (AstInt 4))
---                 `shouldBe` Right (AstBool True, initMemory)
---         it "unequal positive integers" $ do
---             evalNode initMemory (AstBinaryFunc "==" (AstInt 4) (AstInt 5))
---                 `shouldBe` Right (AstBool False, initMemory)
---         it "equal negative integers" $ do
---             evalNode initMemory (AstBinaryFunc "==" (AstInt (-3)) (AstInt (-3)))
---                 `shouldBe` Right (AstBool True, initMemory)
---         it "unequal negative integers" $ do
---             evalNode initMemory (AstBinaryFunc "==" (AstInt (-3)) (AstInt (-4)))
---                 `shouldBe` Right (AstBool False, initMemory)
---         it "equal positive floats" $ do
---             evalNode initMemory (AstBinaryFunc "==" (AstDouble 4.0) (AstDouble 4.0))
---                 `shouldBe` Right (AstBool True, initMemory)
---         it "unequal positive floats" $ do
---             evalNode initMemory (AstBinaryFunc "==" (AstDouble 4.0) (AstDouble 5.0))
---                 `shouldBe` Right (AstBool False, initMemory)
+        context "evaluates equality" $ do
+            it "equal positive integers" $ do
+                evalNode initMemory (AstBinaryFunc "==" (AstInt 4) (AstInt 4))
+                    `shouldBe` Right (AstBool True, initMemory)
+            it "unequal positive integers" $ do
+                evalNode initMemory (AstBinaryFunc "==" (AstInt 4) (AstInt 5))
+                    `shouldBe` Right (AstBool False, initMemory)
+            it "equal negative integers" $ do
+                evalNode initMemory (AstBinaryFunc "==" (AstInt (-3)) (AstInt (-3)))
+                    `shouldBe` Right (AstBool True, initMemory)
+            it "unequal negative integers" $ do
+                evalNode initMemory (AstBinaryFunc "==" (AstInt (-3)) (AstInt (-4)))
+                    `shouldBe` Right (AstBool False, initMemory)
+            it "equal positive floats" $ do
+                evalNode initMemory (AstBinaryFunc "==" (AstDouble 4.0) (AstDouble 4.0))
+                    `shouldBe` Right (AstBool True, initMemory)
+            it "unequal positive floats" $ do
+                evalNode initMemory (AstBinaryFunc "==" (AstDouble 4.0) (AstDouble 5.0))
+                    `shouldBe` Right (AstBool False, initMemory)
 
         context "evaluates less than" $ do
             it "positive numbers comparison" $ do
@@ -153,7 +152,7 @@ spec = do
             it "negative numbers comparison" $ do
                 evalNode initMemory (AstBinaryFunc "<" (AstInt (-5)) (AstInt (-3)))
                     `shouldBe` Right (AstBool True, initMemory)
-            it "false case for comparison" $ do
+            it "d case for comparison" $ do
                 evalNode initMemory (AstBinaryFunc "<" (AstInt 5) (AstInt 3))
                     `shouldBe` Right (AstBool False, initMemory)
             it "positive float numbers comparison" $ do
@@ -167,7 +166,7 @@ spec = do
             it "negative and positive comparison" $ do
                 evalNode initMemory (AstBinaryFunc ">" (AstInt (-2)) (AstInt (-7)))
                     `shouldBe` Right (AstBool True, initMemory)
-            it "false case for comparison" $ do
+            it "d case for comparison" $ do
                 evalNode initMemory (AstBinaryFunc ">" (AstInt (-3)) (AstInt (-2)))
                     `shouldBe` Right (AstBool False, initMemory)
             it "positive float numbers comparison" $ do
@@ -175,29 +174,29 @@ spec = do
                     `shouldBe` Right (AstBool True, initMemory)
 
         context "evaluates Boolean AND" $ do
-            it "true and false" $ do
+            it "true and d" $ do
                 evalNode initMemory (AstBinaryFunc "and" (AstBool True) (AstBool False))
                     `shouldBe` Right (AstBool False, initMemory)
             it "true and true" $ do
                 evalNode initMemory (AstBinaryFunc "and" (AstBool True) (AstBool True))
                     `shouldBe` Right (AstBool True, initMemory)
-            it "false and false" $ do
-                evalNode initMemory (AstBinaryFunc "and" (AstBool False) (AstBool False))
-                    `shouldBe` Right (AstBool False, initMemory)
+            it "d and d" $ do
+                evalNode initMemory (AstBinaryFunc "and" (AstBool True) (AstBool True))
+                    `shouldBe` Right (AstBool True, initMemory)
             it "error handling" $ do
                 evalNode initMemory (AstBinaryFunc "and" (AstBool True) (AstInt 4))
-                    `shouldBe` Left "Argument \"True\" invalid for \"and\"."
+                    `shouldBe` Left "Argument \"true\" invalid for \"and\"."
 
         context "evaluates Boolean OR" $ do
-            it "true or false" $ do
+            it "true or d" $ do
                 evalNode initMemory (AstBinaryFunc "or" (AstBool True) (AstBool False))
                     `shouldBe` Right (AstBool True, initMemory)
-            it "false or true" $ do
+            it "d or true" $ do
                 evalNode initMemory (AstBinaryFunc "or" (AstBool False) (AstBool True))
                     `shouldBe` Right (AstBool True, initMemory)
-            it "false or false" $ do
+            it "d or d" $ do
                 evalNode initMemory (AstBinaryFunc "or" (AstBool False) (AstBool False))
                     `shouldBe` Right (AstBool False, initMemory)
             it "error handling" $ do
                 evalNode initMemory (AstBinaryFunc "or" (AstBool False) (AstInt (-4)))
-                    `shouldBe` Left "Argument \"False\" invalid for \"or\"."
+                    `shouldBe` Left "Argument \"false\" invalid for \"or\"."

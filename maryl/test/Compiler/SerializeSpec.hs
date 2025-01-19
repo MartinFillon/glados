@@ -79,7 +79,8 @@ spec = do
             let memory =
                     Map.singleton
                         "foo"
-                        (AstDefineFunc (Function "foo" [] [AstReturn (AstInt 0)] Parsing.ParserAst.Void))
+                        ( AstDefineFunc (Function "foo" [] [AstReturn (AstInt 0)] Parsing.ParserAst.Void)
+                        )
                 expected = ".foo push 0\nret\n\n"
             serializeMemoryFunctions memory `shouldBe` expected
 
@@ -91,7 +92,9 @@ spec = do
                               AstDefineFunc
                                 ( Function
                                     "add"
-                                    [AstDefineVar (Variable "x" Int AstVoid), AstDefineVar (Variable "y" Int AstVoid)]
+                                    [ AstDefineVar (Variable "x" Int AstVoid),
+                                      AstDefineVar (Variable "y" Int AstVoid)
+                                    ]
                                     [AstReturn (AstBinaryFunc "+" (AstVar "x") (AstVar "y"))]
                                     Int
                                 )

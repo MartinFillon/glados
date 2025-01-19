@@ -138,7 +138,14 @@ initialState i m a = Vm [] i m 0 a False
 It also clears the stack and takes the old one as argument in order for it to become the new args.
 -}
 copyVm :: [Instruction] -> [Value] -> Vm -> Vm
-copyVm i a v = v {stack = [], args = a, instructions = i, pc = 0, memory = copyMemory (memory v)}
+copyVm i a v =
+    v
+        { stack = [],
+          args = a,
+          instructions = i,
+          pc = 0,
+          memory = copyMemory (memory v)
+        }
 
 {- | The 'copyVm'' function is used to copy a vm state and its memory and change its pc.
 It also clears the stack and takes the old one as argument in order for it to become the new args.

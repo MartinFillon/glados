@@ -57,10 +57,11 @@ errorBundlePrettyFormatted ::
     Bool ->
     ParseErrorBundle s e ->
     IO String
-errorBundlePrettyFormatted showColors bundle = getColorsFromConf >>= \colors ->
-    if isNothing colors
-        then return $ errorBundlePrettyFormatted' False (Red, Red, Red) bundle
-        else return $ errorBundlePrettyFormatted' showColors (fromJust colors) bundle
+errorBundlePrettyFormatted showColors bundle =
+    getColorsFromConf >>= \colors ->
+        if isNothing colors
+            then return $ errorBundlePrettyFormatted' False (Red, Red, Red) bundle
+            else return $ errorBundlePrettyFormatted' showColors (fromJust colors) bundle
 
 errorBundlePrettyFormatted' ::
     forall s e.

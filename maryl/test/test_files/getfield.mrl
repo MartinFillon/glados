@@ -1,0 +1,22 @@
+struct vector {
+    int x = 0;
+    int y = 0;
+    int z = 0;
+}
+
+int hey(int y){
+    y = 5;
+    return y;
+}
+
+int start(){
+    bool a = true;
+
+    //[]struct vector loo = [{1, 2, 3}, {4, 5, 6}]; 
+    struct vector v = {1, 2, 3};
+
+    int goo = v.x;
+    print(loo);
+    print(goo);
+    0;
+}

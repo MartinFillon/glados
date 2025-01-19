@@ -123,6 +123,7 @@ data Ast
     | AstChar Char
     | AstDouble Double
     | AstGlobal Ast
+    | AstConst Ast
     | AstBinaryFunc String Ast Ast
     | AstPostfixFunc String Ast
     | AstPrefixFunc String Ast
@@ -158,34 +159,85 @@ instance Show Ast where
     show (AstVar s) = s
     show AstVoid = "Void"
     show (AstInt n) = show n
-    show (AstBool b) = show b
-    show (AstString s) = show s
-    show (AstChar c) = show c
+    show (AstBool b) = if b then "true" else "false"
+    show (AstString s) = "\"" ++ s ++ "\""
+    show (AstChar c) = "'" ++ [c] ++ "'"
     show (AstDouble d) = show d
-    show (AstGlobal ast) = "Global value [" ++ show ast ++ "]"
-    show (AstBinaryFunc op left right) = show left ++ " " ++ op ++ " " ++ show right
-    show (AstPostfixFunc f ast) = show ast ++ tail (init (show f))
-    show (AstPrefixFunc f ast) = tail (init (show f)) ++ show ast
-    show (AstFunc (Function funcName funcArgs funcBody _)) = "call " ++ show funcName ++ "(" ++ show funcArgs ++ "){" ++ show funcBody ++ "}"
-    show (AstIf cond ifBlock elseIf maybeElse) = "if (" ++ show cond ++ "){" ++ show ifBlock ++ "} " ++ show elseIf ++ " else {" ++ show maybeElse ++ "}"
-    show (AstTernary cond terBlock elseBlock) = show cond ++ " ? " ++ show terBlock ++ " : " ++ show elseBlock
+    show (AstGlobal ast) = "Global(" ++ show ast ++ ")"
+    show (AstConst ast) = "Const(" ++ show ast ++ ")"
+    show (AstBinaryFunc op left right) = "(" ++ show left ++ " " ++ op ++ " " ++ show right ++ ")"
+    show (AstPostfixFunc f ast) = show ast ++ f
+    show (AstPrefixFunc f ast) = f ++ show ast
+    show (AstFunc (Function funcName funcArgs funcBody _)) =
+        "call "
+            ++ funcName
+            ++ "("
+            ++ intercalate ", " (map show funcArgs)
+            ++ ") {"
+            ++ indent (unlines (map show funcBody))
+            ++ "}"
+    show (AstIf cond ifBlock elseIf maybeElse) =
+        "if "
+            ++ show cond
+            ++ "{\n"
+            ++ indent (show ifBlock)
+            ++ "} "
+            ++ showElseIf elseIf
+            ++ showMaybeElse maybeElse
+      where
+        showElseIf [] = ""
+        showElseIf elifs = "else if {\n" ++ indent (unlines (map show elifs)) ++ "}"
+        showMaybeElse Nothing = ""
+        showMaybeElse (Just e) = "else {\n" ++ indent (show e) ++ "}"
+    show (AstTernary cond terBlock elseBlock) =
+        show cond ++ " ? " ++ show terBlock ++ " : " ++ show elseBlock
     show (AstReturn ast) = "return " ++ show ast
-    show (AstBlock blocks) = show blocks
-    show (AstLoop loopName cond loopBlock) = "while(" ++ show cond ++ "){" ++ show loopBlock ++ "} --> [" ++ maybe "" show loopName ++ "]"
-    show (AstBreak loopName) = "break(" ++ show loopName ++ ")"
-    show (AstContinue loopName) = "continue(" ++ show loopName ++ ")"
-    show (AstDefineVar (Variable varName varType varValue)) = show varType ++ " " ++ show varName ++ " = " ++ show varValue
-    show (AstDefineFunc (Function name args funcBody typeReturn)) = show typeReturn ++ " " ++ tail (init (show name)) ++ "(" ++ intercalate ", " (map show args) ++ "){" ++ intercalate "; " (map show funcBody) ++ "; }"
-    show (AstArg arg idx) = "(Arg " ++ show arg ++ " (" ++ show idx ++ "))"
-    show (AstList asts) = "List" ++ show asts
-    show (AstListElem var idxs) = show var ++ "[" ++ intercalate "][" (map show idxs) ++ "]"
-    show (AstStruct s) = "Struct " ++ show s
-    show (AstDefineStruct s) = "DefStruct " ++ sName s ++ " " ++ show (sProperties s)
-    show (AstLabel n v) = "Label " ++ n ++ ": " ++ show v
-    show (AstImport f) = "Import " ++ f
+    show (AstBlock blocks) = unlines (map show blocks)
+    show (AstLoop _ cond loopBlock) =
+        "while (" ++ show cond ++ ") {\n" ++ indent (show loopBlock) ++ "}"
+    show (AstBreak _) = "break"
+    show (AstContinue _) = "continue"
+    show (AstDefineVar (Variable varName varType varValue)) =
+        show varType ++ " " ++ varName ++ " = " ++ show varValue
+    show (AstDefineFunc (Function name args funcBody typeReturn)) =
+        show typeReturn
+            ++ " "
+            ++ name
+            ++ "("
+            ++ intercalate ", " (map show args)
+            ++ ") {\n"
+            ++ indent (unlines (map show funcBody))
+            ++ "\n}"
+    show (AstArg arg idx) = show arg ++ maybe "" (\i -> "[" ++ show i ++ "]") idx
+    show (AstList asts) = "[" ++ intercalate ", " (map show asts) ++ "]"
+    show (AstListElem var idxs) = var ++ concatMap (\i -> "[" ++ show i ++ "]") idxs
+    show (AstStruct s) =
+        "Struct {\n" ++ indent (unlines (map show s)) ++ "}"
+    show (AstDefineStruct s) =
+        "DefStruct "
+            ++ sName s
+            ++ " = {\n"
+            ++ indent (unlines (map show (sProperties s)))
+            ++ "}"
+    show (AstLabel n v) = n ++ " = " ++ show v
+    show (AstImport f) = "Import \"" ++ f ++ "\""
+
+-- | Add tabs of indentation
+indent :: String -> String
+indent = unlines . map ("    " ++) . lines
 
 -- | Types handled by the program.
-data MarylType = String | Int | Double | Char | Bool | Void | List MarylType | Const MarylType | Struct String | Undefined
+data MarylType
+    = String
+    | Int
+    | Double
+    | Char
+    | Bool
+    | Void
+    | List MarylType
+    | Const MarylType
+    | Struct String
+    | Undefined
     deriving (Eq, Ord, Show)
 
 -- | Checks if both Ast are the same without comparing their value if they have one
@@ -227,6 +279,12 @@ isValidType (AstBool _) Bool = True
 isValidType (AstString _) String = True
 isValidType (AstChar _) Char = True
 isValidType (AstDouble _) Double = True
+isValidType (AstConst (AstInt _)) (Const Int) = True
+isValidType (AstConst (AstBool _)) (Const Bool) = True
+isValidType (AstConst (AstString _)) (Const String) = True
+isValidType (AstConst (AstChar _)) (Const Char) = True
+isValidType (AstConst (AstDouble _)) (Const Double) = True
+isValidType (AstString _) (List Char) = True
 isValidType _ _ = False
 {- ^ ^^
  doesn't handle AstStruct
@@ -243,6 +301,11 @@ getMarylType (AstBool _) = Bool
 getMarylType (AstString _) = String
 getMarylType (AstChar _) = Char
 getMarylType (AstDouble _) = Double
+getMarylType (AstGlobal (AstInt _)) = Const Int
+getMarylType (AstGlobal (AstBool _)) = Const Bool
+getMarylType (AstGlobal (AstString _)) = Const String
+getMarylType (AstGlobal (AstChar _)) = Const Char
+getMarylType (AstGlobal (AstDouble _)) = Const Double
 getMarylType _ = Undefined
 
 lineComment :: Parser ()
@@ -262,10 +325,10 @@ semi :: Parser String
 semi = symbol ";"
 
 charLiteral :: Parser Char
-charLiteral = between (char '\'') (char '\'') L.charLiteral
+charLiteral = lexeme $ between (char '\'') (char '\'') L.charLiteral
 
 stringLiteral :: Parser String
-stringLiteral = char '\"' *> manyTill L.charLiteral (char '\"')
+stringLiteral = lexeme $ char '\"' *> manyTill L.charLiteral (char '\"')
 
 bonusChar' :: String
 bonusChar' = "_"
@@ -339,10 +402,15 @@ pImport :: Parser Ast
 pImport = lexeme $ string "import" >> sc >> AstImport <$> stringLiteral
 
 listElem :: Parser Ast
-listElem = between (symbol "[") (symbol "]") (AstInt <$> integer <|> AstVar <$> variable)
+listElem =
+    between (symbol "[") (symbol "]") (AstInt <$> integer <|> AstVar <$> variable)
 
 listElem' :: Parser [Ast]
-listElem' = between (symbol "[") (symbol "]") ((AstInt <$> integer <|> AstVar <$> variable) `sepBy` lexeme ",")
+listElem' =
+    between
+        (symbol "[")
+        (symbol "]")
+        ((AstInt <$> integer <|> AstVar <$> variable) `sepBy` lexeme ",")
 
 -- | Parsing access to an element of a list formatted: foo[index]. Multiple dimensions can be accessed by adding the index after, formatted like so: foo[i][j] or foo[i,j].
 pListElem :: Parser Ast
@@ -470,7 +538,8 @@ getType "void" = Void
 getType str
     | "[]" `isPrefixOf` str = List $ getType $ trimFront "[]" str
     | "const " `isPrefixOf` str = Const $ getType $ trimFront "const" str
-    | "struct " `isPrefixOf` str = Struct $ takeWhile (\x -> x /= ' ' && x /= '\t') $ trimFront "struct" str
+    | "struct " `isPrefixOf` str =
+        Struct $ takeWhile (\x -> x /= ' ' && x /= '\t') $ trimFront "struct" str
     | otherwise = Undefined
 
 optionalValue :: Parser (Maybe Ast)

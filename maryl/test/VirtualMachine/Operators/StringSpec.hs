@@ -101,4 +101,3 @@ spec = do
                   ret Nothing
                 ]
                 `shouldReturn` N (-1)
-

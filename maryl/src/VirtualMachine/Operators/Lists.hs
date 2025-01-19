@@ -10,6 +10,7 @@ module VirtualMachine.Operators.Lists (
     operatorSet,
     listPop,
     listPush,
+    listLen,
 ) where
 
 import Data.Int (Int64)
@@ -20,7 +21,7 @@ operatorGet :: [Value] -> VmState [Value]
 operatorGet (N idx : L lst : xs)
     | idx >= 0 && idx < fromIntegral (length lst) =
         return $ (lst !! fromIntegral idx) : xs
-    | otherwise = fail "Index out of bound"
+    | otherwise = fail $ "Index out of bound " ++ show idx ++ " " ++ show lst
 operatorGet (N idx : S str : xs)
     | idx >= 0 && idx < fromIntegral (length str) =
         return $ C (str !! fromIntegral idx) : xs
@@ -62,3 +63,8 @@ listPush :: [Value] -> VmState [Value]
 listPush (val : L lst : xs) = pure $ L (lst ++ [val]) : xs
 listPush ((C ch) : S str : xs) = pure $ S (str ++ [ch]) : xs
 listPush _ = fail "expects a list, an integer index, and a value"
+
+listLen :: [Value] -> VmState [Value]
+listLen (L lst : xs) = pure $ N (fromIntegral $ length lst) : xs
+listLen (S str : xs) = pure $ N (fromIntegral $ length str) : xs
+listLen _ = fail "expects a list"

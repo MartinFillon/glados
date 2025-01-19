@@ -10,9 +10,11 @@
 use std::process::exit;
 
 use execute::State;
+use instructions::Value;
 
 mod execute;
 mod instructions;
+mod operators;
 mod parser;
 
 fn main() {
@@ -23,8 +25,8 @@ fn main() {
         let content = std::fs::read_to_string(arg).unwrap();
         let mut parser = parser::Parser::new(&content);
         let instructions = parser.parse().unwrap();
-
         for inst in instructions {
+            dbg!(&inst);
             insts.push(inst);
         }
     }
@@ -38,5 +40,8 @@ fn main() {
             exit(84)
         })
         .unwrap();
-    dbg!(r);
+    match r {
+        Some(Value::Int(n)) => exit(n),
+        _ => exit(84),
+    }
 }

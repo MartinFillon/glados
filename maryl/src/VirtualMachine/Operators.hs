@@ -12,6 +12,7 @@ import VirtualMachine.Operators.Mathematicals (
     operatorDiv,
     operatorMod,
     operatorMul,
+    operatorPow,
     operatorSub,
  )
 
@@ -45,6 +46,7 @@ import VirtualMachine.Operators.IO (
     operatorWriteFile,
  )
 import VirtualMachine.Operators.Lists (
+    listLen,
     listPop,
     listPush,
     operatorGet,
@@ -67,6 +69,7 @@ operators =
       ("mul", Op operatorMul),
       ("div", Op operatorDiv),
       ("mod", Op operatorMod),
+      ("pow", Op operatorPow),
       ("eq", Op operatorEq),
       ("not", Op logicalNot),
       ("neq", Op operatorNEq),
@@ -98,5 +101,6 @@ operators =
       ("substr", Op substr),
       ("strcmp", Op strcmp),
       ("setField", Op setStructValue),
-      ("getField", Op getStructValue)
+      ("getField", Op getStructValue),
+      ("len", Op listLen)
     ]

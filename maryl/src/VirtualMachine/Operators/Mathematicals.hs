@@ -5,7 +5,7 @@
 -- Mathematicals
 -}
 
-module VirtualMachine.Operators.Mathematicals (operatorAdd, operatorSub, operatorMul, operatorDiv, operatorMod) where
+module VirtualMachine.Operators.Mathematicals (operatorAdd, operatorSub, operatorMul, operatorDiv, operatorMod, operatorPow) where
 
 import Numeric (Numeric (..))
 import VirtualMachine.Instructions (Value (..))
@@ -51,3 +51,7 @@ operatorMod (N y : N x : xs)
     | y == 0 = fail "modulo by zero"
     | otherwise = return $ N (x `mod` y) : xs
 operatorMod _ = fail "expects two int"
+
+operatorPow :: [Value] -> VmState [Value]
+operatorPow (y : x : xs) = eitherS $ (: xs) <$> numericOp (**) x y
+operatorPow _ = fail "expects two number"

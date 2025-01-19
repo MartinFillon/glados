@@ -79,7 +79,8 @@ substitute (Lambda params body) subs mem =
     Lambda params (substitute body subs mem)
 substitute other _ _ = other
 
-substituteFunction :: (Function -> Ast) -> String -> [Ast] -> [(String, Ast)] -> Memory -> Ast
+substituteFunction ::
+    (Function -> Ast) -> String -> [Ast] -> [(String, Ast)] -> Memory -> Ast
 substituteFunction constructor n subArgs subs mem =
     case lookup n subs of
         Just _ -> constructor (Function n subArgs)

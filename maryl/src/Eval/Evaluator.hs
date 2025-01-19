@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-
 -- EPITECH PROJECT, 2024
 -- gladdos
@@ -6,237 +7,434 @@
 --}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
-module Eval.Evaluator (evalAST, evalNode, applyOp, defaultRegistry) where
+module Eval.Evaluator (evalAST, evalNode) where
 
+import Data.Bifunctor (first)
 import qualified Data.DList as D
 import Data.Either (fromRight)
-import qualified Data.Map as Map
-import Debug.Trace (trace)
-import Eval.Functions (checkBuiltins, evalArgs)
-import Eval.Lists (checkListType, evalList, evalListElemDef, getIndexes, updateList)
-import Eval.Ops (
-    boolTokens,
-    evalAdd,
-    evalAnd,
-    evalBAnd,
-    evalBOr,
-    evalBXor,
-    evalDiv,
-    evalEq,
-    evalGreatThanEq,
-    evalGreaterThan,
-    evalLessThan,
-    evalLessThanEq,
-    evalMod,
-    evalMul,
-    evalNEq,
-    evalOr,
-    evalPower,
-    evalShiftL,
-    evalShiftR,
-    evalSub
-    )
-import Eval.Structures (normalizeStruct)
-import Memory (Memory, addMemory, freeMemory, generateUniqueLoopName, readMemory, updateMemory)
-import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Structure (..), Variable (..), getMarylType, isSameType, isValidType)
-
-type FunctionRegistry =
-    Map.Map String (Memory -> Ast -> Ast -> Either String (Ast, Memory))
+import Data.List (find)
+import Eval.Functions (checkBuiltins, evalArgs, furtherEvalFunc)
+import Eval.Lists (checkListType, evalList, evalListElemDef, updateList)
+import Eval.Ops (applyOp, boolTokens, evalBinaryRet, evalOpExpr)
+import Eval.Structures (evalFinalStruct, normalizeStruct)
+import Memory (
+    Memory,
+    addMemory,
+    freeMemory,
+    generateUniqueLoopName,
+    readMemory,
+    updateMemory,
+ )
+import Parsing.ParserAst (
+    Ast (..),
+    Function (..),
+    MarylType (..),
+    Structure (..),
+    Variable (..),
+    getMarylType,
+    isValidType,
+ )
 
 ----- Operators
 
-evalAssignType :: Ast -> Ast -> Memory -> Either String (Ast, Memory) 
-evalAssignType (AstDefineVar var@(Variable varName varType varValue)) right mem =
+-- | Evaluate reassignment of variable to justify redefinition.
+evalAssignType :: Ast -> Ast -> Memory -> Either String (Ast, Memory)
+evalAssignType (AstConst ast) _ _ = Left (show ast ++ " is a const, therefore not mutable.")
+evalAssignType (AstGlobal ast) _ _ = Left ("Global value " ++ show ast ++ " is const, can't be redefined.")
+evalAssignType (AstDefineVar (Variable varName varType _)) right mem =
     either
         (\err -> Left (varName ++ " can't be reassigned: " ++ err))
-        (\_ -> Right (AstVar varName, mem)) (evalDefinition right varType mem)
+        (\_ -> Right (AstVar varName, mem))
+        (evalDefinition right varType mem)
 evalAssignType (AstArg ast _) right mem =
-    evalNode mem ast >>= \(evaluatedR, updatedMem) -> evalAssignType ast right mem
+    evalNode mem right >>= uncurry (evalAssignType ast)
+-- Left ("Failed to define " ++ show ast ++ ", can't reassign value that is an argument.")
+evalAssignType (AstStruct _) right mem =
+    case evalNode mem right of
+        Right (AstStruct newEles, updatedMem) -> Right (AstStruct newEles, updatedMem)
+        Left err -> Left err
+        _ -> Left ("Can't assign " ++ show right ++ " as struct.")
+evalAssignType (AstBinaryFunc op left right) rightExpr mem =
+    evalOpExpr op >>= \expectedTypes ->
+        either
+            Left
+            (\_ -> Right (AstBinaryFunc op left right, mem))
+            (evalMultTypeDef rightExpr expectedTypes mem)
+evalAssignType (AstList eles) right mem =
+    evalNode mem right >>= uncurry (evalAssignList (AstList eles))
 evalAssignType ast right mem
-    | getMarylType ast == Undefined = Left ("Can't assign " ++ show ast) --handle here
+    | getMarylType ast == Undefined =
+        Left ("Can't assign " ++ show ast ++ ", type isn't recognised")
     | otherwise =
-        either Left (\_ -> Right (ast, mem)) (evalDefinition right (getMarylType ast) mem)
-evalAssignType _ _ mem = Right (AstVoid, mem)
+        either
+            Left
+            (\_ -> Right (ast, mem))
+            (evalDefinition right (getMarylType ast) mem)
 
--- (=)
+-- | Evaluate multiple possible return types (for expressions)
+evalMultTypeDef :: Ast -> [MarylType] -> Memory -> Either String Ast
+evalMultTypeDef right [x] mem = either Left Right (evalDefinition right x mem)
+evalMultTypeDef right (x : xs) mem =
+    either (\_ -> evalMultTypeDef right xs mem) Right (evalDefinition right x mem)
+evalMultTypeDef _ [] _ = Left "No type expected."
+
+-- | Evaluate '=' operation, handling of assignment
 evalAssign :: Memory -> Ast -> Ast -> Either String (Ast, Memory)
-evalAssign mem (AstVar var) right = evalNode mem right >>= \(evaluatedR, updatedMem) ->
-    let newMem = updateMemory updatedMem var evaluatedR
-     in maybe (Left ("Failed to assign \"" ++ var ++ "\", variable is out of scope."))
-        (\val -> evalAssignType val evaluatedR mem >> Right (AstBinaryFunc "=" (AstVar var) evaluatedR, newMem))
-        (readMemory mem var)
+evalAssign mem (AstVar var) right =
+    evalNode mem right >>= \(evaluatedR, updatedMem) ->
+        let newMem = updateMemory updatedMem var evaluatedR
+         in maybe
+                (Left ("Failed to assign \"" ++ var ++ "\", variable is out of scope."))
+                ( \val -> case evalAssignType val evaluatedR newMem of
+                    Right _ -> Right (AstBinaryFunc "=" (AstVar var) right, newMem)
+                    Left err -> Left err
+                )
+                (readMemory mem var)
 evalAssign mem (AstListElem var idxs) right =
     evalNode mem right >>= \(evaluatedAst, updatedMem) ->
         updateList var (AstListElem var idxs) updatedMem evaluatedAst >>= \(clarified, newMem) ->
             let finalMem = updateMemory newMem var clarified
              in Right (AstBinaryFunc "=" (AstListElem var idxs) right, finalMem)
 evalAssign _ left right = Left ("Can't assign " ++ show right ++ " to " ++ show left ++ ".")
+
 -- struct
 
-defaultRegistry :: FunctionRegistry
-defaultRegistry =
-    Map.fromList
-        [ ("+", evalAdd),
-          ("-", evalSub),
-          ("*", evalMul),
-          ("/", evalDiv),
-          ("%", evalMod),
-          ("**", evalPower),
-          ("|", evalBOr),
-          ("&", evalBAnd),
-          (">>", evalShiftR),
-          ("<<", evalShiftL),
-          ("^", evalBXor),
-          ("==", evalEq),
-          ("!=", evalNEq),
-          (">", evalGreaterThan),
-          (">=", evalGreatThanEq),
-          ("<", evalLessThan),
-          ("<=", evalLessThanEq),
-          ("or", evalOr),
-          ("and", evalAnd)
-        ]
-
-maybeToEither :: String -> Maybe a -> Either String a
-maybeToEither err = maybe (Left err) Right
-
-applyOp :: Memory -> String -> Ast -> Ast -> Either String (Ast, Memory)
-applyOp mem op left right =
-    maybeToEither
-        (op ++ " is not a valid operator")
-        (Map.lookup op defaultRegistry)
-        >>= (\f -> f mem left right)
-
+-- | Evaluate binary functions (of two inputs)
 evalBinaryFunc :: Memory -> String -> Ast -> Ast -> Either String (Ast, Memory)
 evalBinaryFunc mem op left right = case evalNode mem left of
     Right (leftVal, mem') -> case evalNode mem' right of
         Right (rightVal, mem'') -> applyOp mem'' op leftVal rightVal
-        Left err -> Left ("Operation failed with" ++ show right ++ " invalid for " ++ op ++ " (" ++ err ++ ").")
-    Left err -> Left ("Operation failed with" ++ show left ++ " invalid for " ++ op ++ " (" ++ err ++ ").")
+        Left err ->
+            Left
+                ( "Operation fail, " ++ show right ++ " invalid for " ++ op ++ " (" ++ err ++ ")."
+                )
+    Left err -> Left err
 
 ----- Condition-based (If/ Ternary/ Loops)
 
+-- | Evaluate if-type condition statements/ Ternary
 evalIfConditions :: Ast -> Ast -> Memory -> Either String (Ast, Memory)
-evalIfConditions (AstIf cond doBlock elseifs elseBlock) (AstTernary c t e) mem =
-    evalNode mem (AstIf c t [] (Just e)) >> Right (AstIf cond doBlock elseifs elseBlock, mem)
+evalIfConditions _ AstTernary {} _ =
+    Left "Ternary can't be defined within a statement."
 evalIfConditions (AstIf cond doBlock elseifs elseBlock) (AstVar var) mem =
     case readMemory mem var of
-        Just (AstBool b) -> evalNode mem (AstIf (AstBool b) doBlock elseifs elseBlock) >>
-            Right (AstIf cond doBlock elseifs elseBlock, mem)
-        _ -> Left ("Unknown variable \"" ++ var ++ "\"")
+        Just (AstBool b) ->
+            evalNode mem (AstIf (AstBool b) doBlock elseifs elseBlock)
+                >> Right (AstIf cond doBlock elseifs elseBlock, mem)
+        _ -> Left ("Unknown variable \"" ++ var ++ "\", no bool found.")
 evalIfConditions (AstIf cond doBlock elseifs elseBlock) (AstFunc func) mem =
     case readMemory mem (fName func) of
         Just (AstDefineFunc f) ->
             if fType f == Bool
-                then evalAST mem (extractBlock doBlock) >>= \(_, mem') ->
-                    Right (AstIf cond doBlock elseifs elseBlock, mem')
-                else Left ("Function \"" ++ fName f ++ "\" is not a function of type bool")
-        _ -> Left ("Unknown function \"" ++ fName func ++ "\"")
+                then
+                    evalASTBlock mem (extractBlock doBlock) >>= \(_, mem') ->
+                        Right (AstIf cond doBlock elseifs elseBlock, mem')
+                else Left ("Function \"" ++ fName f ++ "\" is not a function of type bool.")
+        _ -> Left ("Unknown call to function \"" ++ fName func ++ "\".")
 evalIfConditions (AstIf cond doBlock elseifs elseBlock) (AstBool True) mem =
-    evalAST mem (extractBlock doBlock)
+    evalASTBlock mem (extractBlock doBlock)
         >>= \(_, mem') -> Right (AstIf cond doBlock elseifs elseBlock, mem')
 evalIfConditions (AstIf cond doBlock elseifs elseBlock) (AstBool False) mem =
     case elseifs of
         (AstIf elifCond elifTrue [] Nothing : rest) ->
-            evalNode mem (AstIf elifCond elifTrue rest elseBlock) >>
-                Right (AstIf cond doBlock elseifs elseBlock, mem)
+            evalNode mem (AstIf elifCond elifTrue rest elseBlock)
+                >> Right (AstIf cond doBlock elseifs elseBlock, mem)
         [] -> case elseBlock of
             Just block ->
-                evalAST mem (extractBlock block)
+                evalASTBlock mem (extractBlock block)
                     >>= \(_, mem') -> Right (AstIf cond doBlock elseifs elseBlock, mem')
             Nothing -> Right (AstIf cond doBlock elseifs elseBlock, mem)
-        _ -> Left "Invalid else-if structure"
-evalIfConditions _ _ _ = Left "Condition in if statement is not a boolean"
+        _ -> Left "Invalid else-if structure."
+evalIfConditions _ _ _ = Left "Condition is not a boolean."
 
-evalLoopNode :: String -> Ast -> Memory -> Either String Ast
-evalLoopNode loopName (AstBreak _) _ = Right (AstBreak (Just loopName))
-evalLoopNode loopName (AstContinue _) _ = Right (AstContinue (Just loopName))
-evalLoopNode _ node _ = Right node
-
-evalLoopBlock :: String -> [Ast] -> Memory -> Either String [Ast]
-evalLoopBlock loopName [] _ = Right []
-evalLoopBlock loopName (x:xs) mem =
-    case evalLoopNode loopName x mem of
-        Right updatedNode -> case evalLoopBlock loopName xs mem of
-            Right updatedRest -> Right (updatedNode : updatedRest)
+-- | Evaluate else-if branches within blocks of loop.
+evalLoopElseIf :: String -> [Ast] -> Memory -> Either String [Ast]
+evalLoopElseIf _ [] _ = Right []
+evalLoopElseIf loopName (AstIf elifCond elifTrue restElseIfs Nothing : rest) mem =
+    evalLoopBlock loopName (extractBlock elifTrue) mem >>= \(updatedElifTrue, memAfterElif) ->
+        case evalLoopElseIf loopName rest memAfterElif of
+            Right restElseIfs' ->
+                Right
+                    (AstIf elifCond (AstBlock updatedElifTrue) restElseIfs Nothing : restElseIfs')
             Left err -> Left err
+evalLoopElseIf _ (ast : _) _ =
+    Left ("Unexpected AST node in else-if branch: " ++ show ast)
+
+-- | Evaluate else branch within blocks of loop.
+evalLoopElse :: String -> Maybe Ast -> Memory -> Either String (Maybe Ast)
+evalLoopElse _ Nothing _ = Right Nothing
+evalLoopElse loopName (Just branch) mem =
+    case evalLoopBlock loopName (extractBlock branch) mem of
+        Right (updatedElseBranch, _) ->
+            Right (Just (AstBlock updatedElseBranch))
         Left err -> Left err
 
+-- | Evaluate a single line within the 'do' block.
+evalLoopNode :: String -> Ast -> Memory -> Either String (Ast, Memory)
+evalLoopNode loopName (AstBreak _) mem = Right (AstBreak (Just loopName), mem)
+evalLoopNode loopName (AstContinue _) mem = Right (AstContinue (Just loopName), mem)
+evalLoopNode loopName (AstIf cond trueBranch elseIfBranches elseBranch) mem =
+    evalNode mem (AstIf cond trueBranch elseIfBranches elseBranch) >>= \(_, updatedMem) ->
+        evalLoopBlock loopName (extractBlock trueBranch) updatedMem >>= \(updatedTrueBranch, memAfterTrue) ->
+            evalLoopElseIf loopName elseIfBranches memAfterTrue >>= \updatedElseIfs ->
+                evalLoopElse loopName elseBranch memAfterTrue >>= \updatedElseBranch ->
+                    Right
+                        ( AstIf cond (AstBlock updatedTrueBranch) updatedElseIfs updatedElseBranch,
+                          memAfterTrue
+                        )
+evalLoopNode _ node mem = evalNode mem node
+
+-- | Evaluate the 'do' block in while condition.
+evalLoopBlock :: String -> [Ast] -> Memory -> Either String ([Ast], Memory)
+evalLoopBlock _ [] mem = Right ([], mem)
+evalLoopBlock loopName asts mem =
+    let evalBlock ::
+            [Ast] -> D.DList Ast -> Memory -> Either String (D.DList Ast, Memory)
+        evalBlock [] acc currentMem = Right (acc, currentMem)
+        evalBlock (x : xs) acc currentMem =
+            evalLoopNode loopName x currentMem >>= \(updatedNode, updatedMem) ->
+                evalBlock xs (acc `D.snoc` updatedNode) updatedMem
+     in fmap (first D.toList) (evalBlock asts D.empty mem)
+
+-- | Evaluate the condition of while loop.
+evalLoopCond :: Ast -> Memory -> Either String (Ast, Memory)
+evalLoopCond (AstVar var) mem = case readMemory mem var of
+    Just (AstBool _) -> Right (AstVar var, mem)
+    _ -> Left ("Unknown variable \"" ++ var ++ "\", no bool found.")
+evalLoopCond (AstFunc func) mem = case readMemory mem (fName func) of
+    Just (AstDefineFunc f) ->
+        if fType f == Bool
+            then Right (AstFunc func, mem)
+            else Left ("Function \"" ++ fName f ++ "\" is not a function of type bool.")
+    _ -> Left ("Unknown call to function \"" ++ fName func ++ "\".")
+evalLoopCond (AstBool True) mem = Right (AstBool True, mem)
+evalLoopCond (AstBool False) _ = Left "While conditions with a 'false' boolean aren't valid."
+evalLoopCond (AstBinaryFunc op left right) mem =
+    either
+        (\err -> Left ("Expecting condition in while: " ++ err))
+        ( \() -> Right (AstBinaryFunc op left right, mem)
+        )
+        (evalBinaryRet op Bool mem)
+evalLoopCond _ _ = Left "Condition is not of bool type."
+
+{- | Evaluate loop instances, creating a scope to handle features like:
+>>> break
+>>> continue
+-}
 evalLoops :: Ast -> Memory -> Either String (Ast, Memory)
 evalLoops (AstLoop (Just loopName) cond block) mem =
-    case evalLoopBlock loopName (extractBlock block) mem of
-        Right newBlock -> Right (AstLoop (Just loopName) cond (AstBlock newBlock), mem)
-        Left err -> Left err
--- evalNode mem (AstLoop cond body) = do
---     let loop mem' = do
---             (condResult, mem'') <- evalNode mem' cond
---             case condResult of
---                 AstBool True -> do
---                     (_, mem''') <- evalAST mem'' (extractBlock body)
---                     loop mem'''
---                 AstBool False -> Right (AstVoid, mem'')
---                 _ -> Left "Condition in loop is not a boolean"
---     loop mem
+    evalLoopCond cond mem >>= \(_, mem') ->
+        case evalLoopBlock loopName (extractBlock block) mem' of
+            Right (newBlock, _) ->
+                Right (AstLoop (Just loopName) cond (AstBlock newBlock), mem')
+            Left err -> Left err
+evalLoops _ _ = Left "Invalid loop call."
 
 ----- Declarations (Defined Variables/ Defined Structures)
 
+-- | Evaluate definition of variables by justifying type and value.
 evalDefinition :: Ast -> MarylType -> Memory -> Either String Ast
+evalDefinition AstVoid (Struct expectedType) mem =
+    case readMemory mem expectedType of
+        Just (AstDefineStruct struct) -> normalizeStruct (AstDefineStruct struct) AstVoid mem
+        Just (AstGlobal (AstDefineStruct struct)) -> normalizeStruct (AstDefineStruct struct) AstVoid mem
+        _ -> Left ("Struct of type " ++ expectedType ++ " can't be found.")
 evalDefinition AstVoid _ _ = Right AstVoid
-evalDefinition (AstArg ast _) typeVar mem = evalDefinition ast typeVar mem
-evalDefinition (AstVar str) typeVar mem = case readMemory mem str of
-    Just value -> evalDefinition value typeVar mem
+evalDefinition (AstArg ast _) expectedType mem = evalDefinition ast expectedType mem
+evalDefinition (AstVar str) expectedType mem = case readMemory mem str of
+    Just value -> evalDefinition value expectedType mem
     Nothing -> Left ("Variable " ++ str ++ " out of scope.")
-evalDefinition (AstListElem listVar idx) typeVar mem = evalListElemDef listVar idx typeVar mem
+evalDefinition (AstListElem listVar idx) expectedType mem = evalListElemDef listVar idx expectedType mem
 evalDefinition (AstList eles) (List typeVar) mem
     | checkListType eles typeVar mem = Right (AstList eles)
-    | otherwise = Left ("Element in list isn't of proper type, expected list full of " ++ show typeVar ++ ".")
+    | otherwise =
+        Left
+            ( "Element in list isn't of proper type, expected list full of "
+                ++ show typeVar
+                ++ "."
+            )
 evalDefinition (AstDefineVar origVar@(Variable varName varType _)) expectedType _
     | varType == expectedType = Right (AstDefineVar origVar)
-    | otherwise = Left (varName ++ " isn't of proper type, expected " ++ show varType ++ ".")
+    | otherwise =
+        Left (varName ++ " isn't of proper type, expected " ++ show varType ++ ".")
 evalDefinition ast (Struct structType) mem =
     case readMemory mem structType of
-        Just (AstDefineStruct struct) -> normalizeStruct (AstDefineStruct struct) ast
+        Just (AstDefineStruct struct) -> normalizeStruct (AstDefineStruct struct) ast mem
+        Just (AstGlobal (AstDefineStruct struct)) -> normalizeStruct (AstDefineStruct struct) ast mem
         _ -> Left ("Struct of type " ++ structType ++ " can't be found.")
-evalDefinition (AstFunc funcName) _ _ =
-    trace "to do: evaluate functions " Right (AstFunc funcName)
-evalDefinition (AstTernary _ doState elseState) expectedType mem =
-    -- eval condition?
-    case evalDefinition doState expectedType mem of
-        Right _ -> evalDefinition elseState expectedType mem
-        _ -> Left (show doState ++ " in ternary isn't typed correctly, expected " ++ show expectedType ++ ".")
-evalDefinition ast varType _
-    | isValidType ast varType = Right ast
+evalDefinition (AstBinaryFunc "." left right) expectedType mem =
+    either Left Right (evalCallStructEle left right (Just expectedType) mem)
+evalDefinition (AstBinaryFunc op left right) expectedType mem =
+    either
+        Left
+        (\() -> Right (AstBinaryFunc op left right))
+        (evalBinaryRet op expectedType mem)
+evalDefinition (AstFunc func@(Function _ _ _ returnType)) expectedType mem
+    | expectedType == returnType = Right (AstFunc func)
     | otherwise =
-        Left ("Value isn't typed correctly, expected " ++ show varType ++ ".")
+        evalNode mem (AstFunc func) >>= \(evaluatedFunc, _) ->
+            furtherEvalFunc evaluatedFunc expectedType mem
+evalDefinition (AstTernary cond doState elseState) expect mem =
+    evalNode mem (AstTernary cond doState elseState) >>= \(_, mem') ->
+        case evalDefinition doState expect mem' of
+            Right _ -> evalDefinition elseState expect mem'
+            _ ->
+                Left
+                    ( show doState
+                        ++ " in ternary isn't typed correctly, expected "
+                        ++ show expect
+                        ++ "."
+                    )
+evalDefinition ast expectedType _
+    | isValidType ast expectedType = Right ast
+    | otherwise =
+        Left
+            (show ast ++ " isn't typed correctly, expected " ++ show expectedType ++ ".")
 
+-- | Evaluate the definition of a struct type.
 evalStructDecla :: [Ast] -> Memory -> Either String ()
-evalStructDecla ((AstDefineVar var@(Variable _ varType varValue)) : xs) mem =
-    either Left (const (evalStructDecla xs mem)) (evalDefinition varValue varType mem)
+evalStructDecla ((AstDefineVar (Variable _ varType varValue)) : xs) mem =
+    either
+        Left
+        (const (evalStructDecla xs mem))
+        (evalDefinition varValue varType mem)
 evalStructDecla [] _ = Right ()
 evalStructDecla _ _ = Left "Invalid definition of structure."
 
+-- | Evaluate call of . operator for a struct element.
+evalCallStructEle ::
+    Ast -> Ast -> Maybe MarylType -> Memory -> Either String Ast
+evalCallStructEle (AstVar structName) (AstVar fieldName) mExpectedType mem =
+    case readMemory mem structName of
+        Just (AstStruct eles) ->
+            case findField eles fieldName of
+                Just (AstLabel _ value) -> validateType structName fieldName value mExpectedType
+                _ ->
+                    Left
+                        ( "Field \"" ++ fieldName ++ "\" not found in structure \"" ++ structName ++ "\"."
+                        )
+        Just ast ->
+            Left
+                ( "\""
+                    ++ structName
+                    ++ "\" is not a structure. Found: "
+                    ++ show (getMarylType ast)
+                )
+        Nothing -> Left ("Structure \"" ++ structName ++ "\" not found in memory.")
+evalCallStructEle _ _ _ _ =
+    Left
+        "\".\" operator isn't called correctly, expecting a reference to structure."
+
+-- | Find a field in a list of `Ast`.
+findField :: [Ast] -> String -> Maybe Ast
+findField eles fieldName = find (\case (AstLabel name _) -> name == fieldName; _ -> False) eles
+
+-- | Validate type and build the result.
+validateType :: String -> String -> Ast -> Maybe MarylType -> Either String Ast
+validateType structName fieldName value (Just expectedType)
+    | isValidType value expectedType =
+        Right (AstBinaryFunc "." (AstVar structName) (AstVar fieldName))
+    | otherwise =
+        Left
+            ( "Type mismatch for field \""
+                ++ fieldName
+                ++ "\": expected "
+                ++ show expectedType
+                ++ ", got "
+                ++ show (getMarylType value)
+            )
+validateType structName fieldName _ Nothing =
+    Right (AstBinaryFunc "." (AstVar structName) (AstVar fieldName))
+
+-- | Eval the assignment of a list.
+evalAssignList :: Ast -> Ast -> Memory -> Either String (Ast, Memory)
+evalAssignList (AstList eles) (AstList rightEles) mem =
+    case traverse (validateListElement mem (getMarylType (AstList eles))) rightEles of
+        Right validatedEles -> Right (AstList validatedEles, mem)
+        Left err -> Left err
+  where
+    validateListElement :: Memory -> MarylType -> Ast -> Either String Ast
+    validateListElement _ (List expectedType) element =
+        if isValidType element expectedType
+            then Right element
+            else case evalDefinition element expectedType mem of
+                Right validatedElement -> Right validatedElement
+                Left err -> Left ("Element in list is not of proper type: " ++ err ++ ".")
+    validateListElement _ _ _ = Left "Left-hand side of assignment is not a valid list type."
+evalAssignList (AstList _) (AstFunc func@(Function _ _ _ returnType)) mem =
+    case furtherEvalFunc (AstFunc func) returnType mem of
+        Right ast -> Right (ast, mem)
+        Left err -> Left err
+evalAssignList (AstList _) right _ =
+    Left ("Right-hand side of assignment is not a list: " ++ show right ++ ".")
+evalAssignList _ _ _ = Left "Invalid call to assignment of list."
+
+-- | Evaluate the expected arguments of a function call.
+evalCallArgs :: [Ast] -> Function -> Memory -> Either String ()
+evalCallArgs [] _ _ = Right ()
+evalCallArgs _ func@(Function _ [] _ _) _ =
+    Left ("Call to " ++ fName func ++ " invalid, expecting no arguments.")
+evalCallArgs (x : xs) func@(Function _ (AstDefineVar (Variable _ (Const expectedArgs) _) : rest) _ _) mem =
+    case evalDefinition x expectedArgs mem of
+        Right _ -> evalCallArgs xs (func {fArgs = rest}) mem
+        Left err -> Left ("Call to " ++ fName func ++ " invalid: " ++ err)
+evalCallArgs (x : xs) func@(Function _ (AstDefineVar (Variable _ expectedArgs _) : rest) _ _) mem =
+    case evalDefinition x expectedArgs mem of
+        Right _ -> evalCallArgs xs (func {fArgs = rest}) mem
+        Left err -> Left ("-> Call to " ++ fName func ++ " invalid: " ++ err)
+evalCallArgs (x : xs) func@(Function _ (expectedArgs : rest) _ _) mem =
+    case evalDefinition x (getMarylType expectedArgs) mem of
+        Right _ -> evalCallArgs xs (func {fArgs = rest}) mem
+        Left err -> Left ("Call to " ++ fName func ++ " invalid: " ++ err)
+
 ----- Memory-based definitions
 
+-- | Define a function into environment
 addDefineFunc :: Memory -> Function -> Either String (Ast, Memory)
 addDefineFunc mem func@(Function funcName args body _) =
-    either (\err -> Left ("Failed to define function (" ++ err ++ ").")) (\newMem ->
-        let editedMem = evalArgs args (freeMemory newMem)
-             in evalAST editedMem body >>= \(evaluatedBody, mem') ->
+    either
+        (\err -> Left ("Failed to define function (" ++ err ++ ")."))
+        ( \newMem ->
+            evalArgs args (freeMemory newMem) >>= \editedMem ->
+                evalASTBlock editedMem body >>= \(evaluatedBody, mem') ->
                     let func' = func {fBody = evaluatedBody}
                      in Right (AstVoid, updateMemory mem' funcName (AstDefineFunc func'))
-    ) (addMemory mem funcName (AstDefineFunc func))
+        )
+        (addMemory mem funcName (AstDefineFunc func))
 
 addLoopLabel :: String -> Ast -> Ast -> Memory -> Memory
 addLoopLabel loopName cond block mem =
-    fromRight mem (addMemory mem loopName (AstGlobal (AstLoop (Just loopName) cond block)))
+    fromRight
+        mem
+        (addMemory mem loopName (AstGlobal (AstLoop (Just loopName) cond block)))
 
+-- | Define a variable in scope
 addDefineVar :: Memory -> Variable -> Either String (Ast, Memory)
 addDefineVar mem var@(Variable varName _ vVal) =
     evalNode mem vVal >>= \(evaluatedExpr, updatedMem) ->
         case addMemory updatedMem varName evaluatedExpr of
-            Right finalMem ->
-                Right (AstDefineVar var, finalMem)
+            Right finalMem -> Right (AstDefineVar var, finalMem)
             Left err -> Left ("Failed to define variable (" ++ err ++ ").")
+
+-- | Define a const global value
+defineConstGlobal :: Memory -> Variable -> Either String (Ast, Memory)
+defineConstGlobal mem var@(Variable varName _ vVal) =
+    evalNode mem vVal >>= \(evaluatedExpr, updatedMem) ->
+        case addMemory updatedMem varName (AstGlobal evaluatedExpr) of
+            Right finalMem -> Right (AstGlobal (AstDefineVar var), finalMem)
+            Left err -> Left ("Failed to define variable (" ++ err ++ ").")
+
+-- | Add a global variable to memory, enforcing it to be typed as const.
+addGlobalVar :: Memory -> Variable -> Either String (Ast, Memory)
+addGlobalVar _ (Variable _ (Const _) AstVoid) = Left "Uninitialised const value."
+addGlobalVar mem var@(Variable varName (Const varType) varValue)
+    | isValidType varValue varType = defineConstGlobal mem var
+    | otherwise =
+        case evalDefinition varValue varType mem of
+            Right (AstStruct eles) -> defineConstGlobal mem (Variable varName (Const varType) (AstStruct eles))
+            Right _ -> defineConstGlobal mem var
+            Left err -> Left (varName ++ " can't be defined: " ++ err)
+addGlobalVar _ ast = Left (show ast ++ " can't be defined as global.<")
 
 -----
 
@@ -246,52 +444,133 @@ evalNode mem (AstBinaryFunc "=" left right) = evalAssign mem left right
 evalNode mem (AstBinaryFunc (x : "=") left right)
     | x `notElem` boolTokens = evalAssign mem left (AstBinaryFunc [x] left right)
     | otherwise = evalBinaryFunc mem (x : "=") left right
+evalNode mem (AstBinaryFunc "." left right) =
+    evalCallStructEle left right Nothing mem
+        >> Right (AstBinaryFunc "." left right, mem)
 evalNode mem (AstBinaryFunc op left right) = evalBinaryFunc mem op left right
 evalNode mem (AstPrefixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
 evalNode mem (AstPostfixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
+evalNode mem (AstConst (AstDefineVar var)) =
+    evalNode mem (AstDefineVar var) >>= \(_, _) ->
+        Right
+            ( AstConst (AstDefineVar var),
+              updateMemory mem (vName var) (AstConst (AstDefineVar var))
+            )
 evalNode mem (AstVar name) =
-    maybe (Left ("Undefined variable: " ++ name ++ ".")) (\value ->
-        Right (value, mem)) (readMemory mem name)
+    maybe
+        (Left (name ++ " is an undefined variable"))
+        (\value -> Right (value, mem))
+        (readMemory mem name)
+evalNode mem (AstDefineVar (Variable varName (Const varType) varValue)) =
+    evalNode mem (AstConst (AstDefineVar (Variable varName varType varValue)))
 evalNode mem (AstDefineVar var@(Variable varName varType varValue))
     | isValidType varValue varType = addDefineVar mem var
-    | otherwise = either (\err -> Left (varName ++ " can't be defined: " ++ err))
-        (\_ -> addDefineVar mem var) (evalDefinition varValue varType mem)
+    | otherwise = case evalDefinition varValue varType mem of
+        Right (AstStruct eles) -> addDefineVar mem (Variable varName varType (AstStruct eles))
+        Right _ -> addDefineVar mem var
+        Left err -> Left (varName ++ " can't be defined: " ++ err)
+evalNode mem (AstDefineFunc func@(Function "start" [] _ typeRet))
+    | typeRet == Int = addDefineFunc mem func
+    | otherwise = Left "Entrypoint function 'start' is expected to return an int."
+evalNode mem ( AstDefineFunc
+                func@( Function
+                        "start"
+                        [AstDefineVar (Variable _ Int _), AstDefineVar (Variable _ (List String) _)]
+                        _
+                        typeRet
+                        )
+                )
+    | typeRet == Int = addDefineFunc mem func
+    | otherwise = Left "Entrypoint function 'start' is expected to return an int."
+evalNode _ (AstDefineFunc (Function "start" _ _ _)) =
+    Left
+        "Entrypoint function 'start' is expected to have either no arguments or an int and a []string."
 evalNode mem (AstDefineFunc func) = addDefineFunc mem func
-evalNode mem (AstFunc func@(Function funcName _ _ _)) =
+evalNode mem (AstFunc func@(Function funcName funcArgs _ _)) =
     case readMemory mem funcName of
-        Just (AstDefineFunc (Function _ _ _ newFuncType)) ->
-            Right (AstFunc (func {fType = newFuncType}), mem)
+        Just (AstDefineFunc foundFunc@(Function _ _ _ newFuncType)) ->
+            case evalCallArgs funcArgs foundFunc mem of
+                Right _ -> Right (AstFunc (func {fType = newFuncType}), mem)
+                Left err -> Left err
         _ -> checkBuiltins funcName (AstFunc func) mem
 evalNode mem (AstLoop Nothing cond block) =
     let loopName = generateUniqueLoopName mem
-     in evalLoops (AstLoop (Just loopName) cond block) (addLoopLabel loopName cond block mem)
+     in evalLoops
+            (AstLoop (Just loopName) cond block)
+            (addLoopLabel loopName cond block mem)
 evalNode mem (AstIf cond trueBranch elseIfBranches elseBranch) =
-    evalNode mem cond >>= uncurry
-        (evalIfConditions (AstIf cond trueBranch elseIfBranches elseBranch))
+    evalNode mem cond
+        >>= uncurry
+            (evalIfConditions (AstIf cond trueBranch elseIfBranches elseBranch))
 evalNode mem (AstTernary cond left right) =
-    evalNode mem (AstIf cond left [] (Just right)) >> Right (AstTernary cond left right, mem)
+    evalNode mem (AstIf cond left [] (Just right))
+        >> Right (AstTernary cond left right, mem)
 evalNode mem (AstListElem var idxs) = evalList var idxs mem
 evalNode mem (AstDefineStruct struct@(Structure name properties)) =
-    either (\err -> Left ("Failed to define structure (" ++ err ++ ").")) (\newMem ->
-        evalStructDecla properties newMem >>= \() ->
-            Right (AstDefineStruct struct, newMem)
-    ) (addMemory mem name (AstDefineStruct struct))
-evalNode mem (AstReturn expr) = evalNode mem expr >>= \(evaluatedExpr, mem') ->
-    Right (AstReturn expr, mem')
+    either
+        (\err -> Left ("Failed to define structure (" ++ err ++ ")."))
+        ( \newMem ->
+            evalStructDecla properties newMem >>= \() ->
+                Right (AstDefineStruct struct, newMem)
+        )
+        (addMemory mem name (AstDefineStruct struct))
+evalNode mem (AstStruct eles) =
+    either
+        Left
+        (\_ -> Right (AstStruct eles, mem))
+        (evalFinalStruct eles (AstStruct eles))
+evalNode mem (AstReturn expr) =
+    evalNode mem expr >>= \(_, mem') ->
+        Right (AstReturn expr, mem')
+evalNode _ (AstImport _) = Left "Can't define an import within a function."
 evalNode mem node = Right (node, mem)
 
 -- | Evaluate a list of AST nodes.
+evalASTBlock :: Memory -> [Ast] -> Either String ([Ast], Memory)
+evalASTBlock mem (ast : asts) =
+    evalNode mem ast >>= \(transformedAst, updatedMem) ->
+        evalASTBlock updatedMem asts >>= \(rest, finalMem) ->
+            Right (transformedAst : rest, finalMem)
+evalASTBlock mem [] = Right ([], mem)
+
+-- | Evaluate the initial parsed list of AST nodes.
 evalAST :: Memory -> [Ast] -> Either String ([Ast], Memory)
 evalAST mem asts = evalAST' mem asts D.empty
 
 evalAST' :: Memory -> [Ast] -> D.DList Ast -> Either String ([Ast], Memory)
 evalAST' mem [] acc = Right (D.toList acc, mem)
-evalAST' mem (ast : asts) acc =
-    trace ("[[ " ++ show ast ++ " ]]") $
-        case evalNode mem ast of
-            Left err -> Left (show ast ++ ":\n\t |- " ++ err)
-            Right (transformedAst, updatedMem) ->
-                evalAST' updatedMem asts (acc `D.snoc` transformedAst)
+evalAST' mem (AstDefineFunc func : asts) acc =
+    either
+        (\err -> Left (show (AstDefineFunc func) ++ "\n    ^ " ++ err))
+        ( \(transformedAst, updatedMem) ->
+            evalAST' updatedMem asts (acc `D.snoc` transformedAst)
+        )
+        (evalNode mem (AstDefineFunc func))
+evalAST' mem (AstDefineStruct struct@(Structure name properties) : asts) acc =
+    either
+        ( \err ->
+            Left
+                ( show (AstDefineStruct struct)
+                    ++ "\n    ^ Failed to define structure ("
+                    ++ err
+                    ++ ")."
+                )
+        )
+        ( \newMem ->
+            evalStructDecla properties newMem >>= \() ->
+                evalAST' newMem asts (acc `D.snoc` AstGlobal (AstDefineStruct struct))
+        )
+        (addMemory mem name (AstGlobal (AstDefineStruct struct)))
+evalAST' mem (AstDefineVar var@(Variable _ (Const _) _) : asts) acc =
+    either
+        (\err -> Left (show (AstDefineVar var) ++ "\n    ^ " ++ err))
+        ( \(transformedAst, updatedMem) ->
+            evalAST' updatedMem asts (acc `D.snoc` transformedAst)
+        )
+        (addGlobalVar mem var)
+evalAST' mem (AstImport s : asts) acc =
+    evalAST' mem asts (acc `D.snoc` AstImport s)
+evalAST' _ (ast : _) _ = Left (show ast ++ "\n    ^ Can't define a global value that isn't const.")
 
 -- | Helper to extract block contents.
 extractBlock :: Ast -> [Ast]

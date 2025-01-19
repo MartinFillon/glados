@@ -1,0 +1,36 @@
+int yo(int a, struct hello b) {
+    print("here\n");
+    []char p = ['c', 'a', 'c', 'a'];
+    []string s = ["a", "b"];
+    a = 2;
+    struct boo {
+        int x = 2;
+        int y = 6;
+        int z = 1;
+    } 
+    print("here32\n");
+    struct hell {
+        []int um = [1, 2];
+        char bum = p[1];
+        []string b = s;
+        int poo = a;
+        //struct hello n = boo;
+    }
+    struct hell aa;
+    print(aa);
+    return 0;
+}
+
+int start() {
+    struct hello {
+        int x = 2;
+        int y = 6;
+        int z = 1;
+    }
+
+    struct hello b = {x: 2, y: 2, z: 7};
+    //int a = b.x;
+    //b.x = 19;
+    print(b);
+    return yo(5, b);
+}

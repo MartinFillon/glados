@@ -170,7 +170,7 @@ fi
 print_bold "Running basicstruct.mrl..."
 ./glados build test/test_files/basicstruct.mrl -o out.masm
 output=$(./glados run out.masm | tr -d '\n')
-result=$(echo -e "{\"a\" = 1,\"b\" = 2,\"c\" = 3}{\"a\" = 0,\"b\" = 0,\"c\" = 0}" | tr -d '\n')
+result=$(echo -e "{\"a\" = 1,\"b\" = 2,\"c\" = 3}{\"a\" = 1,\"b\" = 2,\"c\" = 3}" | tr -d '\n')
 if [ "$output" == "$result" ]; then
     print_green "✅ basicstruct.mrl passed!"
 else
@@ -200,6 +200,90 @@ if [ "$output" == "$result" ]; then
 else
     print_yellow "got '$output'"
     print_red "❌ lesseq.mrl failed"
+fi
+
+# weirdstruct.mrl
+print_bold "Running weirdstruct.mrl..."
+./glados build test/test_files/weirdstruct.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "{\"x\" = 2,\"y\" = 2,\"z\" = 7}here\nhere32\n{\"b\" = [\"a\",\"b\"],\"bum\" = 'a',\"poo\" = 2,\"um\" = [1,2]}" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ weirdstruct.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ weirdstruct.mrl failed"
+fi
+
+# breakcontinue.mrl
+print_bold "Running breakcontinue.mrl..."
+./glados build test/test_files/breakcontinue.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "0O!2three\niiitrue!4O!6O!8O!end" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ breakcontinue.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ breakcontinue.mrl failed"
+fi
+
+# global.mrl
+print_bold "Running global.mrl..."
+./glados build test/test_files/global.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "broboofoo!yo83" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ global.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ global.mrl failed"
+fi
+
+# evaltest.mrl
+print_bold "Running evaltest.mrl..."
+./glados build test/test_files/evaltest.mrl -o out.masm
+./glados run out.masm
+output=$(echo $?)
+if [ "$output" == "84" ]; then
+    print_green "✅ evaltest.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ evaltest.mrl failed"
+fi
+
+# getfield.mrl
+print_bold "Running getfield.mrl..."
+./glados build test/test_files/getfield.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "{\"x\" = 1,\"y\" = 2,\"z\" = 3}1" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ getfield.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ getfield.mrl failed"
+fi
+
+# import.mrl
+print_bold "Running import.mrl..."
+./glados build test/test_files/import.mrl -o out.masm
+./glados run out.masm
+output=$(echo $?)
+if [ "$output" == "84" ]; then
+    print_green "✅ import.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ import.mrl failed"
+fi
+
+# str_to_word_array.mrl
+print_bold "Running str_to_word_array.mrl..."
+./glados build test/test_files/str_to_word_array.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "HelloWorld" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ str_to_word_array.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ str_to_word_array.mrl failed"
 fi
 
 rm out.masm
