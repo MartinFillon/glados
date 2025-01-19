@@ -46,8 +46,7 @@ evalAssignType (AstBinaryFunc op left right) rightExpr mem =
             (\_ -> Right (AstBinaryFunc op left right, mem))
             (evalMultTypeDef rightExpr expectedTypes mem)
 evalAssignType (AstList eles) right mem =
-    evalNode mem right >>= \(evaluatedR, newMem) ->
-        evalAssignList (AstList eles) evaluatedR newMem
+    evalNode mem right >>= uncurry (evalAssignList (AstList eles))
 evalAssignType ast right mem
     | getMarylType ast == Undefined =
         Left ("Can't assign " ++ show ast ++ ", type isn't recognised")
