@@ -204,3 +204,10 @@ ln -s maryl-language <path to the repository>/maryl/vs-syntax/maryl-language
 
 <import-statement> ::= "import" <string> ";"
 ```
+
+## Documentation
+
+The complete documentation for Maryl is available in two formats:
+
+- [Online Documentation](https://zhifters-organization.gitbook.io/maryl) - Comprehensive documentation
+- [PDF Documentation](docs/Maryl.pdf) - PDF version
