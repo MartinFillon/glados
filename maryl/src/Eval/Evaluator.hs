@@ -8,11 +8,12 @@
 
 module Eval.Evaluator (evalAST, evalNode) where
 
+import Compiler.Translation.Functions (isBuiltin)
 import Data.Bifunctor (first)
 import qualified Data.DList as D
 import Data.Either (fromRight)
 import Debug.Trace (trace)
-import Eval.Functions (checkBuiltins, evalArgs)
+import Eval.Functions (checkBuiltins, evalArgs, furtherEvalFunc)
 import Eval.Lists (checkListType, evalList, evalListElemDef, updateList)
 import Eval.Ops (applyOp, boolTokens, evalBinaryRet, evalOpExpr)
 import Eval.Structures (evalFinalStruct, normalizeStruct)
@@ -229,8 +230,11 @@ evalDefinition (AstBinaryFunc "." left right) expectedType mem =
     either Left Right (evalCallStructEle left right expectedType mem)
 evalDefinition (AstBinaryFunc op left right) expectedType mem =
     either Left (\() -> Right (AstBinaryFunc op left right)) (evalBinaryRet op expectedType mem)
-evalDefinition (AstFunc funcName) _ _ =
-    trace "to do: evaluate functions " Right (AstFunc funcName)
+evalDefinition (AstFunc func@(Function _ _ _ returnType)) expectedType mem
+    | expectedType == returnType = Right (AstFunc func)
+    | otherwise =
+        evalNode mem (AstFunc func) >>= \(evaluatedFunc, _) ->
+            furtherEvalFunc evaluatedFunc expectedType mem
 evalDefinition (AstTernary cond doState elseState) expect mem =
     evalNode mem (AstTernary cond doState elseState) >>= \(_, mem') ->
         case evalDefinition doState expect mem' of
@@ -249,8 +253,27 @@ evalStructDecla [] _ = Right ()
 evalStructDecla _ _ = Left "Invalid definition of structure."
 
 evalCallStructEle :: Ast -> Ast -> MarylType -> Memory -> Either String Ast
-evalCallStructEle left right expectedType mem = -- !! TO DO
+evalCallStructEle left right expectedType mem =
+    -- !! TO DO
     Left "Evaluator doesn't handle \".\" operator (call to structure element) at the moment."
+
+-- | Evaluate the expected arguments of a function call.
+evalCallArgs :: [Ast] -> Function -> Memory -> Either String ()
+evalCallArgs [] _ _ = Right ()
+evalCallArgs _ func@(Function _ [] _ _) _ =
+    Left ("Call to " ++ fName func ++ " invalid, expecting no arguments.")
+evalCallArgs (x : xs) func@(Function _ (AstDefineVar (Variable _ (Const expectedArgs) _) : rest) _ _) mem =
+    case evalDefinition x expectedArgs mem of
+        Right _ -> evalCallArgs xs (func {fArgs = rest}) mem
+        Left err -> Left ("Call to " ++ fName func ++ " invalid: " ++ err)
+evalCallArgs (x : xs) func@(Function _ (AstDefineVar (Variable _ expectedArgs _) : rest) _ _) mem =
+    case evalDefinition x expectedArgs mem of
+        Right _ -> evalCallArgs xs (func {fArgs = rest}) mem
+        Left err -> Left ("Call to " ++ fName func ++ " invalid: " ++ err)
+evalCallArgs (x : xs) func@(Function _ (expectedArgs : rest) _ _) mem =
+    case evalDefinition x (getMarylType expectedArgs) mem of
+        Right _ -> evalCallArgs xs (func {fArgs = rest}) mem
+        Left err -> Left ("Call to " ++ fName func ++ " invalid: " ++ err)
 
 ----- Memory-based definitions
 
@@ -326,11 +349,18 @@ evalNode mem (AstDefineVar var@(Variable varName varType varValue))
             Right (AstStruct eles) -> addDefineVar mem (Variable varName varType (AstStruct eles))
             Right _ -> addDefineVar mem var
             Left err -> Left (varName ++ " can't be defined: " ++ err)
+evalNode mem (AstDefineFunc func@(Function "start" [] _ _)) = addDefineFunc mem func
+evalNode mem (AstDefineFunc func@(Function "start" [AstDefineVar (Variable _ Int _), AstDefineVar (Variable _ (List String) _)] _ _)) =
+    addDefineFunc mem func
+evalNode _ (AstDefineFunc (Function "start" _ _ _)) =
+    Left "Entrypoint function 'start' is expected to have no arguments or an int and a []string."
 evalNode mem (AstDefineFunc func) = addDefineFunc mem func
-evalNode mem (AstFunc func@(Function funcName _ _ _)) =
+evalNode mem (AstFunc func@(Function funcName funcArgs _ _)) =
     case readMemory mem funcName of
-        Just (AstDefineFunc (Function _ _ _ newFuncType)) ->
-            Right (AstFunc (func {fType = newFuncType}), mem)
+        Just (AstDefineFunc foundFunc@(Function _ _ _ newFuncType)) ->
+            case evalCallArgs funcArgs foundFunc mem of
+                Right _ -> Right (AstFunc (func {fType = newFuncType}), mem)
+                Left err -> Left err
         _ -> checkBuiltins funcName (AstFunc func) mem
 evalNode mem (AstLoop Nothing cond block) =
     let loopName = generateUniqueLoopName mem
@@ -369,14 +399,14 @@ evalAST' :: Memory -> [Ast] -> D.DList Ast -> Either String ([Ast], Memory)
 evalAST' mem [] acc = Right (D.toList acc, mem)
 evalAST' mem (AstDefineFunc func : asts) acc =
     either
-        (\err -> Left (show (AstDefineFunc func) ++ ":\n\t |- " ++ err))
+        (\err -> Left (show (AstDefineFunc func) ++ "\n    ^ " ++ err))
         ( \(transformedAst, updatedMem) ->
             evalAST' updatedMem asts (acc `D.snoc` transformedAst)
         )
         (evalNode mem (AstDefineFunc func))
 evalAST' mem (AstDefineStruct struct@(Structure name properties) : asts) acc =
     either
-        (\err -> Left (show (AstDefineStruct struct) ++ ":\n\t |- Failed to define structure (" ++ err ++ ")."))
+        (\err -> Left (show (AstDefineStruct struct) ++ "\n    ^ Failed to define structure (" ++ err ++ ")."))
         ( \newMem ->
             evalStructDecla properties newMem >>= \() ->
                 evalAST' newMem asts (acc `D.snoc` AstDefineStruct struct)
@@ -384,12 +414,12 @@ evalAST' mem (AstDefineStruct struct@(Structure name properties) : asts) acc =
         (addMemory mem name (AstGlobal (AstDefineStruct struct)))
 evalAST' mem (AstDefineVar var@(Variable _ (Const _) _) : asts) acc =
     either
-        (\err -> Left (show (AstDefineVar var) ++ ":\n\t |- " ++ err))
+        (\err -> Left (show (AstDefineVar var) ++ "\n    ^ " ++ err))
         ( \(transformedAst, updatedMem) ->
             evalAST' updatedMem asts (acc `D.snoc` transformedAst)
         )
         (addGlobalVar mem var)
-evalAST' _ (ast : _) _ = Left (show ast ++ ":\n\t |- Can't define a global value that isn't const.")
+evalAST' _ (ast : _) _ = Left (show ast ++ "\n    ^ Can't define a global value that isn't const.")
 
 -- | Helper to extract block contents.
 extractBlock :: Ast -> [Ast]

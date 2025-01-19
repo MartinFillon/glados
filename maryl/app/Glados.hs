@@ -28,8 +28,8 @@ displayError :: String -> IO ()
 displayError str =
     getColorsFromConf >>= \case
         Just (_, e, _) ->
-            pError $ show e ++ show Bold ++ "*** ERROR *** with\n\t" ++ reset ++ show Bold ++ str ++ reset
-        Nothing -> pError $ "*** ERROR *** with\n\t" ++ str
+            pError $ show e ++ show Bold ++ "*** ERROR *** with\n" ++ reset ++ show Bold ++ str ++ reset
+        Nothing -> pError $ "*** ERROR *** with\n" ++ str
 
 handleEvalResult :: [Ast] -> Either String ([Ast], Memory) -> Maybe FilePath -> IO ()
 handleEvalResult _ (Right (newAst, mem)) (Just o) =

@@ -226,4 +226,16 @@ else
     print_red "❌ breakcontinue.mrl failed"
 fi
 
+# global.mrl
+print_bold "Running global.mrl..."
+./glados build test/test_files/global.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "broboofoo!yo73" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ global.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ global.mrl failed"
+fi
+
 rm out.masm

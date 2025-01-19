@@ -5,11 +5,12 @@
 -- Functions
 -}
 
-module Eval.Functions (checkBuiltins, evalArgs) where
+module Eval.Functions (checkBuiltins, evalArgs, furtherEvalFunc) where
 
+import qualified Data.Map as Map
 import Compiler.Translation.Functions (isBuiltin)
 import Memory (Memory, addMemory)
-import Parsing.ParserAst (Ast (..), Variable (..))
+import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Variable (..))
 
 checkBuiltins :: String -> Ast -> Memory -> Either String (Ast, Memory)
 checkBuiltins func ast mem
@@ -20,6 +21,34 @@ checkBuiltins func ast mem
 evalArgs :: [Ast] -> Memory -> Either String Memory
 evalArgs [] mem = Right mem
 evalArgs ((AstDefineVar (Variable var varType val)) : xs) mem =
-    either (\err -> Left ("Argument " ++ var ++ " isn't valid, " ++ err ++ "."))
-        (evalArgs xs) (addMemory mem var (AstArg (AstDefineVar (Variable var varType val)) Nothing))
+    either
+        (\err -> Left ("Argument " ++ var ++ " isn't valid, " ++ err ++ "."))
+        (evalArgs xs)
+        (addMemory mem var (AstArg (AstDefineVar (Variable var varType val)) Nothing))
 evalArgs _ mem = Right mem
+
+-- checkBuiltin :: Map.Map String Function
+-- checkBuiltin = [
+--     "add", (Function "add" [AstDefinedVar (Variable "a" Int AstVoid), AstDefinedVar (Variable "b" Int AstVoid)])
+--     "sub", (Function "sub" [AstDefinedVar (Variable "a" Int AstVoid), AstDefinedVar (Variable "b" Int AstVoid)])
+-- ]
+
+-- | Evaluate further function definition for builtin option
+furtherEvalFunc :: Ast -> MarylType -> Memory -> Either String Ast
+furtherEvalFunc (AstFunc func@(Function funcName _ _ newReturn)) expectedType mem
+    | expectedType == newReturn = Right (AstFunc func)
+    | otherwise =
+        if isBuiltin funcName
+            then Right (AstFunc func)
+            else
+                Left
+                (  "Call to function "
+                    ++ fName func
+                    ++ " is invalid, function returns "
+                    ++ show newReturn
+                    ++ " but expecting "
+                    ++ show expectedType
+                    ++ "."
+                )
+furtherEvalFunc ast expectedType _ =
+    Left ("Call to function " ++ show ast ++ " is invalid, expecting " ++ show expectedType ++ " as return value.")

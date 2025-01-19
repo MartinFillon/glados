@@ -1,0 +1,35 @@
+
+struct info {
+    int x;
+    int y;
+}
+
+const int yo = 4;
+
+int one(const int yol){
+    int boo =4 + yol;
+    print(boo);
+    boo = 3;
+    print(boo);
+
+    return 1;
+}
+
+bool foo() {
+    return true;
+}
+
+int start(){
+    int i = 2;
+    if (i == 2){
+        print("bro");
+        print("boo");
+        if (foo()){
+            print("foo!");
+            //return 4;
+        }
+    }
+    print("yo");
+    one(3);
+    return 84;
+}
