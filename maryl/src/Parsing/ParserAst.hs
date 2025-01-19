@@ -274,6 +274,7 @@ isValidType (AstConst (AstBool _)) (Const Bool) = True
 isValidType (AstConst (AstString _)) (Const String) = True
 isValidType (AstConst (AstChar _)) (Const Char) = True
 isValidType (AstConst (AstDouble _)) (Const Double) = True
+isValidType (AstString _) (List Char) = True
 isValidType _ _ = False
 {- ^ ^^
  doesn't handle AstStruct

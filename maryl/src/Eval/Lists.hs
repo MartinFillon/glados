@@ -9,7 +9,7 @@ module Eval.Lists (checkIndices, checkListType, evalList, evalListElemDef, getAt
 
 import Data.List (intercalate, foldl')
 import Memory (Memory, readMemory)
-import Parsing.ParserAst (Ast (..), MarylType (..), getMarylType)
+import Parsing.ParserAst (Ast (..), MarylType (..), Variable (..), getMarylType)
 
 -- | Get list element based on a list of index.
 getAtIdx :: Ast -> [Int] -> Either String Ast
@@ -126,7 +126,11 @@ evalListElemDef listVar idx typeVar mem =
             if Char == typeVar
                 then Right (AstListElem listVar idx)
                 else Left "Elements within strings can only be characters."
-        Just _ -> Left ("Variable " ++ listVar ++ " isn't referencing to type List.")
+        Just (AstArg (AstDefineVar (Variable _ String _)) _) ->
+            if Char == typeVar
+                then Right (AstListElem listVar idx)
+                else Left "Elements within strings can only be characters."
+        Just val -> Left ("Variable " ++ listVar ++ " isn't referencing to type List but " ++ show val ++ ".")
         Nothing -> Left ("Variable " ++ listVar ++ " out of scope.")
 
 -- | Transform a string into a list of AstChar.
