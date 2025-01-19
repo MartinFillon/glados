@@ -274,10 +274,10 @@ semi :: Parser String
 semi = symbol ";"
 
 charLiteral :: Parser Char
-charLiteral = between (char '\'') (char '\'') L.charLiteral
+charLiteral = lexeme $ between (char '\'') (char '\'') L.charLiteral
 
 stringLiteral :: Parser String
-stringLiteral = char '\"' *> manyTill L.charLiteral (char '\"')
+stringLiteral = lexeme $ char '\"' *> manyTill L.charLiteral (char '\"')
 
 bonusChar' :: String
 bonusChar' = "_"
