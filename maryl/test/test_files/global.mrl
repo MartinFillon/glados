@@ -7,7 +7,7 @@ struct info {
 const int yo = 4;
 
 int one(const int yol){
-    int boo =4 + yol;
+    int boo =4 + yo;
     print(boo);
     boo = 3;
     print(boo);

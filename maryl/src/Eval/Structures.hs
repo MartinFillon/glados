@@ -100,12 +100,7 @@ mergeFields _ (Left err) _ = Left err
 -- | Take a defined struct type and normalise based on a struct declaration.
 normalizeStruct :: Ast -> Ast -> Memory -> Either String Ast
 normalizeStruct (AstDefineStruct (Structure _ structProps)) (AstStruct instanceFields) mem =
-    let definedFields =
-            map
-                ( \(AstDefineVar (Variable name varType defaultValue)) ->
-                    (name, varType, defaultValue)
-                )
-                structProps
+    let definedFields = mapMaybe extractDefinedVar structProps
         labeledFields = case instanceFields of
             (AstLabel _ _ : _) -> Right instanceFields
             _ -> matchPositionalFields definedFields instanceFields
@@ -115,12 +110,7 @@ normalizeStruct (AstDefineStruct (Structure _ structProps)) (AstStruct instanceF
         Right normalized -> evalFinalStruct normalized (AstStruct normalized)
         Left err -> Left err
 normalizeStruct (AstDefineStruct (Structure _ structProps)) AstVoid mem =
-    let definedFields =
-            map
-                ( \(AstDefineVar (Variable name varType defaultValue)) ->
-                    (name, varType, defaultValue)
-                )
-                structProps
+    let definedFields = mapMaybe extractDefinedVar structProps
         defaultLabeledFields = Right (map (\(name, _, defaultValue) -> AstLabel name defaultValue) definedFields)
 
         validatedFields = mergeFields definedFields defaultLabeledFields mem
@@ -128,6 +118,11 @@ normalizeStruct (AstDefineStruct (Structure _ structProps)) AstVoid mem =
         Right normalized -> evalFinalStruct normalized (AstStruct normalized)
         Left err -> Left err
 normalizeStruct _ _ _ = Left "Invalid struct definition or instance."
+
+-- Helper function to extract `AstDefineVar` safely
+extractDefinedVar :: Ast -> Maybe (String, MarylType, Ast)
+extractDefinedVar (AstDefineVar (Variable name varType defaultValue)) = Just (name, varType, defaultValue)
+extractDefinedVar _ = Nothing
 
 -- | Evaluate the final normalized struct, ensuring all labels are valid and no extra fields are present.
 evalFinalStruct :: [Ast] -> Ast -> Either String Ast

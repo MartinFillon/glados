@@ -108,7 +108,19 @@ checkListType ((AstList x) : xs) (List eleType) mem
     | otherwise = False
 checkListType (AstVar var : xs) expectedType mem =
     maybe False (\val -> checkListType (val : xs) expectedType mem) (readMemory mem var)
--- checkListType (AstListElem var idxs) expectedType mem =
+checkListType ((AstListElem var idxs) : xs) expectedType mem =
+    case readMemory mem var of
+        Just (AstList eles) -> case getIndexes mem idxs of
+            Right idxs' -> case getAtIdx (AstList eles) idxs' of
+                Right _ -> checkListType xs expectedType mem
+                _ -> False
+            _ -> False
+        Just (AstString s) -> case getIndexes mem (convertStringToList (AstString s)) of 
+            Right idxs' -> case getAtIdx (AstList (convertStringToList (AstString s))) idxs' of
+                Right _ -> checkListType xs expectedType mem
+                _ -> False
+            _ -> False
+        _ -> False
 checkListType (x : xs) expectedType mem
     | getMarylType x == expectedType = checkListType xs expectedType mem
     | otherwise = False

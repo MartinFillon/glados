@@ -230,7 +230,7 @@ fi
 print_bold "Running global.mrl..."
 ./glados build test/test_files/global.mrl -o out.masm
 output=$(./glados run out.masm | tr -d '\n')
-result=$(echo -e "broboofoo!yo73" | tr -d '\n')
+result=$(echo -e "broboofoo!yo83" | tr -d '\n')
 if [ "$output" == "$result" ]; then
     print_green "✅ global.mrl passed!"
 else

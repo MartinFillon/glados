@@ -222,7 +222,7 @@ instance Show Ast where
     show (AstLabel n v) = n ++ " = " ++ show v
     show (AstImport f) = "Import \"" ++ f ++ "\""
 
--- | Helper function to add tabs of indentation
+-- | Add tabs of indentation
 indent :: String -> String
 indent = unlines . map ("    " ++) . lines
 

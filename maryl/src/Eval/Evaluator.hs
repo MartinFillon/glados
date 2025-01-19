@@ -45,6 +45,9 @@ evalAssignType (AstBinaryFunc op left right) rightExpr mem =
             Left
             (\_ -> Right (AstBinaryFunc op left right, mem))
             (evalMultTypeDef rightExpr expectedTypes mem)
+evalAssignType (AstList eles) right mem =
+    evalNode mem right >>= \(evaluatedR, newMem) ->
+        evalAssignList (AstList eles) evaluatedR newMem
 evalAssignType ast right mem
     | getMarylType ast == Undefined =
         Left ("Can't assign " ++ show ast ++ ", type isn't recognised")
@@ -267,17 +270,40 @@ evalCallStructEle (AstVar structName) (AstVar fieldName) mExpectedType mem =
 evalCallStructEle _ _ _ _ =
     Left "\".\" operator isn't called correctly, expecting a reference to structure."
 
--- | Helper function to find a field in a list of `Ast`.
+-- | Find a field in a list of `Ast`.
 findField :: [Ast] -> String -> Maybe Ast
 findField eles fieldName = find (\case (AstLabel name _) -> name == fieldName; _ -> False) eles
 
--- | Helper function to validate type and build the result.
+-- | Validate type and build the result.
 validateType :: String -> String -> Ast -> Maybe MarylType -> Either String Ast
 validateType structName fieldName value (Just expectedType)
     | isValidType value expectedType = Right (AstBinaryFunc "." (AstVar structName) (AstVar fieldName))
     | otherwise = Left ("Type mismatch for field \"" ++ fieldName ++ "\": expected " ++ show expectedType ++ ", got " ++ show (getMarylType value))
 validateType structName fieldName _ Nothing =
     Right (AstBinaryFunc "." (AstVar structName) (AstVar fieldName))
+
+-- | Eval the assignment of a list.
+evalAssignList :: Ast -> Ast -> Memory -> Either String (Ast, Memory)
+evalAssignList (AstList eles) (AstList rightEles) mem =
+    case traverse (validateListElement mem (getMarylType (AstList eles))) rightEles of
+        Right validatedEles -> Right (AstList validatedEles, mem)
+        Left err -> Left err
+  where
+    validateListElement :: Memory -> MarylType -> Ast -> Either String Ast
+    validateListElement _ (List expectedType) element =
+        if isValidType element expectedType
+            then Right element
+            else case evalDefinition element expectedType mem of
+                Right validatedElement -> Right validatedElement
+                Left err -> Left ("Element in list is not of proper type: " ++ err ++ ".")
+    validateListElement _ _ _ = Left "Left-hand side of assignment is not a valid list type."
+evalAssignList (AstList _) (AstFunc func@(Function _ _ _ returnType)) mem =
+    case furtherEvalFunc (AstFunc func) returnType mem of
+        Right ast -> Right (ast, mem)
+        Left err -> Left err
+evalAssignList (AstList _) right _ =
+    Left ("Right-hand side of assignment is not a list: " ++ show right ++ ".")
+evalAssignList _ _ _ = Left "Invalid call to assignment of list."
 
 -- | Evaluate the expected arguments of a function call.
 evalCallArgs :: [Ast] -> Function -> Memory -> Either String ()
@@ -409,7 +435,9 @@ evalNode mem (AstDefineStruct struct@(Structure name properties)) =
         (addMemory mem name (AstDefineStruct struct))
 evalNode mem (AstStruct eles) =
     either Left (\_ -> Right (AstStruct eles, mem)) (evalFinalStruct eles (AstStruct eles))
-evalNode mem (AstReturn expr) = evalNode mem expr >>= \(_, mem') -> Right (AstReturn expr, mem')
+evalNode mem (AstReturn expr) = evalNode mem expr >>= \(_, mem') ->
+    Right (AstReturn expr, mem')
+evalNode _ (AstImport _) = Left "Can't define an import within a function."
 evalNode mem node = Right (node, mem)
 
 -- | Evaluate a list of AST nodes.

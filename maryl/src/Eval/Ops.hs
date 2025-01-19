@@ -323,6 +323,8 @@ isNumeric (AstConst (AstDefineVar (Variable _ Int _))) = True
 isNumeric (AstConst (AstDefineVar (Variable _ Double _))) = True
 isNumeric (AstGlobal (AstDefineVar (Variable _ Int _))) = True
 isNumeric (AstGlobal (AstDefineVar (Variable _ Double _))) = True
+isNumeric (AstGlobal (AstInt _)) = True
+isNumeric (AstGlobal (AstDouble _)) = True
 isNumeric _ = False
 
 isInt :: Ast -> Bool
@@ -337,6 +339,7 @@ isInt (AstDefineVar (Variable _ (Const Int) _)) = True
 isInt (AstFunc (Function _ _ _ Int)) = True
 isInt (AstConst (AstDefineVar (Variable _ Int _))) = True
 isInt (AstGlobal (AstDefineVar (Variable _ Int _))) = True
+isInt (AstGlobal (AstInt _)) = True
 isInt _ = False
 
 isBool :: Ast -> Bool
@@ -349,4 +352,5 @@ isBool (AstDefineVar (Variable _ Bool _)) = True
 isBool (AstFunc (Function _ _ _ Bool)) = True
 isBool (AstConst (AstDefineVar (Variable _ Bool _))) = True
 isBool (AstGlobal (AstDefineVar (Variable _ Bool _))) = True
+isBool (AstGlobal (AstBool _)) = True
 isBool _ = False
