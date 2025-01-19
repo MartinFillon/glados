@@ -18,7 +18,6 @@ import Compiler.Translation.ASTtoASM (translateAST)
 import qualified Data.DList as D
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Debug.Trace (trace)
 import Memory (Memory)
 import Parsing.ParserAst (Ast (..))
 import VirtualMachine.Instructions (Inst (..), Instruction (..), Value (..))

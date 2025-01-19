@@ -9,25 +9,6 @@ module Eval.Ops (
     applyOp,
     assocOpExpectation,
     boolTokens,
-    evalAdd,
-    evalSub,
-    evalMul,
-    evalPower,
-    evalDiv,
-    evalMod,
-    evalAnd,
-    evalOr,
-    evalBAnd,
-    evalBOr,
-    evalBXor,
-    evalShiftL,
-    evalShiftR,
-    evalGreaterThan,
-    evalGreatThanEq,
-    evalLessThan,
-    evalLessThanEq,
-    evalEq,
-    evalNEq,
     evalOpExpr,
     evalBinaryRet,
     isNumeric,
@@ -98,27 +79,28 @@ isBool _ = False
 
 -- | Associate operation to its valid return types
 assocOpExpectation :: Map.Map String [MarylType]
-assocOpExpectation = Map.fromList [
-    ("+", [Int, Double]),
-    ("-", [Int, Double]),
-    ("*", [Int, Double]),
-    ("/", [Int, Double]),
-    ("%", [Int, Double]),
-    ("**", [Int, Double]),
-    ("<", [Bool]),
-    ("<=", [Bool]),
-    (">", [Bool]),
-    (">=", [Bool]),
-    ("==", [Bool]),
-    ("!=", [Bool]),
-    ("and", [Bool]),
-    ("or", [Bool]),
-    ("&", [Int]),
-    ("|", [Int]),
-    ("^", [Int]),
-    ("<<", [Int]),
-    (">>", [Int])
-    ]
+assocOpExpectation =
+    Map.fromList
+        [ ("+", [Int, Double]),
+          ("-", [Int, Double]),
+          ("*", [Int, Double]),
+          ("/", [Int, Double]),
+          ("%", [Int, Double]),
+          ("**", [Int, Double]),
+          ("<", [Bool]),
+          ("<=", [Bool]),
+          (">", [Bool]),
+          (">=", [Bool]),
+          ("==", [Bool]),
+          ("!=", [Bool]),
+          ("and", [Bool]),
+          ("or", [Bool]),
+          ("&", [Int]),
+          ("|", [Int]),
+          ("^", [Int]),
+          ("<<", [Int]),
+          (">>", [Int])
+        ]
 
 -- | Evaluate the possible expected types from its operation.
 evalOpExpr :: String -> Either String [MarylType]

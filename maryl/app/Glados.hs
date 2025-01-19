@@ -11,24 +11,25 @@ module Glados (glados) where
 import ArgsHandling (Mode (..))
 import Compiler.Translation.ASTtoASM (translateToASM)
 import Compiler.WriteASM (writeInstructionsToFile)
+import Control.Monad ((>=>))
 import qualified Control.Monad as Monad
+import Data.Functor ((<&>))
+import Data.List (isSuffixOf)
 import Eval.Evaluator (evalAST)
 import GHC.GHCi.Helpers (flushAll)
 import Memory (Memory, initMemory)
 import Parsing.ParserAst (Ast (..), parseAST)
+import Printer (Style (..), getColorsFromConf, reset)
 import System.IO (hIsTerminalDevice, isEOF, stdin)
 import Utils (handleParseError, pError)
 import VirtualMachine (vm)
-import Data.Functor ((<&>))
-import Debug.Trace (trace)
-import Control.Monad ((>=>))
-import Data.List (isSuffixOf)
-import Printer (getColorsFromConf, reset, Style (..))
 
 displayError :: String -> IO ()
-displayError str = getColorsFromConf >>= \case
-    Just (_,e,_) -> pError $ show e ++ show Bold ++ "*** ERROR *** with\n\t" ++ reset ++ show Bold ++ str ++ reset
-    Nothing -> pError $ "*** ERROR *** with\n\t" ++ str
+displayError str =
+    getColorsFromConf >>= \case
+        Just (_, e, _) ->
+            pError $ show e ++ show Bold ++ "*** ERROR *** with\n\t" ++ reset ++ show Bold ++ str ++ reset
+        Nothing -> pError $ "*** ERROR *** with\n\t" ++ str
 
 handleEvalResult :: [Ast] -> Either String ([Ast], Memory) -> Maybe FilePath -> IO ()
 handleEvalResult _ (Right (newAst, mem)) (Just o) =
@@ -66,20 +67,20 @@ handleImports :: [Ast] -> IO [Ast]
 handleImports asts = case filter isImport asts of
     [] -> return $ filter (not . isImport) asts
     imports -> checkImports sImports >> handleImports' sImports <&> (\imported -> filter (not . isImport) imported ++ asts)
-        where
-            sImports = getImportFile <$> imports
+      where
+        sImports = getImportFile <$> imports
 
 checkImports :: [String] -> IO ()
 checkImports [] = mempty
-checkImports (f:fs)
+checkImports (f : fs)
     | isCorrectImport f = checkImports fs
     | otherwise = displayError $ "Incorrect import file \"" ++ f ++ "\""
-    where
-        isCorrectImport :: String -> Bool
-        isCorrectImport "" = False
-        isCorrectImport file
-            | ".mrl" `isSuffixOf` file = True
-            | otherwise = False
+  where
+    isCorrectImport :: String -> Bool
+    isCorrectImport "" = False
+    isCorrectImport file
+        | ".mrl" `isSuffixOf` file = True
+        | otherwise = False
 
 getImportFile :: Ast -> String
 getImportFile (AstImport file) = file

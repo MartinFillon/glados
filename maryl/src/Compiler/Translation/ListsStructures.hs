@@ -7,10 +7,9 @@
 
 module Compiler.Translation.ListsStructures (associateTypes, translateList) where
 
-import qualified Data.DList as D
 import Memory (Memory, readMemory)
 import Parsing.ParserAst (Ast (..))
-import VirtualMachine.Instructions (Instruction (..), Value (..), call, push)
+import VirtualMachine.Instructions (Value (..))
 
 {- | Translates a List of 'Ast' to a List of 'Value'.
  'Value' is the recognised type in VM.
@@ -36,4 +35,5 @@ associateTypes (AstArg ast _) mem = associateTypes ast mem
 associateTypes (AstVar var) mem =
     (`associateTypes` mem) =<< readMemory mem var
 associateTypes _ _ = Nothing
--- add structures
+
+-- !! add structures
