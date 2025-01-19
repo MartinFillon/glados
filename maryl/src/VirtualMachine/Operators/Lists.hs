@@ -10,6 +10,7 @@ module VirtualMachine.Operators.Lists (
     operatorSet,
     listPop,
     listPush,
+    listLen,
 ) where
 
 import Data.Int (Int64)
@@ -62,3 +63,8 @@ listPush :: [Value] -> VmState [Value]
 listPush (val : L lst : xs) = pure $ L (lst ++ [val]) : xs
 listPush ((C ch) : S str : xs) = pure $ S (str ++ [ch]) : xs
 listPush _ = fail "expects a list, an integer index, and a value"
+
+listLen :: [Value] -> VmState [Value]
+listLen (L lst : xs) = pure $ N (fromIntegral $ length lst) : xs
+listLen (S str : xs) = pure $ N (fromIntegral $ length str) : xs
+listLen _ = fail "expects a list"
