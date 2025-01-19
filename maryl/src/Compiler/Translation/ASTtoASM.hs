@@ -8,11 +8,10 @@
 module Compiler.Translation.ASTtoASM (translateToASM, translateAST) where
 
 import Compiler.Translation.Functions (isBuiltin, isSingleOp, pushArgs, translateOpInst)
-import Compiler.Translation.ListsStructures (associateTypes, translateList, toStructField)
+import Compiler.Translation.ListsStructures (translateList, toStructField)
 import qualified Data.DList as D
 import Data.Either (fromRight)
 import qualified Data.Map as Map
-import Debug.Trace (trace)
 import Eval.Lists (getIndexes)
 import Eval.Structures (normalizeStruct)
 import Memory (Memory, addMemory, freeMemory, generateUniqueElseName, readMemory, updateMemory)
@@ -105,6 +104,14 @@ translateComparison op left right mem =
 translateBinaryFunc :: String -> Ast -> Ast -> Memory -> (D.DList Instruction, Memory)
 translateBinaryFunc "<=" left right mem = translateComparison "<" left right mem
 translateBinaryFunc ">=" left right mem = translateComparison ">" left right mem
+translateBinaryFunc "." (AstVar left) (AstVar right) mem =
+    case readMemory mem left of
+        Just (AstStruct eles) ->
+            (fst (translateAST (AstStruct eles) mem)
+                `D.append` fst (translateAST (AstString right) mem)
+                `D.append` D.singleton (call Nothing "getField")
+            , mem)
+        _ -> (D.empty, mem)
 translateBinaryFunc op left right mem
     | isSingleOp op = (fst (handlePriority left right mem) `D.append` D.singleton (translateOpInst op), mem)
     | otherwise = updateAssignment op left right mem
@@ -292,6 +299,11 @@ translateAST (AstListElem var idxs) mem =
     (fst (translateAST (AstVar var) mem) `D.append` translateMultIndexes idxs mem, mem)
 translateAST (AstDefineStruct struct@(Structure structName _)) mem =
     (D.empty, updateMemory mem structName (AstDefineStruct struct))
+translateAST (AstStruct eles) mem =
+    maybe
+        (D.empty, mem)
+        ( \fields -> (D.singleton (push Nothing (St $ Map.fromList fields)), mem))
+        (mapM (toStructField mem) eles)
 translateAST _ mem = (D.empty, mem)
 
 -- | Translates a list of AST nodes to assembly instructions.

@@ -250,4 +250,28 @@ else
     print_red "❌ evaltest.mrl failed"
 fi
 
+# getfield.mrl
+print_bold "Running getfield.mrl..."
+./glados build test/test_files/getfield.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "{\"x\" = 1,\"y\" = 2,\"z\" = 3}1" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ getfield.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ getfield.mrl failed"
+fi
+
+# import.mrl
+print_bold "Running import.mrl..."
+./glados build test/test_files/import.mrl -o out.masm
+./glados run out.masm
+output=$(echo $?)
+if [ "$output" == "84" ]; then
+    print_green "✅ import.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ import.mrl failed"
+fi
+
 rm out.masm

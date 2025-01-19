@@ -12,7 +12,7 @@ import Compiler.Translation.Functions (isBuiltin)
 import Data.Bifunctor (first)
 import qualified Data.DList as D
 import Data.Either (fromRight)
-import Debug.Trace (trace)
+import Data.List (find)
 import Eval.Functions (checkBuiltins, evalArgs, furtherEvalFunc)
 import Eval.Lists (checkListType, evalList, evalListElemDef, updateList)
 import Eval.Ops (applyOp, boolTokens, evalBinaryRet, evalOpExpr)
@@ -229,7 +229,7 @@ evalDefinition ast (Struct structType) mem =
         Just (AstGlobal (AstDefineStruct struct)) -> normalizeStruct (AstDefineStruct struct) ast mem
         _ -> Left ("Struct of type " ++ structType ++ " can't be found.")
 evalDefinition (AstBinaryFunc "." left right) expectedType mem =
-    either Left Right (evalCallStructEle left right expectedType mem)
+    either Left Right (evalCallStructEle left right (Just expectedType) mem)
 evalDefinition (AstBinaryFunc op left right) expectedType mem =
     either Left (\() -> Right (AstBinaryFunc op left right)) (evalBinaryRet op expectedType mem)
 evalDefinition (AstFunc func@(Function _ _ _ returnType)) expectedType mem
@@ -254,10 +254,25 @@ evalStructDecla ((AstDefineVar (Variable _ varType varValue)) : xs) mem =
 evalStructDecla [] _ = Right ()
 evalStructDecla _ _ = Left "Invalid definition of structure."
 
-evalCallStructEle :: Ast -> Ast -> MarylType -> Memory -> Either String Ast
-evalCallStructEle left right expectedType mem =
-    -- !! TO DO
-    Left "Evaluator doesn't handle \".\" operator (call to structure element) at the moment."
+evalCallStructEle :: Ast -> Ast -> Maybe MarylType -> Memory -> Either String Ast
+evalCallStructEle (AstVar left) (AstVar right) (Just expectedType) mem =
+    case readMemory mem left of
+        Just (AstStruct eles) -> case find (\(AstLabel name _) -> name == right) eles of
+                Just (AstLabel _ value)
+                    | isValidType value expectedType -> Right (AstBinaryFunc "." (AstVar left) (AstVar right))
+                    | otherwise -> Left ("Type mismatch: expected " ++ show expectedType ++ ", got " ++ show (getMarylType value))
+                Nothing -> Left ("Field \"" ++ right ++ "\" not found in structure \"" ++ left ++ "\".")
+        Just _ -> Left ("Structure \"" ++ left ++ "\" is not a structure.")
+        Nothing -> Left ("Structure \"" ++ left ++ "\" not found in memory.")
+evalCallStructEle (AstVar left) (AstVar right) Nothing mem =
+    case readMemory mem left of
+        Just (AstStruct eles) -> case find (\(AstLabel name _) -> name == right) eles of
+                Just (AstLabel _ value) -> Right (AstBinaryFunc "." (AstVar left) (AstVar right))
+                Nothing -> Left ("Field \"" ++ right ++ "\" not found in structure \"" ++ left ++ "\".")
+        Just _ -> Left ("Structure \"" ++ left ++ "\" is not a structure.")
+        Nothing -> Left ("Structure \"" ++ left ++ "\" not found in memory.")
+evalCallStructEle _ _ _ _ =
+    Left "\".\" operator isn't called correctly, expecting a reference to structure."
 
 -- | Evaluate the expected arguments of a function call.
 evalCallArgs :: [Ast] -> Function -> Memory -> Either String ()
@@ -332,6 +347,8 @@ evalNode mem (AstBinaryFunc "=" left right) = evalAssign mem left right
 evalNode mem (AstBinaryFunc (x : "=") left right)
     | x `notElem` boolTokens = evalAssign mem left (AstBinaryFunc [x] left right)
     | otherwise = evalBinaryFunc mem (x : "=") left right
+evalNode mem (AstBinaryFunc "." left right) =
+    evalCallStructEle left right Nothing mem >> Right (AstBinaryFunc "." left right, mem)
 evalNode mem (AstBinaryFunc op left right) = evalBinaryFunc mem op left right
 evalNode mem (AstPrefixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))
 evalNode mem (AstPostfixFunc (_ : xs) ast) = evalAssign mem ast (AstBinaryFunc xs ast (AstInt 1))

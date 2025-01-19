@@ -8,7 +8,6 @@
 module Eval.Structures (evalFinalStruct, normalizeStruct) where
 
 import Data.List (find)
-import Debug.Trace (trace, traceShow)
 import Eval.Lists (checkListType, getAtIdx, getIndexes)
 import Memory (Memory, readMemory)
 import Parsing.ParserAst (Ast (..), MarylType (..), Structure (..), Variable (..), getMarylType, isValidType)

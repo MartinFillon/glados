@@ -44,7 +44,7 @@ associateTypes (AstStruct list) mem = Just (
         (St Map.empty) ( St . Map.fromList)
         (mapM (toStructField mem) list)
     )
-associateTypes (AstListElem var _) mem = case readMemory mem var of -- !! TODO check this
+associateTypes (AstListElem var _) mem = case readMemory mem var of -- !! TODO Check
     Just (AstList (x : _)) -> associateTypes x mem
     _ -> Nothing
 associateTypes (AstArg ast _) mem = associateTypes ast mem
