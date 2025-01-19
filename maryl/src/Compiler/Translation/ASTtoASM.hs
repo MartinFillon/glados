@@ -4,16 +4,14 @@
 -- File description:
 -- ASTtoASM
 -}
-{-# LANGUAGE TupleSections #-}
 
 module Compiler.Translation.ASTtoASM (translateToASM, translateAST) where
 
 import Compiler.Translation.Functions (isBuiltin, isSingleOp, pushArgs, translateOpInst)
-import Compiler.Translation.ListsStructures (associateTypes, translateList)
+import Compiler.Translation.ListsStructures (translateList, toStructField)
 import qualified Data.DList as D
 import Data.Either (fromRight)
 import qualified Data.Map as Map
-import Debug.Trace (trace)
 import Eval.Lists (getIndexes)
 import Eval.Structures (normalizeStruct)
 import Memory (Memory, addMemory, freeMemory, generateUniqueElseName, readMemory, updateMemory)
@@ -72,9 +70,6 @@ handleAssignment (AstListElem var list) right mem =
             D.fromList
                 [get Nothing var, push Nothing (N (fromIntegral (head list'))), get Nothing lastVarName, call Nothing "set", load Nothing var]
      in (prefixInstrs `D.append` indexInstrs `D.append` postfixInstrs, mem)
--- handleAssignment (AstArg arg (Just idx)) right mem =
---     (fst (translateAST right mem))
--- !! TO DO struct
 handleAssignment _ _ mem = (D.empty, mem)
 
 {- | Handles compound assignment operators such as '+=', '-=', etc.,
@@ -109,19 +104,19 @@ translateComparison op left right mem =
 translateBinaryFunc :: String -> Ast -> Ast -> Memory -> (D.DList Instruction, Memory)
 translateBinaryFunc "<=" left right mem = translateComparison "<" left right mem
 translateBinaryFunc ">=" left right mem = translateComparison ">" left right mem
+translateBinaryFunc "." (AstVar left) (AstVar right) mem =
+    case readMemory mem left of
+        Just (AstStruct eles) ->
+            (fst (translateAST (AstStruct eles) mem)
+                `D.append` fst (translateAST (AstString right) mem)
+                `D.append` D.singleton (call Nothing "getField")
+            , mem)
+        _ -> (D.empty, mem)
 translateBinaryFunc op left right mem
     | isSingleOp op = (fst (handlePriority left right mem) `D.append` D.singleton (translateOpInst op), mem)
     | otherwise = updateAssignment op left right mem
 
 ------- Structures
-
--- | Translates an 'Ast' type in a struct to a tuple (<fieldName>, <fieldValue>).
-toStructField :: Memory -> Ast -> Maybe (String, Value)
-toStructField mem (AstDefineVar (Variable fieldName _ fieldValue)) =
-    fmap (fieldName,) (associateTypes fieldValue mem)
-toStructField mem (AstLabel fieldName fieldValue) =
-    fmap (fieldName,) (associateTypes fieldValue mem)
-toStructField _ _ = Nothing
 
 {- | Translates evaluated structures to map of tuple of field name and its value:
 
@@ -264,12 +259,10 @@ translateAST (AstArg _ (Just n)) mem = (D.singleton (pushArg Nothing n), mem)
 translateAST (AstArg (AstDefineVar (Variable varName _ _)) Nothing) mem =
     maybe (D.empty, mem) (`translateAST` mem) (readMemory mem varName)
 translateAST (AstDefineVar (Variable varName (Struct structName) ast)) mem =
-    maybe
-        (D.empty, mem)
-        ( \(AstDefineStruct struct) ->
-            translateStruct (AstDefineStruct struct) ast varName mem
-        )
-        (readMemory mem structName)
+    case readMemory mem structName of
+        Just (AstDefineStruct struct) -> translateStruct (AstDefineStruct struct) ast varName mem
+        Just (AstGlobal (AstDefineStruct struct)) -> translateStruct (AstDefineStruct struct) ast varName mem
+        _ -> (D.empty, mem)
 translateAST (AstDefineVar (Variable varName _ varValue)) mem =
     ( fst (translateAST varValue mem)
         `D.append` D.singleton (load Nothing varName),
@@ -306,6 +299,11 @@ translateAST (AstListElem var idxs) mem =
     (fst (translateAST (AstVar var) mem) `D.append` translateMultIndexes idxs mem, mem)
 translateAST (AstDefineStruct struct@(Structure structName _)) mem =
     (D.empty, updateMemory mem structName (AstDefineStruct struct))
+translateAST (AstStruct eles) mem =
+    maybe
+        (D.empty, mem)
+        ( \fields -> (D.singleton (push Nothing (St $ Map.fromList fields)), mem))
+        (mapM (toStructField mem) eles)
 translateAST _ mem = (D.empty, mem)
 
 -- | Translates a list of AST nodes to assembly instructions.

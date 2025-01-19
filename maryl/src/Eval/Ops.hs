@@ -28,55 +28,6 @@ type FunctionRegistry =
 boolTokens :: [Char]
 boolTokens = ['=', '!', '<', '>']
 
-isNumeric :: Ast -> Bool
-isNumeric (AstInt _) = True
-isNumeric (AstDouble _) = True
-isNumeric (AstArg (AstDefineVar (Variable _ Int _)) _) = True
-isNumeric (AstArg (AstDefineVar (Variable _ Double _)) _) = True
-isNumeric (AstArg (AstFunc (Function _ _ _ Int)) _) = True
-isNumeric (AstArg (AstFunc (Function _ _ _ Double)) _) = True
-isNumeric (AstArg (AstInt _) _) = True
-isNumeric (AstArg (AstDouble _) _) = True
-isNumeric (AstArg (AstDefineVar (Variable _ (Const Int) _)) _) = True
-isNumeric (AstArg (AstDefineVar (Variable _ (Const Double) _)) _) = True
-isNumeric (AstDefineVar (Variable _ Int _)) = True
-isNumeric (AstDefineVar (Variable _ Double _)) = True
-isNumeric (AstDefineVar (Variable _ (Const Int) _)) = True
-isNumeric (AstDefineVar (Variable _ (Const Double) _)) = True
-isNumeric (AstFunc (Function _ _ _ Int)) = True
-isNumeric (AstFunc (Function _ _ _ Double)) = True
-isNumeric (AstConst (AstDefineVar (Variable _ Int _))) = True
-isNumeric (AstConst (AstDefineVar (Variable _ Double _))) = True
-isNumeric (AstGlobal (AstDefineVar (Variable _ Int _))) = True
-isNumeric (AstGlobal (AstDefineVar (Variable _ Double _))) = True
-isNumeric _ = False
-
-isInt :: Ast -> Bool
-isInt (AstInt _) = True
-isInt (AstArg (AstDefineVar (Variable _ Int _)) _) = True
-isInt (AstArg (AstFunc (Function _ _ _ Int)) _) = True
-isInt (AstArg (AstInt _) _) = True
-isInt (AstArg (AstDefineVar (Variable _ (Const Int) _)) _) = True
-isInt (AstArg (AstDefineVar (Variable _ (Const Double) _)) _) = True
-isInt (AstDefineVar (Variable _ Int _)) = True
-isInt (AstDefineVar (Variable _ (Const Int) _)) = True
-isInt (AstFunc (Function _ _ _ Int)) = True
-isInt (AstConst (AstDefineVar (Variable _ Int _))) = True
-isInt (AstGlobal (AstDefineVar (Variable _ Int _))) = True
-isInt _ = False
-
-isBool :: Ast -> Bool
-isBool (AstBool _) = True
-isBool (AstArg (AstDefineVar (Variable _ Bool _)) _) = True
-isBool (AstArg (AstFunc (Function _ _ _ Bool)) _) = True
-isBool (AstArg (AstBool _) _) = True
-isBool (AstArg (AstDefineVar (Variable _ (Const Bool) _)) _) = True
-isBool (AstDefineVar (Variable _ Bool _)) = True
-isBool (AstFunc (Function _ _ _ Bool)) = True
-isBool (AstConst (AstDefineVar (Variable _ Bool _))) = True
-isBool (AstGlobal (AstDefineVar (Variable _ Bool _))) = True
-isBool _ = False
-
 -- | Associate operation to its valid return types
 assocOpExpectation :: Map.Map String [MarylType]
 assocOpExpectation =
@@ -350,3 +301,56 @@ evalMod mem (AstDouble d) (AstInt i)
 evalMod mem l r
     | isNumeric l && isNumeric r = Right (AstBinaryFunc "%" l r, mem)
     | otherwise = Left ("Arguments " ++ show l ++ " or/and " ++ show r ++ " is of invalid type for modulo.")
+
+isNumeric :: Ast -> Bool
+isNumeric (AstInt _) = True
+isNumeric (AstDouble _) = True
+isNumeric (AstArg (AstDefineVar (Variable _ Int _)) _) = True
+isNumeric (AstArg (AstDefineVar (Variable _ Double _)) _) = True
+isNumeric (AstArg (AstFunc (Function _ _ _ Int)) _) = True
+isNumeric (AstArg (AstFunc (Function _ _ _ Double)) _) = True
+isNumeric (AstArg (AstInt _) _) = True
+isNumeric (AstArg (AstDouble _) _) = True
+isNumeric (AstArg (AstDefineVar (Variable _ (Const Int) _)) _) = True
+isNumeric (AstArg (AstDefineVar (Variable _ (Const Double) _)) _) = True
+isNumeric (AstDefineVar (Variable _ Int _)) = True
+isNumeric (AstDefineVar (Variable _ Double _)) = True
+isNumeric (AstDefineVar (Variable _ (Const Int) _)) = True
+isNumeric (AstDefineVar (Variable _ (Const Double) _)) = True
+isNumeric (AstFunc (Function _ _ _ Int)) = True
+isNumeric (AstFunc (Function _ _ _ Double)) = True
+isNumeric (AstConst (AstDefineVar (Variable _ Int _))) = True
+isNumeric (AstConst (AstDefineVar (Variable _ Double _))) = True
+isNumeric (AstGlobal (AstDefineVar (Variable _ Int _))) = True
+isNumeric (AstGlobal (AstDefineVar (Variable _ Double _))) = True
+isNumeric (AstGlobal (AstInt _)) = True
+isNumeric (AstGlobal (AstDouble _)) = True
+isNumeric _ = False
+
+isInt :: Ast -> Bool
+isInt (AstInt _) = True
+isInt (AstArg (AstDefineVar (Variable _ Int _)) _) = True
+isInt (AstArg (AstFunc (Function _ _ _ Int)) _) = True
+isInt (AstArg (AstInt _) _) = True
+isInt (AstArg (AstDefineVar (Variable _ (Const Int) _)) _) = True
+isInt (AstArg (AstDefineVar (Variable _ (Const Double) _)) _) = True
+isInt (AstDefineVar (Variable _ Int _)) = True
+isInt (AstDefineVar (Variable _ (Const Int) _)) = True
+isInt (AstFunc (Function _ _ _ Int)) = True
+isInt (AstConst (AstDefineVar (Variable _ Int _))) = True
+isInt (AstGlobal (AstDefineVar (Variable _ Int _))) = True
+isInt (AstGlobal (AstInt _)) = True
+isInt _ = False
+
+isBool :: Ast -> Bool
+isBool (AstBool _) = True
+isBool (AstArg (AstDefineVar (Variable _ Bool _)) _) = True
+isBool (AstArg (AstFunc (Function _ _ _ Bool)) _) = True
+isBool (AstArg (AstBool _) _) = True
+isBool (AstArg (AstDefineVar (Variable _ (Const Bool) _)) _) = True
+isBool (AstDefineVar (Variable _ Bool _)) = True
+isBool (AstFunc (Function _ _ _ Bool)) = True
+isBool (AstConst (AstDefineVar (Variable _ Bool _))) = True
+isBool (AstGlobal (AstDefineVar (Variable _ Bool _))) = True
+isBool (AstGlobal (AstBool _)) = True
+isBool _ = False

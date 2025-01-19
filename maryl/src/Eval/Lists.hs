@@ -9,7 +9,7 @@ module Eval.Lists (checkIndices, checkListType, evalList, evalListElemDef, getAt
 
 import Data.List (intercalate, foldl')
 import Memory (Memory, readMemory)
-import Parsing.ParserAst (Ast (..), MarylType (..), getMarylType)
+import Parsing.ParserAst (Ast (..), MarylType (..), Variable (..), getMarylType)
 
 -- | Get list element based on a list of index.
 getAtIdx :: Ast -> [Int] -> Either String Ast
@@ -71,6 +71,13 @@ updateList listName (AstListElem _ idxs) mem newVal =
                 case changeAtIdx (AstList elements) idxs' newVal of
                     Right updatedList -> Right (updatedList, mem)
                     Left err -> Left ("Error updating list: " ++ err)
+        Just (AstString s) ->
+            getIndexes mem idxs >>= \idxs' ->
+                case changeAtIdx (AstList (convertStringToList (AstString s))) idxs' newVal of
+                    Right updatedList -> case convertListToString updatedList of
+                        Right newS -> Right (newS, mem)
+                        Left err -> Left err 
+                    Left err -> Left ("Error updating string: " ++ err)
         _ -> Left ("Unable to update " ++ show (AstListElem listName idxs) ++ " with " ++ show newVal ++ ".")
 updateList _ ast mem _ = Right (ast, mem)
 
@@ -89,16 +96,31 @@ checkIndices (i : idxs) list
 
 -- | Checkouts a whole list with an expectedType to validate it.
 checkListType :: [Ast] -> MarylType -> Memory -> Bool
-checkListType (x : xs) (Struct typeStruct) mem = -- !! fix this
+checkListType (x : xs) (Struct typeStruct) mem = -- !!  TO DO fix this
     case readMemory mem typeStruct of
-        Just (AstDefineStruct _) -> checkListType xs (Struct typeStruct) mem
+        Just (AstDefineStruct _) ->
+            checkListType xs (Struct typeStruct) mem
+        Just (AstGlobal (AstDefineStruct _)) ->
+            checkListType xs (Struct typeStruct) mem
         _ -> False
 checkListType ((AstList x) : xs) (List eleType) mem
     | checkListType x eleType mem = checkListType xs (List eleType) mem
     | otherwise = False
 checkListType (AstVar var : xs) expectedType mem =
     maybe False (\val -> checkListType (val : xs) expectedType mem) (readMemory mem var)
--- checkListType (AstListElem var idxs) expectedType mem =
+checkListType ((AstListElem var idxs) : xs) expectedType mem =
+    case readMemory mem var of
+        Just (AstList eles) -> case getIndexes mem idxs of
+            Right idxs' -> case getAtIdx (AstList eles) idxs' of
+                Right _ -> checkListType xs expectedType mem
+                _ -> False
+            _ -> False
+        Just (AstString s) -> case getIndexes mem (convertStringToList (AstString s)) of 
+            Right idxs' -> case getAtIdx (AstList (convertStringToList (AstString s))) idxs' of
+                Right _ -> checkListType xs expectedType mem
+                _ -> False
+            _ -> False
+        _ -> False
 checkListType (x : xs) expectedType mem
     | getMarylType x == expectedType = checkListType xs expectedType mem
     | otherwise = False
@@ -112,14 +134,41 @@ evalListElemDef listVar idx typeVar mem =
             if getMarylType (head eles) == typeVar
                 then Right (AstListElem listVar idx)
                 else Left ("List element isn't of proper type, expected " ++ show typeVar ++ ".")
-        Just _ -> Left ("Variable " ++ listVar ++ " isn't referencing to type List.")
+        Just (AstString _) ->
+            if Char == typeVar
+                then Right (AstListElem listVar idx)
+                else Left "Elements within strings can only be characters."
+        Just (AstArg (AstDefineVar (Variable _ String _)) _) ->
+            if Char == typeVar
+                then Right (AstListElem listVar idx)
+                else Left "Elements within strings can only be characters."
+        Just val -> Left ("Variable " ++ listVar ++ " isn't referencing to type List but " ++ show val ++ ".")
         Nothing -> Left ("Variable " ++ listVar ++ " out of scope.")
+
+-- | Transform a string into a list of AstChar.
+convertStringToList :: Ast -> [Ast]
+convertStringToList (AstString s) = map AstChar s
+convertStringToList _ = []
+
+-- | Transform an AstList of AstChar into a string
+convertListToString :: Ast -> Either String Ast
+convertListToString (AstList astList) =
+    let extractChar (AstChar c) = Right c
+        extractChar _ = Left "List contains a non-AstChar element."
+     in case traverse extractChar astList of
+            Right chars -> Right $ AstString chars
+            Left err -> Left err
+convertListToString _ = Left "Invalid input, expecting a AstList."
 
 -- | Evaluate index(es) call of a list.
 evalList :: String -> [Ast] -> Memory -> Either String (Ast, Memory)
 evalList var idxs mem = case readMemory mem var of
     Just (AstList list) -> getIndexes mem idxs
         >>= \idxs' -> case checkIndices idxs' list of
+            Right () -> Right (AstListElem var idxs, mem)
+            Left err -> Left (var ++ ": " ++ err)
+    Just (AstString s) -> getIndexes mem idxs
+        >>= \idxs' -> case checkIndices idxs' (convertStringToList (AstString s)) of
             Right () -> Right (AstListElem var idxs, mem)
             Left err -> Left (var ++ ": " ++ err)
     Just _ -> Left ("Index call of variable \"" ++ var ++ "\" isn't available; only supported by type list.")

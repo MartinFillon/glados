@@ -1,0 +1,8 @@
+import "test/test_files/add.mrl";
+
+int start() {
+    int a = 0;
+    return 0;
+
+}
+

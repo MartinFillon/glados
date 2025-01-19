@@ -93,11 +93,11 @@ parsePart (x : xs) part = case splitOn ":" (pack (dropWhile (== ' ') x)) of
     _ -> parsePart xs part
 
 getParsedColors :: String -> Maybe (Color, Color, Color)
-getParsedColors colorsStr = do
-    warnings <- parsePart parts "warnings"
-    errors <- parsePart parts "errors"
-    infos <- parsePart parts "infos"
-    Just (warnings, errors, infos)
+getParsedColors colorsStr =
+    parsePart parts "warnings" >>= \warnings ->
+        parsePart parts "errors" >>= \errors ->
+            parsePart parts "infos" >>= \infos ->
+                Just (warnings, errors, infos)
   where
     parts = words colorsStr
 

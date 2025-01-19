@@ -1,0 +1,10 @@
+struct yo {
+    int x;
+    int y;
+}
+
+int start(int ac, []string boo){
+    print("hey");
+    struct yo hey = {x: 1, y: 2, z: 4};
+    return 0;
+}

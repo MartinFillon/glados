@@ -28,8 +28,8 @@ displayError :: String -> IO ()
 displayError str =
     getColorsFromConf >>= \case
         Just (_, e, _) ->
-            pError $ show e ++ show Bold ++ "*** ERROR *** with\n\t" ++ reset ++ show Bold ++ str ++ reset
-        Nothing -> pError $ "*** ERROR *** with\n\t" ++ str
+            pError $ show e ++ show Bold ++ "*** ERROR *** with\n" ++ reset ++ show Bold ++ str ++ reset
+        Nothing -> pError $ "*** ERROR *** with\n" ++ str
 
 handleEvalResult :: [Ast] -> Either String ([Ast], Memory) -> Maybe FilePath -> IO ()
 handleEvalResult _ (Right (newAst, mem)) (Just o) =
@@ -54,14 +54,14 @@ isImport _ = False
 
 handleImports' :: [String] -> IO [Ast]
 handleImports' [] = return []
-handleImports' (x : xs) = do
-    content <- readFile x
-    case parseAST content of
-        Left err -> handleParseError True (Left err)
-        Right asts -> do
-            handled <- handleImports asts
-            next <- handleImports' xs
-            return $ handled ++ next
+handleImports' (x : xs) =
+    readFile x >>= \content ->
+        case parseAST content of
+            Left err -> handleParseError True (Left err)
+            Right asts ->
+                handleImports asts >>= \handled ->
+                    handleImports' xs >>= \next ->
+                        return (handled ++ next)
 
 handleImports :: [Ast] -> IO [Ast]
 handleImports asts = case filter isImport asts of
