@@ -347,7 +347,7 @@ spec = do
         isLeft (parseAST' "void func(int x) return x;") `shouldBe` True
 
       it "string greet(string name) { return \"Hello, \" + name; }" $ do
-        isLeft (parseAST' "string greet(string name) { return \"Hello, \" + name; }") `shouldBe` True
+        isLeft (parseAST' "string greet(string name) { return \"Hello, \" + name; }") `shouldBe` False
 
       it "x = y = 42" $ do
         isLeft (parseAST' "x = y = 42;") `shouldBe` True

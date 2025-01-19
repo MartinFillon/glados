@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-
 -- EPITECH PROJECT, 2024
 -- gladdos
@@ -5,7 +6,6 @@
 -- Evaluator for Maryl AST
 --}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# LANGUAGE LambdaCase #-}
 
 module Eval.Evaluator (evalAST, evalNode) where
 
@@ -13,7 +13,6 @@ import Data.Bifunctor (first)
 import qualified Data.DList as D
 import Data.Either (fromRight)
 import Data.List (find)
-import Debug.Trace (trace)
 import Eval.Functions (checkBuiltins, evalArgs, furtherEvalFunc)
 import Eval.Lists (checkListType, evalList, evalListElemDef, updateList)
 import Eval.Ops (applyOp, boolTokens, evalBinaryRet, evalOpExpr)
@@ -289,12 +288,10 @@ evalCallArgs (x : xs) func@(Function _ (AstDefineVar (Variable _ (Const expected
     case evalDefinition x expectedArgs mem of
         Right _ -> evalCallArgs xs (func {fArgs = rest}) mem
         Left err -> Left ("Call to " ++ fName func ++ " invalid: " ++ err)
--- evalCallArgs (AstListElem var idxs) func@(Function _ (AstDefineVar (Variable _ expectedArgs _) : rest) _ _) mem =
-    
 evalCallArgs (x : xs) func@(Function _ (AstDefineVar (Variable _ expectedArgs _) : rest) _ _) mem =
     case evalDefinition x expectedArgs mem of
         Right _ -> evalCallArgs xs (func {fArgs = rest}) mem
-        Left err -> trace ("!" ++ show expectedArgs ++ " " ++ show x) Left ("-> Call to " ++ fName func ++ " invalid: " ++ err)
+        Left err -> Left ("-> Call to " ++ fName func ++ " invalid: " ++ err)
 evalCallArgs (x : xs) func@(Function _ (expectedArgs : rest) _ _) mem =
     case evalDefinition x (getMarylType expectedArgs) mem of
         Right _ -> evalCallArgs xs (func {fArgs = rest}) mem
