@@ -10,7 +10,7 @@ module Eval.Structures (evalFinalStruct, normalizeStruct) where
 import Data.List (find)
 import Eval.Lists (checkListType, getAtIdx, getIndexes)
 import Memory (Memory, readMemory)
-import Parsing.ParserAst (Ast (..), MarylType (..), Structure (..), Variable (..), getMarylType, isValidType)
+import Parsing.ParserAst (Ast (..), MarylType (..), Structure (..), Variable (..), isValidType)
 
 {- | Match the definition of fields within a structure based on position, with no label as so:
 >>> struct vector s = {1, 2, 5}

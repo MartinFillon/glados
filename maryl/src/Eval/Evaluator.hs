@@ -267,7 +267,7 @@ evalCallStructEle (AstVar left) (AstVar right) (Just expectedType) mem =
 evalCallStructEle (AstVar left) (AstVar right) Nothing mem =
     case readMemory mem left of
         Just (AstStruct eles) -> case find (\(AstLabel name _) -> name == right) eles of
-                Just (AstLabel _ value) -> Right (AstBinaryFunc "." (AstVar left) (AstVar right))
+                Just (AstLabel _ _) -> Right (AstBinaryFunc "." (AstVar left) (AstVar right))
                 Nothing -> Left ("Field \"" ++ right ++ "\" not found in structure \"" ++ left ++ "\".")
         Just _ -> Left ("Structure \"" ++ left ++ "\" is not a structure.")
         Nothing -> Left ("Structure \"" ++ left ++ "\" not found in memory.")
