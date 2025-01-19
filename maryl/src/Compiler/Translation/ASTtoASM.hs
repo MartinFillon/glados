@@ -11,6 +11,7 @@ module Compiler.Translation.ASTtoASM (translateToASM, translateAST) where
 import Compiler.Translation.Functions (isBuiltin, isSingleOp, pushArgs, translateOpInst)
 import Compiler.Translation.ListsStructures (associateTypes, translateList)
 import qualified Data.DList as D
+import Data.Either (fromRight)
 import qualified Data.Map as Map
 import Debug.Trace (trace)
 import Eval.Lists (getIndexes)
@@ -18,8 +19,6 @@ import Eval.Structures (normalizeStruct)
 import Memory (Memory, addMemory, freeMemory, generateUniqueElseName, readMemory, updateMemory)
 import Parsing.ParserAst (Ast (..), Function (..), MarylType (..), Structure (..), Variable (..))
 import VirtualMachine.Instructions (Instruction (..), Value (..), call, get, jump, jumpf, load, noop, push, pushArg, ret)
-import Data.Either (fromRight)
-import Data.Maybe (fromJust)
 
 ------- Operators
 
@@ -36,15 +35,17 @@ setMultipleIndexes [x] n baseVarName ast mem =
     )
 setMultipleIndexes (x : xs) 0 baseVarName ast mem =
     let (nestedInstructions, lastVarName) = setMultipleIndexes xs 1 baseVarName ast mem
-    in ( D.singleton (push Nothing (N (fromIntegral x)))
-            `D.append` D.singleton (call Nothing "get")
+     in ( D.fromList [push Nothing (N (fromIntegral x)), call Nothing "get"]
             `D.append` nestedInstructions,
           lastVarName
         )
 setMultipleIndexes (x : xs) n baseVarName ast mem =
     let (nestedInstructions, lastVarName) = setMultipleIndexes xs (n + 1) baseVarName ast mem
-     in ( D.singleton (push Nothing (N (fromIntegral x)))
-            `D.append` D.fromList [call Nothing "get", load Nothing (baseVarName ++ show n)]
+     in ( D.fromList
+            [ push Nothing (N (fromIntegral x)),
+              call Nothing "get",
+              load Nothing (baseVarName ++ show n)
+            ]
             `D.append` nestedInstructions,
           lastVarName
         )
@@ -58,19 +59,22 @@ handleAssignment :: Ast -> Ast -> Memory -> (D.DList Instruction, Memory)
 handleAssignment (AstVar var) right mem =
     (fst (translateAST right mem) `D.append` D.singleton (load Nothing var), mem)
 handleAssignment (AstListElem var [x]) right mem =
-    (D.fromList [get Nothing var, push Nothing (N (fromIntegral (head $ fromRight [0] (getIndexes mem [x]))))]
+    ( D.fromList [get Nothing var, push Nothing (N (fromIntegral (head $ fromRight [0] (getIndexes mem [x]))))]
         `D.append` fst (translateAST right mem)
-        `D.append` D.fromList [call Nothing "set", load Nothing var], mem)
+        `D.append` D.fromList [call Nothing "set", load Nothing var],
+      mem
+    )
 handleAssignment (AstListElem var list) right mem =
     let prefixInstrs = D.singleton (get Nothing var)
         list' = fromRight [0] (getIndexes mem list)
         (indexInstrs, lastVarName) = setMultipleIndexes list' 0 var right mem
-        postfixInstrs = D.fromList
-            [get Nothing var, push Nothing (N (fromIntegral (head list'))), get Nothing lastVarName, call Nothing "set", load Nothing var]
+        postfixInstrs =
+            D.fromList
+                [get Nothing var, push Nothing (N (fromIntegral (head list'))), get Nothing lastVarName, call Nothing "set", load Nothing var]
      in (prefixInstrs `D.append` indexInstrs `D.append` postfixInstrs, mem)
 -- handleAssignment (AstArg arg (Just idx)) right mem =
 --     (fst (translateAST right mem))
--- struct
+-- !! TO DO struct
 handleAssignment _ _ mem = (D.empty, mem)
 
 {- | Handles compound assignment operators such as '+=', '-=', etc.,
@@ -96,7 +100,7 @@ translateComparison op left right mem =
         `D.append` D.singleton (load Nothing "lesstmp")
         `D.append` fst (translateBinaryFunc "==" left right mem)
         `D.append` D.fromList [get Nothing "lesstmp", call Nothing "or"],
-     mem
+      mem
     )
 
 {- | Handles the translation of an AST binary function:
@@ -125,18 +129,25 @@ toStructField _ _ = Nothing
 -}
 translateStruct :: Ast -> Ast -> String -> Memory -> (D.DList Instruction, Memory)
 translateStruct (AstDefineStruct (Structure _ props)) AstVoid varName mem =
-    maybe (D.empty, mem) (\fields ->
-        (D.singleton (push Nothing (St $ Map.fromList fields)), 
-        updateMemory mem varName (AstStruct props))
-    ) (mapM (toStructField mem) props)
+    maybe
+        (D.empty, mem)
+        ( \fields ->
+            ( D.singleton (push Nothing (St $ Map.fromList fields)),
+              updateMemory mem varName (AstStruct props)
+            )
+        )
+        (mapM (toStructField mem) props)
 translateStruct (AstDefineStruct struct) structValues nameStruct mem =
-    case normalizeStruct (AstDefineStruct struct) structValues of
+    case normalizeStruct (AstDefineStruct struct) structValues mem of
         Right (AstStruct eles) ->
-            maybe (D.empty, mem) (\fields ->
-                ( D.fromList [push Nothing (St $ Map.fromList fields), load Nothing nameStruct],
-                    updateMemory mem nameStruct (AstStruct eles)
+            maybe
+                (D.empty, mem)
+                ( \fields ->
+                    ( D.fromList [push Nothing (St $ Map.fromList fields), load Nothing nameStruct],
+                      updateMemory mem nameStruct (AstStruct eles)
+                    )
                 )
-            ) (mapM (toStructField mem) eles)
+                (mapM (toStructField mem) eles)
         _ -> (D.empty, mem)
 translateStruct _ _ _ mem = (D.empty, mem)
 
@@ -219,7 +230,7 @@ translateLoop loopName cond block mem =
             `D.append` D.fromList [jump Nothing (Right loopName), noop (Just $ ".end" ++ loopName)],
           memAfterCond
         )
- 
+
 ------- Functions
 
 -- | Highlights call to builtin functions (no '.' at name of function)
@@ -234,6 +245,7 @@ callArgs :: Ast -> Memory -> D.DList Instruction
 callArgs (AstVar varName) mem =
     case readMemory mem varName of
         Just (AstArg ast n) -> fst $ translateAST (AstArg ast n) mem
+        Just (AstGlobal ast) -> fst $ translateAST ast mem
         Just _ -> D.singleton (get Nothing varName)
         Nothing -> D.empty
 callArgs ast mem = fst $ translateAST ast mem
@@ -252,11 +264,17 @@ translateAST (AstArg _ (Just n)) mem = (D.singleton (pushArg Nothing n), mem)
 translateAST (AstArg (AstDefineVar (Variable varName _ _)) Nothing) mem =
     maybe (D.empty, mem) (`translateAST` mem) (readMemory mem varName)
 translateAST (AstDefineVar (Variable varName (Struct structName) ast)) mem =
-    maybe (D.empty, mem) (\(AstDefineStruct struct) ->
-        translateStruct (AstDefineStruct struct) ast varName mem) (readMemory mem structName)
+    maybe
+        (D.empty, mem)
+        ( \(AstDefineStruct struct) ->
+            translateStruct (AstDefineStruct struct) ast varName mem
+        )
+        (readMemory mem structName)
 translateAST (AstDefineVar (Variable varName _ varValue)) mem =
-    (fst (translateAST varValue mem)
-        `D.append` D.singleton (load Nothing varName), updateMemory mem varName varValue)
+    ( fst (translateAST varValue mem)
+        `D.append` D.singleton (load Nothing varName),
+      updateMemory mem varName varValue
+    )
 translateAST (AstVar varName) mem = (callArgs (AstVar varName) mem, mem)
 translateAST (AstDefineFunc (Function _ funcArgs funcBody _)) mem =
     let newMem = pushArgs funcArgs (freeMemory mem) 0
@@ -268,7 +286,7 @@ translateAST (AstFunc (Function funcName funcArgs _ _)) mem
           mem
         )
 translateAST (AstReturn ast) mem = (fst (translateAST ast mem) `D.append` D.singleton (ret Nothing), mem)
-translateAST (AstPrefixFunc (op : _) ast) mem = handleAssignment ast (AstBinaryFunc [op] ast (AstInt 1)) mem -- check differences
+translateAST (AstPrefixFunc (op : _) ast) mem = handleAssignment ast (AstBinaryFunc [op] ast (AstInt 1)) mem
 translateAST (AstPostfixFunc (op : _) ast) mem = handleAssignment ast (AstBinaryFunc [op] ast (AstInt 1)) mem
 translateAST (AstBinaryFunc "=" left right) mem = handleAssignment left right mem
 translateAST (AstBinaryFunc op left right) mem = translateBinaryFunc op left right mem

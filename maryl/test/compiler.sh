@@ -170,7 +170,7 @@ fi
 print_bold "Running basicstruct.mrl..."
 ./glados build test/test_files/basicstruct.mrl -o out.masm
 output=$(./glados run out.masm | tr -d '\n')
-result=$(echo -e "{\"a\" = 1,\"b\" = 2,\"c\" = 3}{\"a\" = 0,\"b\" = 0,\"c\" = 0}" | tr -d '\n')
+result=$(echo -e "{\"a\" = 1,\"b\" = 2,\"c\" = 3}{\"a\" = 1,\"b\" = 2,\"c\" = 3}" | tr -d '\n')
 if [ "$output" == "$result" ]; then
     print_green "✅ basicstruct.mrl passed!"
 else
@@ -200,6 +200,30 @@ if [ "$output" == "$result" ]; then
 else
     print_yellow "got '$output'"
     print_red "❌ lesseq.mrl failed"
+fi
+
+# weirdstruct.mrl
+print_bold "Running weirdstruct.mrl..."
+./glados build test/test_files/weirdstruct.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "{\"x\" = 2,\"y\" = 2,\"z\" = 7}here\nhere32\n{\"b\" = [\"a\",\"b\"],\"bum\" = 'a',\"poo\" = 2,\"um\" = [1,2]}" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ weirdstruct.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ weirdstruct.mrl failed"
+fi
+
+# breakcontinue.mrl
+print_bold "Running breakcontinue.mrl..."
+./glados build test/test_files/breakcontinue.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "0O!2three\niiitrue!4O!6O!8O!end" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ breakcontinue.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ breakcontinue.mrl failed"
 fi
 
 rm out.masm

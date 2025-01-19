@@ -10,22 +10,19 @@ module Memory (Memory, addMemory, initMemory, generateUniqueElseName, generateUn
 
 import Data.List (isPrefixOf)
 import qualified Data.Map as Map
-import Debug.Trace (trace)
 import Parsing.ParserAst (Ast (..))
 
 type Memory = Map.Map String Ast
 
 updateMemory :: Memory -> String -> Ast -> Memory
 updateMemory mem var value =
-    trace ("updating mem with " ++ show var ++ " = " ++ show value) $
-        Map.insert var value mem
+    Map.insert var value mem
 
 addMemory :: Memory -> String -> Ast -> Either String Memory
 addMemory mem var value =
-    trace ("adding " ++ show var ++ " to mem (" ++ show value ++ ")") $
-        case readMemory mem var of
-            Just _ -> Left ("multiple definition of \"" ++ var ++ "\"")
-            Nothing -> Right (updateMemory mem var value)
+    case readMemory mem var of
+        Just _ -> Left ("multiple definition of \"" ++ var ++ "\"")
+        Nothing -> Right (updateMemory mem var value)
 
 readMemory :: Memory -> String -> Maybe Ast
 readMemory mem symbol =

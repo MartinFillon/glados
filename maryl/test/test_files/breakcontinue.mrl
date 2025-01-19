@@ -1,17 +1,37 @@
 int start() {
     int a = 0;
+    int i = 0;
+    
     while (a < 10){
-        if (i % 2 == 0) {
-            print("continued\n");
+        if (a % 2 == 0) {
+            print(a);
+            a++;
             continue;
+        } else if (a == 3) {
+            print("three\n");            
+            while (i < 3){
+                print("i");
+                i++;
+                continue;
+            }
+            if (true){
+                print("true!");
+                a++;
+                continue;
+            }
+            a++;
+            continue;
+        } else {
+            print("O");
         }
         if (a == 8){
             break;
         }
-        print(a);
+        print("!");
+        //print(a);
         a++;
     }
     print("end\n");
-    print(a);
+    //print(a);
     return 0;
 }

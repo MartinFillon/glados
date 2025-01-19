@@ -123,6 +123,7 @@ data Ast
     | AstChar Char
     | AstDouble Double
     | AstGlobal Ast
+    | AstConst Ast
     | AstBinaryFunc String Ast Ast
     | AstPostfixFunc String Ast
     | AstPrefixFunc String Ast
@@ -163,6 +164,7 @@ instance Show Ast where
     show (AstChar c) = show c
     show (AstDouble d) = show d
     show (AstGlobal ast) = "Global value [" ++ show ast ++ "]"
+    show (AstConst ast) = "Const " ++ show ast
     show (AstBinaryFunc op left right) = show left ++ " " ++ op ++ " " ++ show right
     show (AstPostfixFunc f ast) = show ast ++ tail (init (show f))
     show (AstPrefixFunc f ast) = tail (init (show f)) ++ show ast
@@ -227,6 +229,11 @@ isValidType (AstBool _) Bool = True
 isValidType (AstString _) String = True
 isValidType (AstChar _) Char = True
 isValidType (AstDouble _) Double = True
+isValidType (AstConst (AstInt _)) (Const Int) = True
+isValidType (AstConst (AstBool _)) (Const Bool) = True
+isValidType (AstConst (AstString _)) (Const String) = True
+isValidType (AstConst (AstChar _)) (Const Char) = True
+isValidType (AstConst (AstDouble _)) (Const Double) = True
 isValidType _ _ = False
 {- ^ ^^
  doesn't handle AstStruct
@@ -243,6 +250,11 @@ getMarylType (AstBool _) = Bool
 getMarylType (AstString _) = String
 getMarylType (AstChar _) = Char
 getMarylType (AstDouble _) = Double
+getMarylType (AstGlobal (AstInt _)) = Const Int
+getMarylType (AstGlobal (AstBool _)) = Const Bool
+getMarylType (AstGlobal (AstString _)) = Const String
+getMarylType (AstGlobal (AstChar _)) = Const Char
+getMarylType (AstGlobal (AstDouble _)) = Const Double
 getMarylType _ = Undefined
 
 lineComment :: Parser ()
