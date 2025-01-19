@@ -31,12 +31,12 @@ displayError str = getColorsFromConf >>= \case
     Nothing -> pError $ "*** ERROR *** with\n\t" ++ str
 
 handleEvalResult :: [Ast] -> Either String ([Ast], Memory) -> Maybe FilePath -> IO ()
-handleEvalResult originalAst (Right (_, mem)) (Just o) =
-    let (_, updatedMem) = translateToASM originalAst mem
+handleEvalResult _ (Right (newAst, mem)) (Just o) =
+    let (_, updatedMem) = translateToASM newAst mem
      in writeInstructionsToFile o updatedMem
             >> putStrLn ("Maryl ASM produced in " ++ o)
-handleEvalResult originalAst (Right (_, mem)) Nothing =
-    let (_, updatedMem) = translateToASM originalAst mem
+handleEvalResult _ (Right (newAst, mem)) Nothing =
+    let (_, updatedMem) = translateToASM newAst mem
      in writeInstructionsToFile "out.masm" updatedMem
             >> putStrLn "Maryl ASM produced in out.masm"
 handleEvalResult _ (Left err) _ = displayError err

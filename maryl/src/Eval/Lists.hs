@@ -11,6 +11,7 @@ import Data.List (intercalate, foldl')
 import Memory (Memory, readMemory)
 import Parsing.ParserAst (Ast (..), MarylType (..), getMarylType)
 
+-- | Get list element based on a list of index.
 getAtIdx :: Ast -> [Int] -> Either String Ast
 getAtIdx (AstList elements) [idx]
     | idx >= 0 && idx < length elements = Right (elements !! idx)
@@ -23,6 +24,7 @@ getAtIdx (AstList elements) (x : xs)
 getAtIdx ast _ =
     Left ("Invalid operation: expected a list but got " ++ show ast ++ ".")
 
+-- | Change a list element based on a list of index.
 changeAtIdx :: Ast -> [Int] -> Ast -> Either String Ast
 changeAtIdx (AstList elements) [idx] newVal
     | idx >= 0 && idx < length elements =
@@ -51,6 +53,7 @@ getIndexFromAst _ (AstInt i) = Just i
 getIndexFromAst mem (AstVar v) = getIndexFromAst' mem getIndexFromAst v
 getIndexFromAst _ _ = Nothing
 
+-- | Evaluates a list of AST types to a list of indexes.
 getIndexes :: Memory -> [Ast] -> Either String [Int]
 getIndexes mem = foldl' (\acc ast -> case getIndexFromAst mem ast of
     Just i -> accumulate acc i
@@ -71,6 +74,7 @@ updateList listName (AstListElem _ idxs) mem newVal =
         _ -> Left ("Unable to update " ++ show (AstListElem listName idxs) ++ " with " ++ show newVal ++ ".")
 updateList _ ast mem _ = Right (ast, mem)
 
+-- | Check validity of indexes based on the list (for calls at index).
 checkIndices :: [Int] -> [Ast] -> Either String ()
 checkIndices [] _ = Right ()
 checkIndices (i : idxs) list
@@ -83,8 +87,9 @@ checkIndices (i : idxs) list
                 then Right ()
                 else Left ("Invalid indexing at depth, cannot be applied for [" ++ intercalate "][" (map show idxs) ++ "].")
 
+-- | Checkouts a whole list with an expectedType to validate it.
 checkListType :: [Ast] -> MarylType -> Memory -> Bool
-checkListType (x : xs) (Struct typeStruct) mem = -- fix this
+checkListType (x : xs) (Struct typeStruct) mem = -- !! fix this
     case readMemory mem typeStruct of
         Just (AstDefineStruct _) -> checkListType xs (Struct typeStruct) mem
         _ -> False
@@ -99,6 +104,7 @@ checkListType (x : xs) expectedType mem
     | otherwise = False
 checkListType [] _ _ = True
 
+-- | Evaluate a single list definition.
 evalListElemDef :: String -> [Ast] -> MarylType -> Memory -> Either String Ast
 evalListElemDef listVar idx typeVar mem =
     case readMemory mem listVar of
@@ -109,6 +115,7 @@ evalListElemDef listVar idx typeVar mem =
         Just _ -> Left ("Variable " ++ listVar ++ " isn't referencing to type List.")
         Nothing -> Left ("Variable " ++ listVar ++ " out of scope.")
 
+-- | Evaluate index(es) call of a list.
 evalList :: String -> [Ast] -> Memory -> Either String (Ast, Memory)
 evalList var idxs mem = case readMemory mem var of
     Just (AstList list) -> getIndexes mem idxs

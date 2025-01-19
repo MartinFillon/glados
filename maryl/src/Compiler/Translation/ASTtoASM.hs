@@ -232,6 +232,7 @@ callArgs :: Ast -> Memory -> D.DList Instruction
 callArgs (AstVar varName) mem =
     case readMemory mem varName of
         Just (AstArg ast n) -> fst $ translateAST (AstArg ast n) mem
+        Just (AstGlobal ast) -> trace "!!!!!!" $ fst $ translateAST ast mem
         Just _ -> D.singleton (get Nothing varName)
         Nothing -> D.empty
 callArgs ast mem = fst $ translateAST ast mem

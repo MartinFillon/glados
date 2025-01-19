@@ -214,4 +214,16 @@ else
     print_red "❌ weirdstruct.mrl failed"
 fi
 
+# breakcontinue.mrl
+print_bold "Running breakcontinue.mrl..."
+./glados build test/test_files/breakcontinue.mrl -o out.masm
+output=$(./glados run out.masm | tr -d '\n')
+result=$(echo -e "0O!2three\niiitrue!4O!6O!8O!end" | tr -d '\n')
+if [ "$output" == "$result" ]; then
+    print_green "✅ breakcontinue.mrl passed!"
+else
+    print_yellow "got '$output'"
+    print_red "❌ breakcontinue.mrl failed"
+fi
+
 rm out.masm
